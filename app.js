@@ -801,6 +801,17 @@ function isCountUnit(unit) {
   return !unit || ["gousse", "branche", "botte", "paquet", "tranche"].includes(unit);
 }
 
+// scale one ingredient quantity for a new servings count, honouring its
+// fractionnability class from recipes.json. Falls back to the old unit
+// heuristic for recipes cached before Task 2 added `frac`.
+function scaleQty(ing, factor) {
+  const x = ing.qty * factor;
+  if (ing.frac === "au gout") return ing.qty;                // never scaled
+  if (ing.frac === "entier") return Math.max(1, Math.round(x));
+  if (ing.frac === "fractionnable") return roundQty(x, false);
+  return roundQty(x, isCountUnit(ing.unit));                 // no `frac`
+}
+
 function servingPresets(recipe) {
   if (recipe.presets && recipe.presets.length) return recipe.presets;
   const b = recipe.portions || 4;
@@ -826,7 +837,7 @@ function renderDetail() {
     let qtyCell, scaledCell, trailing = "";
     if (ing.qty != null) {
       qtyCell = `<span class="qty">${qtyText(ing.qty, ing.unit)}</span>`;
-      const scaledQty = roundQty(ing.qty * factor, isCountUnit(ing.unit));
+      const scaledQty = scaleQty(ing, factor);
       scaledCell = scaled ? `<span class="qty-scaled">${qtyText(scaledQty, ing.unit)}</span>` : "";
     } else {
       qtyCell = `<span class="qty"></span>`;
@@ -953,7 +964,7 @@ function renderDetail() {
         if (!existing) {
           let qty = null, unit = null;
           if (ing.qty != null) {
-            qty = scaled ? roundQty(ing.qty * factor, isCountUnit(ing.unit)) : ing.qty;
+            qty = scaled ? scaleQty(ing, factor) : ing.qty;
             unit = ing.unit;
           }
           store.addItem({ name: ing.name, qty, unit, note: ing.note, source: key });
