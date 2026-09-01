@@ -1,18 +1,22 @@
-/* Kave Food, Phase 1: local state only, no network. */
+/* Kave Food. Phase 2: offline-first cache of the shared list + recipes, kept
+   in sync with a private GitHub repo. */
 "use strict";
 
 /* ---------- store ---------- */
 
-const LS_LIST = "foodapp.list";
+const LS_LIST = "foodapp.list";        // the shopping list, optimistic working copy
 const LS_SETTINGS = "foodapp.settings";
+const LS_RECIPES = "foodapp.recipes";  // last-synced recipes (offline cache)
+const LS_SYNC = "foodapp.sync";        // { listSha, listEtag, recipesSha, recipesEtag, syncedAt }
 
 const store = {
   state: {
     view: "list",
     list: [],
     settings: { token: "", who: "", theme: "system", palette: "keep" },
-    recipes: [], // bundled, not persisted
+    recipes: [],
   },
+  sync: { listSha: null, listEtag: null, recipesSha: null, recipesEtag: null, syncedAt: null },
   subs: [],
   subscribe(fn) { this.subs.push(fn); },
   notify() { this.subs.forEach((fn) => fn(this.state)); },
@@ -21,6 +25,14 @@ const store = {
       const l = JSON.parse(localStorage.getItem(LS_LIST));
       if (Array.isArray(l)) this.state.list = l;
     } catch (e) { /* ignore corrupt cache */ }
+    try {
+      const r = JSON.parse(localStorage.getItem(LS_RECIPES));
+      if (Array.isArray(r)) this.state.recipes = r;
+    } catch (e) { /* ignore */ }
+    try {
+      const y = JSON.parse(localStorage.getItem(LS_SYNC));
+      if (y && typeof y === "object") this.sync = { ...this.sync, ...y };
+    } catch (e) { /* ignore */ }
     try {
       const s = JSON.parse(localStorage.getItem(LS_SETTINGS));
       if (s && typeof s === "object") {
@@ -38,9 +50,25 @@ const store = {
     try { localStorage.setItem(LS_LIST, JSON.stringify(this.state.list)); }
     catch (e) { /* private mode, ignore */ }
   },
+  saveRecipes() {
+    try { localStorage.setItem(LS_RECIPES, JSON.stringify(this.state.recipes)); }
+    catch (e) { /* ignore */ }
+  },
+  saveSync() {
+    try { localStorage.setItem(LS_SYNC, JSON.stringify(this.sync)); }
+    catch (e) { /* ignore */ }
+  },
   saveSettings() {
     try { localStorage.setItem(LS_SETTINGS, JSON.stringify(this.state.settings)); }
     catch (e) { /* ignore */ }
+  },
+  hasCache() {
+    return localStorage.getItem(LS_SYNC) != null;
+  },
+  // no token AND we have a previously-synced copy: show it, but don't let
+  // local edits diverge with no way to push them
+  readOnly() {
+    return !this.state.settings.token && this.hasCache();
   },
 
   /* mutations */
@@ -59,6 +87,7 @@ const store = {
     if (sheetOpen && v === "recipes") unparkRecipe();
   },
   addItem({ name, qty, unit, note, source = "manual" }) {
+    if (this.readOnly()) return null;
     const item = {
       id: uid(),
       name: name.trim(),
@@ -75,18 +104,22 @@ const store = {
     return item;
   },
   toggleItem(id) {
+    if (this.readOnly()) return;
     const it = this.state.list.find((x) => x.id === id);
     if (it) { it.checked = !it.checked; this.saveList(); this.notify(); }
   },
   uncheckItem(id) {
+    if (this.readOnly()) return;
     const it = this.state.list.find((x) => x.id === id);
     if (it && it.checked) { it.checked = false; this.saveList(); this.notify(); }
   },
   deleteItem(id) {
+    if (this.readOnly()) return;
     this.state.list = this.state.list.filter((x) => x.id !== id);
     this.saveList(); this.notify();
   },
   clearChecked() {
+    if (this.readOnly()) return;
     this.state.list = this.state.list.filter((x) => !x.checked);
     this.saveList(); this.notify();
   },
@@ -231,6 +264,8 @@ function itemRow(it) {
 function renderList(state) {
   const active = state.list.filter((x) => !x.checked);
   const checked = state.list.filter((x) => x.checked);
+
+  $("#addName").disabled = store.readOnly();
 
   const badge = $("#listBadge");
   badge.textContent = active.length > 99 ? "99+" : String(active.length);
@@ -943,6 +978,9 @@ function renderSettings(state) {
   st.hidden = tokenStatus.state === "idle";
   st.textContent = tokenStatus.text;
   st.className = "token-status " + tokenStatus.state;
+
+  const ago = timeAgo(store.sync.syncedAt);
+  $("#syncedAt").textContent = ago ? `Last synced ${ago}.` : "Not synced yet.";
 }
 
 /* ---------- top-level render ---------- */
@@ -953,6 +991,17 @@ function render(state) {
   $$(".bottom-nav button").forEach((b) => {
     b.classList.toggle("active", b.dataset.view === state.view);
   });
+
+  document.body.classList.toggle("readonly", store.readOnly());
+  const noTok = $("#noTokenBanner");
+  if (!state.settings.token) {
+    noTok.hidden = false;
+    noTok.textContent = store.hasCache()
+      ? "Showing the last synced list. Add your token in Settings to edit and sync."
+      : "Add a GitHub token in Settings to load your shared list and recipes.";
+  } else {
+    noTok.hidden = true;
+  }
 
   renderList(state);
   if (state.view === "recipes") renderRecipes(state);
@@ -1022,12 +1071,23 @@ function wire() {
   });
 }
 
-// Phase 1 public build: no bundled data. The shopping list starts empty and
-// the Recipes tab is empty. Phase 2 replaces this with a GitHub Contents API
-// read of food/data/{shopping-list,recipes}.json from the private kave-hub
-// repo, using the token from Settings.
-async function loadRecipes() {
-  store.state.recipes = [];
+// Read the list + recipes from kave-hub and merge them in. Real implementation
+// lands in Task 6; for now it is a no-op so boot works with the cache alone.
+async function fullSync() {
+  /* Task 6 */
+}
+
+// relative time for the "last synced" line
+function timeAgo(iso) {
+  if (!iso) return null;
+  const s = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 45) return "just now";
+  if (s < 90) return "a minute ago";
+  if (s < 3600) return Math.round(s / 60) + " minutes ago";
+  if (s < 5400) return "an hour ago";
+  if (s < 86400) return Math.round(s / 3600) + " hours ago";
+  if (s < 172800) return "yesterday";
+  return Math.round(s / 86400) + " days ago";
 }
 
 function showBanner(msg) {
@@ -1133,7 +1193,7 @@ function initPullToSync() {
 
 /* ---------- boot ---------- */
 
-store.load();
+store.load();                       // list + recipes + sync meta from the cache
 github.setToken(store.state.settings.token);
 applyPalette(store.state.settings.palette || "keep");
 applyTheme(store.state.settings.theme || "system");
@@ -1141,6 +1201,8 @@ store.subscribe(render);
 wire();
 initPullToSync();
 initSheetDrag();
-render(store.state);
-loadRecipes().then(() => render(store.state));
-if (store.state.settings.token) checkToken();
+render(store.state);                 // paint the cache immediately, before any network
+if (store.state.settings.token) {
+  checkToken();
+  fullSync().then(() => render(store.state));
+}

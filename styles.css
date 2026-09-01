@@ -630,6 +630,22 @@ input, .search {
   font-size: 0.85rem;
   text-align: center;
 }
+.banner-warn {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+/* read-only: no token but a synced copy to show. The mutating controls are
+   disabled; the store guards the same paths as a safety net. */
+body.readonly .add-row,
+body.readonly .list li .tick,
+body.readonly .list li .del,
+body.readonly #tidyChecked,
+body.readonly .ing-add-toggle {
+  opacity: 0.4;
+  pointer-events: none;
+}
+body.readonly .add-row input { cursor: not-allowed; }
 
 /* recipe detail overlay - slides up from the bottom */
 .detail {

@@ -17,6 +17,7 @@
   </header>
 
   <div id="banner" class="banner" hidden></div>
+  <div id="noTokenBanner" class="banner banner-warn" hidden></div>
 
   <div id="ptr" class="ptr" aria-hidden="true">
     <span class="ptr-arrow">↓</span>
@@ -147,7 +148,8 @@
       <div class="field">
         <label for="refreshBtn">Sync</label>
         <button type="button" id="refreshBtn" disabled title="Available from Phase 2">Sync all tabs</button>
-        <p class="hint">Pull down on a tab to sync just that one. This syncs the list, meal plan and recipes at once. Available from Phase 2.</p>
+        <p id="syncedAt" class="hint"></p>
+        <p class="hint">Pull down on a tab to sync just that one.</p>
       </div>
     </section>
   </main>
