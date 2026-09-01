@@ -1516,3 +1516,18 @@ window.addEventListener("online", () => {
   flushQueue();
   pollTick();
 });
+
+/* ---------- PWA: service worker + update toast ---------- */
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("service-worker.js").catch(() => {});
+  // the first controllerchange is this session's initial takeover, not an update
+  let firstControl = !navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (firstControl) { firstControl = false; return; }
+    const b = $("#banner");
+    b.textContent = "New version. Tap to reload.";
+    b.hidden = false;
+    b.classList.add("banner-tap");
+    b.onclick = () => location.reload();
+  });
+}

@@ -652,6 +652,12 @@ input, .search {
   background: var(--accent-soft);
   color: var(--text);
 }
+.banner-tap {
+  background: var(--accent);
+  color: var(--accent-text);
+  cursor: pointer;
+  font-weight: 600;
+}
 
 /* read-only: no token but a synced copy to show. The mutating controls are
    disabled; the store guards the same paths as a safety net. */
