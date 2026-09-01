@@ -1256,6 +1256,28 @@ async function fullSync() {
   flushQueue();
 }
 
+/* ---------- background poll (Task 6d) ---------- */
+
+let pollTimer = null;
+
+// one conditional GET of the list; cheap when nothing changed (304)
+function pollTick() {
+  if (document.hidden || !store.state.settings.token) return;
+  if (syncing || flushing) return;
+  const v = store.state.view;
+  if (v !== "list" && v !== "planner") return;
+  syncing = true;
+  syncList()
+    .catch((e) => logIfUnexpected(e, "poll"))
+    .finally(() => { syncing = false; render(store.state); });
+}
+
+function startPolling() {
+  if (pollTimer) return;
+  const secs = Math.max(60, Number(github.pollInterval) || 60);
+  pollTimer = setInterval(pollTick, secs * 1000);
+}
+
 // relative time for the "last synced" line
 function timeAgo(iso) {
   if (!iso) return null;
@@ -1394,6 +1416,13 @@ initSheetDrag();
 render(store.state);                 // paint the cache immediately, before any network
 if (store.state.settings.token) {
   checkToken();                      // "Connected as ..."; on success it kicks fullSync
-} else if (store.queue.length) {
-  store.saveQueue();                 // keep pending edits made before a token was set
 }
+startPolling();                      // no-ops each tick until there is a token
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) pollTick();  // catch up on becoming visible
+});
+window.addEventListener("online", () => {
+  flushQueue();
+  pollTick();
+});
