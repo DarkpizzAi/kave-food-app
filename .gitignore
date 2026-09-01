@@ -1,0 +1,11 @@
+# Never commit data or secrets to this public repo.
+data/
+*.local
+.env
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
