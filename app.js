@@ -97,7 +97,12 @@ const store = {
     applyTheme(theme);
     this.notify();
   },
-  setToken(token) { this.state.settings.token = token; this.saveSettings(); this.notify(); },
+  setToken(token) {
+    this.state.settings.token = token;
+    this.saveSettings();
+    if (typeof github !== "undefined") github.setToken(token);
+    this.notify();
+  },
   setPalette(palette) {
     if (!PALETTES[palette]) return;
     this.state.settings.palette = palette;
@@ -892,6 +897,35 @@ function renderDetail() {
 
 /* ---------- settings ---------- */
 
+// { state: "idle"|"checking"|"ok"|"error", text, login }  (not persisted)
+let tokenStatus = { state: "idle", text: "" };
+
+async function checkToken() {
+  const token = store.state.settings.token;
+  if (!token) {
+    tokenStatus = { state: "idle", text: "" };
+    renderSettings(store.state);
+    return;
+  }
+  tokenStatus = { state: "checking", text: "Checking..." };
+  renderSettings(store.state);
+  try {
+    const { login } = await github.getUser();
+    await github.getFile(github.config.recipesPath); // proves repo access
+    tokenStatus = { state: "ok", login, text: `Connected as ${login}` };
+  } catch (e) {
+    const c = github.config;
+    const msg = {
+      unauthorized: `Token rejected. It must be a fine-grained token with Contents access to ${c.owner}/${c.repo}.`,
+      notFound: `That token cannot see ${c.owner}/${c.repo}. Give it repository access.`,
+      offline: "Offline, cannot check the token right now.",
+      rateLimited: "GitHub is busy, try again in a minute.",
+    }[e.gh] || `Could not check the token (${e.message}).`;
+    tokenStatus = { state: "error", text: msg };
+  }
+  renderSettings(store.state);
+}
+
 function renderSettings(state) {
   $$("#setWho button").forEach((b) => {
     b.classList.toggle("on", b.dataset.who === state.settings.who);
@@ -904,6 +938,11 @@ function renderSettings(state) {
   });
   const t = $("#setToken");
   if (document.activeElement !== t) t.value = state.settings.token || "";
+
+  const st = $("#tokenStatus");
+  st.hidden = tokenStatus.state === "idle";
+  st.textContent = tokenStatus.text;
+  st.className = "token-status " + tokenStatus.state;
 }
 
 /* ---------- top-level render ---------- */
@@ -968,8 +1007,19 @@ function wire() {
       if (store.state.view === "recipes") equaliseCards();
     }, 120);
   });
-  $("#setToken").addEventListener("blur", (e) => store.setToken(e.target.value.trim()));
-  $("#clearToken").addEventListener("click", () => { $("#setToken").value = ""; store.setToken(""); });
+  $("#setToken").addEventListener("blur", (e) => {
+    const next = e.target.value.trim();
+    if (next === store.state.settings.token) return; // unchanged, don't re-check
+    store.setToken(next);
+    checkToken();
+  });
+  $("#clearToken").addEventListener("click", () => {
+    $("#setToken").value = "";
+    store.setToken("");
+    // the cached list/recipes stay readable (Task 5); only the token goes
+    tokenStatus = { state: "idle", text: "" };
+    render(store.state);
+  });
 }
 
 // Phase 1 public build: no bundled data. The shopping list starts empty and
@@ -1084,6 +1134,7 @@ function initPullToSync() {
 /* ---------- boot ---------- */
 
 store.load();
+github.setToken(store.state.settings.token);
 applyPalette(store.state.settings.palette || "keep");
 applyTheme(store.state.settings.theme || "system");
 store.subscribe(render);
@@ -1092,3 +1143,4 @@ initPullToSync();
 initSheetDrag();
 render(store.state);
 loadRecipes().then(() => render(store.state));
+if (store.state.settings.token) checkToken();

@@ -121,11 +121,28 @@
       <div class="field">
         <label for="setToken">GitHub token</label>
         <div class="token-row">
-          <input id="setToken" type="password" placeholder="ghp_..."
-                 autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+          <input id="setToken" type="password" placeholder="github_pat_..."
+                 autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+                 enterkeyhint="done" />
           <button type="button" id="clearToken">Clear</button>
         </div>
-        <p class="hint">Stored on this device only. Used from Phase 2.</p>
+        <p id="tokenStatus" class="token-status" hidden></p>
+        <p class="hint">Stored on this device only, sent only to GitHub. It
+        unlocks your shared list and recipes.</p>
+        <details class="token-help">
+          <summary>How to make one</summary>
+          <ol>
+            <li>Open GitHub &rarr; Settings &rarr; Developer settings &rarr;
+              <em>Fine-grained personal access tokens</em> &rarr; Generate new.</li>
+            <li>Resource owner: <b>DarkpizzAi</b>.</li>
+            <li>Repository access: <em>Only select repositories</em> &rarr;
+              <b>kave-hub</b>.</li>
+            <li>Permissions &rarr; Repository permissions &rarr;
+              <b>Contents: Read and write</b>. Nothing else.</li>
+            <li>Generate, copy the <code>github_pat_...</code> value, paste it
+              above.</li>
+          </ol>
+        </details>
       </div>
       <div class="field">
         <label for="refreshBtn">Sync</label>

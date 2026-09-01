@@ -611,6 +611,17 @@ input, .search {
 .token-row input { flex: 1; }
 .hint { color: var(--text-dim); font-size: 0.85rem; margin: 6px 0 0; }
 
+.token-status { font-size: 0.85rem; margin: 8px 0 0; font-weight: 600; }
+.token-status.checking { color: var(--text-dim); font-weight: 400; }
+.token-status.ok { color: var(--accent); }
+.token-status.error { color: var(--danger); }
+
+.token-help { margin: 8px 0 0; font-size: 0.85rem; color: var(--text-dim); }
+.token-help summary { cursor: pointer; color: var(--accent); }
+.token-help ol { margin: 8px 0 0; padding-left: 20px; }
+.token-help li { margin-bottom: 5px; line-height: 1.4; }
+.token-help code { font-size: 0.9em; }
+
 /* banner */
 .banner {
   background: var(--surface-2);
