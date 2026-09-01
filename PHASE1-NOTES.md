@@ -1,5 +1,13 @@
 # Phase 1 notes
 
+> Written while Phase 1 was built under `kave-hub/food/app/`. On 2026-09-01 the
+> app moved here (shell only) and the data + build tools moved to the private
+> repo: `data/shopping-seed.json` -> `kave-hub/food/data/shopping-seed.json`,
+> `data/recipes.sample.json` -> `kave-hub/food/data/recipes.json`,
+> `tools/*` -> `kave-hub/food/tools/` (`build_recipe_sample.py` renamed
+> `build_recipes.py`). The public build no longer bundles any data; it loads
+> an empty list until Phase 2. Path references below are as they were then.
+
 ## What works
 
 - **Bottom nav**, four icon tabs (cart / clipboard / calendar / cog, each
