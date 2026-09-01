@@ -8,6 +8,7 @@ const LS_LIST = "foodapp.list";        // the shopping list, optimistic working 
 const LS_SETTINGS = "foodapp.settings";
 const LS_RECIPES = "foodapp.recipes";  // last-synced recipes (offline cache)
 const LS_SYNC = "foodapp.sync";        // { listSha, listEtag, recipesSha, recipesEtag, syncedAt }
+const LS_QUEUE = "foodapp.queue";      // pending list changes not yet pushed to GitHub
 
 const store = {
   state: {
@@ -17,6 +18,7 @@ const store = {
     recipes: [],
   },
   sync: { listSha: null, listEtag: null, recipesSha: null, recipesEtag: null, syncedAt: null },
+  queue: [],  // [{ opId, t: "add"|"check"|"delete", id, ts, ... }]
   subs: [],
   subscribe(fn) { this.subs.push(fn); },
   notify() { this.subs.forEach((fn) => fn(this.state)); },
@@ -25,6 +27,10 @@ const store = {
       const l = JSON.parse(localStorage.getItem(LS_LIST));
       if (Array.isArray(l)) this.state.list = l;
     } catch (e) { /* ignore corrupt cache */ }
+    try {
+      const q = JSON.parse(localStorage.getItem(LS_QUEUE));
+      if (Array.isArray(q)) this.queue = q;
+    } catch (e) { /* ignore */ }
     try {
       const r = JSON.parse(localStorage.getItem(LS_RECIPES));
       if (Array.isArray(r)) this.state.recipes = r;
@@ -57,6 +63,18 @@ const store = {
   saveSync() {
     try { localStorage.setItem(LS_SYNC, JSON.stringify(this.sync)); }
     catch (e) { /* ignore */ }
+  },
+  saveQueue() {
+    try { localStorage.setItem(LS_QUEUE, JSON.stringify(this.queue)); }
+    catch (e) { /* ignore */ }
+  },
+  // record a pending change and try to push it (no-op without a token)
+  enqueue(op) {
+    op.opId = uid();
+    op.ts = new Date().toISOString();
+    this.queue.push(op);
+    this.saveQueue();
+    scheduleFlush();
   },
   saveSettings() {
     try { localStorage.setItem(LS_SETTINGS, JSON.stringify(this.state.settings)); }
@@ -100,27 +118,46 @@ const store = {
       addedAt: new Date().toISOString(),
     };
     this.state.list.push(item);
+    this.enqueue({ t: "add", id: item.id, item: { ...item } });
     this.saveList(); this.notify();
     return item;
   },
   toggleItem(id) {
     if (this.readOnly()) return;
     const it = this.state.list.find((x) => x.id === id);
-    if (it) { it.checked = !it.checked; this.saveList(); this.notify(); }
+    if (it) {
+      it.checked = !it.checked;
+      this.enqueue({ t: "check", id, checked: it.checked });
+      this.saveList(); this.notify();
+    }
   },
   uncheckItem(id) {
     if (this.readOnly()) return;
     const it = this.state.list.find((x) => x.id === id);
-    if (it && it.checked) { it.checked = false; this.saveList(); this.notify(); }
+    if (it && it.checked) {
+      it.checked = false;
+      this.enqueue({ t: "check", id, checked: false });
+      this.saveList(); this.notify();
+    }
   },
   deleteItem(id) {
     if (this.readOnly()) return;
     this.state.list = this.state.list.filter((x) => x.id !== id);
+    this.enqueue({ t: "delete", id });
     this.saveList(); this.notify();
   },
   clearChecked() {
     if (this.readOnly()) return;
+    const gone = this.state.list.filter((x) => x.checked);
     this.state.list = this.state.list.filter((x) => !x.checked);
+    gone.forEach((it) => this.enqueue({ t: "delete", id: it.id }));
+    this.saveList(); this.notify();
+  },
+  removeMany(ids) {
+    if (this.readOnly()) return;
+    const set = new Set(ids);
+    this.state.list = this.state.list.filter((x) => !set.has(x.id));
+    ids.forEach((id) => this.enqueue({ t: "delete", id }));
     this.saveList(); this.notify();
   },
   setWho(who) { this.state.settings.who = who; this.saveSettings(); this.notify(); },
@@ -378,9 +415,7 @@ function tidyChecked() {
     flashBanner("Nothing to clean up.");
     return;
   }
-  store.state.list = store.state.list.filter((it) => !drop.has(it.id));
-  store.saveList();
-  store.notify();
+  store.removeMany([...drop]);
   flashBanner(`Removed ${drop.size} duplicate ticked item${drop.size === 1 ? "" : "s"}.`);
 }
 
@@ -948,6 +983,7 @@ async function checkToken() {
     const { login } = await github.getUser();
     await github.getFile(github.config.recipesPath); // proves repo access
     tokenStatus = { state: "ok", login, text: `Connected as ${login}` };
+    fullSync().then(() => render(store.state)); // a fresh token: pull everything
   } catch (e) {
     const c = github.config;
     const msg = {
@@ -980,7 +1016,17 @@ function renderSettings(state) {
   st.className = "token-status " + tokenStatus.state;
 
   const ago = timeAgo(store.sync.syncedAt);
-  $("#syncedAt").textContent = ago ? `Last synced ${ago}.` : "Not synced yet.";
+  const pend = store.queue.length;
+  $("#syncedAt").textContent =
+    (ago ? `Last synced ${ago}.` : "Not synced yet.") +
+    (pend ? ` ${pend} change${pend === 1 ? "" : "s"} not yet pushed.` : "");
+
+  const rb = $("#refreshBtn");
+  if (rb.textContent !== "Syncing...") {
+    rb.disabled = !state.settings.token;
+    rb.textContent = "Sync now";
+    rb.removeAttribute("title");
+  }
 }
 
 /* ---------- top-level render ---------- */
@@ -1069,12 +1115,145 @@ function wire() {
     tokenStatus = { state: "idle", text: "" };
     render(store.state);
   });
+
+  $("#refreshBtn").addEventListener("click", async (e) => {
+    const b = e.currentTarget;
+    if (b.disabled) return;
+    b.disabled = true;
+    b.textContent = "Syncing...";
+    await fullSync();
+    b.textContent = "Sync now";
+    render(store.state); // renderSettings re-enables it if there is a token
+  });
 }
 
-// Read the list + recipes from kave-hub and merge them in. Real implementation
-// lands in Task 6; for now it is a no-op so boot works with the cache alone.
+/* ---------- sync engine (Tasks 6-8) ---------- */
+
+// one sync at a time; every entry point checks these
+let syncing = false;
+let flushing = false;
+let flushTimer;
+
+const KNOWN_GH = ["offline", "unauthorized", "rateLimited", "notFound", "conflict"];
+function logIfUnexpected(e, where) {
+  if (!e || !KNOWN_GH.includes(e.gh)) console.warn(`${where}:`, e);
+}
+
+// apply the pending queue to a list of items, by id, in order
+function replayOps(items, ops) {
+  let out = items.map((it) => ({ ...it }));
+  for (const op of ops) {
+    if (op.t === "add") {
+      if (!out.some((x) => x.id === op.id)) out.push(op.item);
+    } else if (op.t === "check") {
+      const it = out.find((x) => x.id === op.id);
+      if (it) it.checked = op.checked;
+    } else if (op.t === "delete") {
+      out = out.filter((x) => x.id !== op.id);
+    }
+  }
+  return out;
+}
+
+function queueMessage(ops) {
+  const who = store.state.settings.who || "?";
+  const adds = ops.filter((o) => o.t === "add").length;
+  const checks = ops.filter((o) => o.t === "check").length;
+  const dels = ops.filter((o) => o.t === "delete").length;
+  const bits = [];
+  if (adds) bits.push(`+${adds}`);
+  if (checks) bits.push(`~${checks}`);
+  if (dels) bits.push(`-${dels}`);
+  return `list ${bits.join(" ")} (${who})`;
+}
+
+function scheduleFlush() {
+  clearTimeout(flushTimer);
+  flushTimer = setTimeout(flushQueue, 800);
+}
+
+// push pending list changes to GitHub: GET -> replay -> PUT, retry on 409
+async function flushQueue() {
+  if (flushing || !store.state.settings.token || store.queue.length === 0) return;
+  flushing = true;
+  try {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const ops = store.queue.slice();
+      const flushedIds = new Set(ops.map((o) => o.opId));
+      const remote = await github.getFile(github.config.listPath);
+      const base = remote.notModified ? [] : (remote.json.items || []);
+      const merged = replayOps(base, ops);
+      const doc = {
+        version: 1,
+        updated: new Date().toISOString(),
+        updatedBy: store.state.settings.who || null,
+        items: merged,
+      };
+      try {
+        const put = await github.putFile(github.config.listPath, doc, remote.sha, queueMessage(ops));
+        store.queue = store.queue.filter((o) => !flushedIds.has(o.opId));
+        store.saveQueue();
+        store.sync.listSha = put.sha;
+        store.sync.listEtag = null;      // sha moved; next GET is unconditional
+        store.sync.syncedAt = new Date().toISOString();
+        store.state.list = replayOps(merged, store.queue); // + any ops that landed mid-flush
+        store.saveList();
+        store.saveSync();
+        store.notify();
+        return;
+      } catch (e) {
+        if (e.gh === "conflict") continue; // sha moved: re-GET, re-replay
+        throw e;
+      }
+    }
+  } catch (e) {
+    logIfUnexpected(e, "flushQueue"); // offline / rateLimited / unauthorized: keep the queue
+  } finally {
+    flushing = false;
+  }
+}
+
+async function syncRecipes() {
+  const r = await github.getFile(github.config.recipesPath, { etag: store.sync.recipesEtag });
+  if (r.notModified) return;
+  store.state.recipes = r.json.recipes || [];
+  store.sync.recipesSha = r.sha;
+  store.sync.recipesEtag = r.etag;
+  store.saveRecipes();
+  store.saveSync();
+}
+
+async function syncList() {
+  const r = await github.getFile(github.config.listPath, { etag: store.sync.listEtag });
+  const now = new Date().toISOString();
+  if (r.notModified) {
+    store.sync.syncedAt = now;
+    store.saveSync();
+    return;
+  }
+  // merge: remote is authoritative; re-apply pending local ops on top
+  store.state.list = replayOps(r.json.items || [], store.queue);
+  store.sync.listSha = r.sha;
+  store.sync.listEtag = r.etag;
+  store.sync.syncedAt = now;
+  store.saveList();
+  store.saveSync();
+  store.notify();
+}
+
+// full read: recipes + list, then push anything pending
 async function fullSync() {
-  /* Task 6 */
+  if (syncing || !store.state.settings.token) return;
+  syncing = true;
+  try {
+    await syncRecipes();
+    await syncList();
+  } catch (e) {
+    logIfUnexpected(e, "fullSync");
+  } finally {
+    syncing = false;
+  }
+  flushQueue();
 }
 
 // relative time for the "last synced" line
@@ -1105,11 +1284,22 @@ function flashBanner(msg) {
 
 /* ---------- pull to sync (per tab) ---------- */
 
-// Phase 1: no-op. Phase 2 swaps this for the GitHub fetch of the active tab's
-// data (list / meal plan / recipes.json), using ETag / If-None-Match so an
-// unchanged sync returns 304 and costs nothing against the rate limit.
-function syncCurrentTab() {
-  return new Promise((resolve) => setTimeout(resolve, 700));
+// pull-to-refresh on a tab: sync just that tab's data
+async function syncCurrentTab() {
+  if (syncing || !store.state.settings.token) {
+    return new Promise((r) => setTimeout(r, 400)); // still feel the gesture
+  }
+  syncing = true;
+  try {
+    const v = store.state.view;
+    if (v === "recipes") await syncRecipes();
+    if (v === "recipes" || v === "list" || v === "planner") await syncList();
+  } catch (e) {
+    logIfUnexpected(e, "syncCurrentTab");
+  } finally {
+    syncing = false;
+  }
+  flushQueue();
 }
 
 function syncHeaderHeight() {
@@ -1203,6 +1393,7 @@ initPullToSync();
 initSheetDrag();
 render(store.state);                 // paint the cache immediately, before any network
 if (store.state.settings.token) {
-  checkToken();
-  fullSync().then(() => render(store.state));
+  checkToken();                      // "Connected as ..."; on success it kicks fullSync
+} else if (store.queue.length) {
+  store.saveQueue();                 // keep pending edits made before a token was set
 }
