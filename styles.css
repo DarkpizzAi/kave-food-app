@@ -232,6 +232,24 @@ body {
 }
 h2, h3 { font-family: "Fraunces", Georgia, serif; font-weight: 600; }
 
+/* header sync indicator: invisible when idle + clean */
+.sync-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: transparent;
+}
+.sync-dot.pending { background: var(--accent); }
+.sync-dot.error { background: var(--danger); }
+.sync-dot.working {
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  background: transparent;
+  animation: sync-spin 0.7s linear infinite;
+}
+@keyframes sync-spin { to { transform: rotate(360deg); } }
+
 main {
   padding: 16px;
   will-change: transform;

@@ -83,10 +83,11 @@ const store = {
   hasCache() {
     return localStorage.getItem(LS_SYNC) != null;
   },
-  // no token AND we have a previously-synced copy: show it, but don't let
-  // local edits diverge with no way to push them
+  // read-only when there is no usable token (missing or rejected) and we have
+  // a synced copy to show - don't let local edits diverge with no way to push
   readOnly() {
-    return !this.state.settings.token && this.hasCache();
+    const usable = this.state.settings.token && syncState.kind !== "unauthorized";
+    return !usable && this.hasCache();
   },
 
   /* mutations */
@@ -181,6 +182,9 @@ const store = {
     this.notify();
   },
 };
+
+// live sync status (not persisted). kind: idle | offline | unauthorized | rateLimited
+let syncState = { kind: "idle", resetAt: null };
 
 /* ---------- helpers ---------- */
 
@@ -994,6 +998,7 @@ async function checkToken() {
     const { login } = await github.getUser();
     await github.getFile(github.config.recipesPath); // proves repo access
     tokenStatus = { state: "ok", login, text: `Connected as ${login}` };
+    if (syncState.kind === "unauthorized") syncState = { kind: "idle", resetAt: null };
     fullSync().then(() => render(store.state)); // a fresh token: pull everything
   } catch (e) {
     const c = github.config;
@@ -1004,8 +1009,9 @@ async function checkToken() {
       rateLimited: "GitHub is busy, try again in a minute.",
     }[e.gh] || `Could not check the token (${e.message}).`;
     tokenStatus = { state: "error", text: msg };
+    if (e.gh === "unauthorized") syncState = { kind: "unauthorized", resetAt: null };
   }
-  renderSettings(store.state);
+  render(store.state);
 }
 
 function renderSettings(state) {
@@ -1042,6 +1048,31 @@ function renderSettings(state) {
 
 /* ---------- top-level render ---------- */
 
+// the single status line above the list. one message, highest priority wins.
+function statusBanner(state) {
+  const cached = store.hasCache();
+  if (syncState.kind === "unauthorized") {
+    return { warn: true, text: "Token rejected. Update it in Settings." };
+  }
+  if (!state.settings.token) {
+    return cached
+      ? { warn: true, text: "Showing the last synced list. Add your token in Settings to edit and sync." }
+      : { warn: false, text: "Add a GitHub token in Settings to load your shared list and recipes." };
+  }
+  if (syncState.kind === "rateLimited") {
+    return { warn: true, text: `GitHub is busy. Retrying at ${hhmm(syncState.resetAt)}.` };
+  }
+  if (syncState.kind === "offline") {
+    const from = store.sync.syncedAt ? ` from ${hhmm(store.sync.syncedAt)}` : "";
+    return { warn: false, text: `Offline. Showing the list${from}.` };
+  }
+  if (store.queue.length && !flushing) {
+    const n = store.queue.length;
+    return { warn: false, text: `${n} change${n === 1 ? "" : "s"} waiting to sync.` };
+  }
+  return null;
+}
+
 function render(state) {
   $("#viewTitle").textContent = VIEW_TITLES[state.view];
   $$(".view").forEach((v) => { v.hidden = v.id !== `view-${state.view}`; });
@@ -1050,15 +1081,23 @@ function render(state) {
   });
 
   document.body.classList.toggle("readonly", store.readOnly());
-  const noTok = $("#noTokenBanner");
-  if (!state.settings.token) {
-    noTok.hidden = false;
-    noTok.textContent = store.hasCache()
-      ? "Showing the last synced list. Add your token in Settings to edit and sync."
-      : "Add a GitHub token in Settings to load your shared list and recipes.";
-  } else {
-    noTok.hidden = true;
+
+  const sb = $("#statusBanner");
+  const msg = statusBanner(state);
+  sb.hidden = !msg;
+  if (msg) {
+    sb.textContent = msg.text;
+    sb.className = "banner" + (msg.warn ? " banner-warn" : "");
   }
+
+  // header dot: spinner while working, amber when edits are unsynced, red on error
+  const dot = $("#syncDot");
+  dot.className = "sync-dot" + (
+    syncing || flushing ? " working"
+    : syncState.kind === "unauthorized" || syncState.kind === "offline" || syncState.kind === "rateLimited" ? " error"
+    : store.queue.length ? " pending"
+    : ""
+  );
 
   renderList(state);
   if (state.view === "recipes") renderRecipes(state);
@@ -1124,6 +1163,7 @@ function wire() {
     store.setToken("");
     // the cached list/recipes stay readable (Task 5); only the token goes
     tokenStatus = { state: "idle", text: "" };
+    syncState = { kind: "idle", resetAt: null };
     render(store.state);
   });
 
@@ -1146,8 +1186,33 @@ let flushing = false;
 let flushTimer;
 
 const KNOWN_GH = ["offline", "unauthorized", "rateLimited", "notFound", "conflict"];
-function logIfUnexpected(e, where) {
+
+let rateLimitTimer;
+
+// a sync attempt finished cleanly: clear any lingering error state
+function syncOk() {
+  if (syncState.kind !== "idle") {
+    syncState = { kind: "idle", resetAt: null };
+    render(store.state);
+  }
+}
+
+// a sync attempt failed: turn the typed error into a banner state
+function syncFailed(e, where) {
   if (!e || !KNOWN_GH.includes(e.gh)) console.warn(`${where}:`, e);
+  if (!e) return;
+  if (e.gh === "offline") syncState = { kind: "offline", resetAt: null };
+  else if (e.gh === "unauthorized") syncState = { kind: "unauthorized", resetAt: null };
+  else if (e.gh === "rateLimited") {
+    syncState = { kind: "rateLimited", resetAt: e.resetAt || null };
+    clearTimeout(rateLimitTimer);
+    const wait = Math.min(Math.max((e.resetAt || 0) - Date.now() + 2000, 5000), 180000);
+    rateLimitTimer = setTimeout(() => {
+      if (syncState.kind === "rateLimited") fullSync();
+    }, wait);
+  }
+  // notFound / conflict / http: transient enough, leave syncState be
+  render(store.state);
 }
 
 // apply the pending queue to a list of items, by id, in order
@@ -1187,6 +1252,7 @@ function scheduleFlush() {
 async function flushQueue() {
   if (flushing || !store.state.settings.token || store.queue.length === 0) return;
   flushing = true;
+  render(store.state); // spinner on
   try {
     for (let attempt = 0; attempt < 3; attempt++) {
       const ops = store.queue.slice();
@@ -1210,6 +1276,7 @@ async function flushQueue() {
         store.state.list = replayOps(merged, store.queue); // + any ops that landed mid-flush
         store.saveList();
         store.saveSync();
+        syncOk();
         store.notify();
         return;
       } catch (e) {
@@ -1218,9 +1285,10 @@ async function flushQueue() {
       }
     }
   } catch (e) {
-    logIfUnexpected(e, "flushQueue"); // offline / rateLimited / unauthorized: keep the queue
+    syncFailed(e, "flushQueue"); // offline / rateLimited / unauthorized: keep the queue
   } finally {
     flushing = false;
+    render(store.state); // repaint with the flag cleared
   }
 }
 
@@ -1240,6 +1308,7 @@ async function syncList() {
   if (r.notModified) {
     store.sync.syncedAt = now;
     store.saveSync();
+    syncOk();
     return;
   }
   // merge: remote is authoritative; re-apply pending local ops on top
@@ -1249,6 +1318,7 @@ async function syncList() {
   store.sync.syncedAt = now;
   store.saveList();
   store.saveSync();
+  syncOk();
   store.notify();
 }
 
@@ -1256,13 +1326,15 @@ async function syncList() {
 async function fullSync() {
   if (syncing || !store.state.settings.token) return;
   syncing = true;
+  render(store.state); // spinner on
   try {
     await syncRecipes();
     await syncList();
   } catch (e) {
-    logIfUnexpected(e, "fullSync");
+    syncFailed(e, "fullSync");
   } finally {
     syncing = false;
+    render(store.state);
   }
   flushQueue();
 }
@@ -1279,7 +1351,7 @@ function pollTick() {
   if (v !== "list" && v !== "planner") return;
   syncing = true;
   syncList()
-    .catch((e) => logIfUnexpected(e, "poll"))
+    .catch((e) => syncFailed(e, "poll"))
     .finally(() => { syncing = false; render(store.state); });
 }
 
@@ -1287,6 +1359,11 @@ function startPolling() {
   if (pollTimer) return;
   const secs = Math.max(60, Number(github.pollInterval) || 60);
   pollTimer = setInterval(pollTick, secs * 1000);
+}
+
+// "14:32" from an ISO string or epoch ms
+function hhmm(t) {
+  return new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 // relative time for the "last synced" line
@@ -1323,14 +1400,16 @@ async function syncCurrentTab() {
     return new Promise((r) => setTimeout(r, 400)); // still feel the gesture
   }
   syncing = true;
+  render(store.state); // spinner on
   try {
     const v = store.state.view;
     if (v === "recipes") await syncRecipes();
     if (v === "recipes" || v === "list" || v === "planner") await syncList();
   } catch (e) {
-    logIfUnexpected(e, "syncCurrentTab");
+    syncFailed(e, "syncCurrentTab");
   } finally {
     syncing = false;
+    render(store.state);
   }
   flushQueue();
 }
