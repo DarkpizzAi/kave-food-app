@@ -552,6 +552,14 @@ input, .search {
 .advanced-block > .checked-toggle span:first-child { color: var(--text-dim); }
 #advancedFields { margin-top: 6px; }
 
+/* the one hint that reports a real mismatch, rather than just explaining a
+   field - it earns a marker and the danger colour's restraint */
+.warn-hint {
+  border-left: 2px solid var(--rule-strong);
+  padding-left: 10px;
+  margin-top: 10px;
+}
+
 .empty { color: var(--text-dim); text-align: center; padding: 32px 0; }
 
 /* recipe filter bar */

@@ -1253,6 +1253,7 @@ function renderSettings(state) {
   $$("#setPalette button").forEach((b) => {
     b.classList.toggle("on", b.dataset.palette === (state.settings.palette || "cobalt"));
   });
+  renderThemeHint(state);
 
   const ctf = $("#customThemeField");
   ctf.hidden = state.settings.palette !== "custom";
@@ -1421,6 +1422,30 @@ function renderUpdateStatus() {
   box.innerHTML = lines
     .map(([k, text]) => `<span class="sync-line ${k}"><i></i>${escapeHtml(text)}</span>`)
     .join("");
+}
+
+/* The phone paints its own status bar from ITS light/dark setting, not from
+   ours - Chrome gives an installed app a dark status bar whenever the phone is
+   in dark mode, whatever theme-color the page asks for. So Light-on-a-dark-
+   phone (or the reverse) always leaves the bar fighting the header, and no
+   amount of CSS fixes it. Say so where the choice is made, and name the
+   setting that makes both bars blend: System. */
+function renderThemeHint(state) {
+  const hint = $("#themeHint");
+  if (!hint) return;
+  const chosen = state.settings.theme || "system";
+  const phoneDark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const fighting =
+    (chosen === "light" && phoneDark) || (chosen === "dark" && !phoneDark);
+  hint.hidden = !fighting;
+  if (fighting) {
+    hint.textContent =
+      `Your phone is set to ${phoneDark ? "dark" : "light"} mode, and the status ` +
+      `bar at the top always follows the phone - not Spoon. On ${chosen}, it will ` +
+      `stay ${phoneDark ? "dark" : "light"} above a ${chosen} header. Choose System ` +
+      `to keep the bar and the app in step, the way Drive does. Your colour ` +
+      `palette is unaffected either way.`;
+  }
 }
 
 /* The phone's status and gesture bars have been wrong three times running and
@@ -1592,6 +1617,7 @@ function wire() {
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
     if ((store.state.settings.theme || "system") === "system") applyTheme("system");
     renderDisplayDiag();
+    renderThemeHint(store.state);
   });
 
   let resizeTimer;
