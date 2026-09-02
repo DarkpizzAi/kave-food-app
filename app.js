@@ -14,7 +14,7 @@ const store = {
   state: {
     view: "list",
     list: [],
-    settings: { token: "", who: "", theme: "system", palette: "keep" },
+    settings: { token: "", who: "", theme: "system", palette: "keep", custom: null },
     recipes: [],
   },
   sync: { listSha: null, listEtag: null, recipesSha: null, recipesEtag: null, syncedAt: null },
@@ -47,6 +47,7 @@ const store = {
           who: s.who || "",
           theme: s.theme || "system",
           palette: PALETTES[s.palette] ? s.palette : "keep",
+          custom: (s.custom && typeof s.custom === "object") ? s.custom : null,
         };
       }
     } catch (e) { /* ignore */ }
@@ -176,10 +177,24 @@ const store = {
   },
   setPalette(palette) {
     if (!PALETTES[palette]) return;
+    // seed the custom set from whatever theme is on screen right now
+    if (palette === "custom" && !this.state.settings.custom) {
+      this.state.settings.custom = readCurrentTokens();
+    }
     this.state.settings.palette = palette;
     this.saveSettings();
     applyPalette(palette);
     this.notify();
+  },
+  setCustomToken(token, value) {
+    if (!CUSTOM_TOKENS.includes(token) || !HEX_RE.test(value)) return;
+    const c = this.state.settings.custom || (this.state.settings.custom = readCurrentTokens());
+    c[token] = value;
+    this.saveSettings();
+    if (this.state.settings.palette === "custom") {
+      document.documentElement.style.setProperty(token, value);
+      updateThemeColor();
+    }
   },
 };
 
@@ -196,14 +211,40 @@ const deburr = (s) => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLower
 const uid = () =>
   (crypto.randomUUID && crypto.randomUUID()) || String(Date.now() + Math.random());
 
-/* palette id -> { light, dark } background, for the browser chrome colour.
-   The full token sets live in styles.css, keyed by [data-palette]. */
+/* palette id -> display name. The full token sets live in styles.css,
+   keyed by [data-palette]; the browser-chrome colour is read from the
+   resolved --surface (the app header's background) so they never drift. */
 const PALETTES = {
-  keep:     { name: "Google Keep",  light: "#ffffff", dark: "#202124" },
-  drive:    { name: "Google Drive", light: "#ffffff", dark: "#131314" },
-  whatsapp: { name: "WhatsApp",     light: "#efeae2", dark: "#0b141a" },
-  todoist:  { name: "Todoist",      light: "#ffffff", dark: "#1f1f1f" },
+  keep:     { name: "Google Keep"  },
+  drive:    { name: "Google Drive" },
+  whatsapp: { name: "WhatsApp"     },
+  todoist:  { name: "Todoist"      },
+  custom:   { name: "Custom"       },
 };
+
+/* every themeable token, in the order shown in the custom editor */
+const CUSTOM_TOKENS = [
+  "--bg", "--surface", "--surface-2", "--text", "--text-dim",
+  "--accent", "--accent-text", "--accent-soft",
+  "--border", "--rule", "--rule-strong", "--danger",
+];
+const TOKEN_LABELS = {
+  "--bg": "Background", "--surface": "Surface", "--surface-2": "Surface (raised)",
+  "--text": "Text", "--text-dim": "Text (dim)", "--accent": "Accent",
+  "--accent-text": "Text on accent", "--accent-soft": "Accent (soft)",
+  "--border": "Border", "--rule": "Rule", "--rule-strong": "Rule (strong)",
+  "--danger": "Danger",
+};
+
+/* the tokens the app resolves to right now, as hex, to seed the custom editor */
+function readCurrentTokens() {
+  const cs = getComputedStyle(document.documentElement);
+  const o = {};
+  CUSTOM_TOKENS.forEach((t) => { o[t] = (cs.getPropertyValue(t).trim() || "#000000"); });
+  return o;
+}
+
+const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
 function resolvedDark() {
   const theme = store.state.settings.theme || "system";
@@ -211,10 +252,14 @@ function resolvedDark() {
     (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
 }
 
+/* Match the phone's status/notification bar to the app header. The header
+   is painted with --surface, so read that back after palette/theme apply. */
 function updateThemeColor() {
-  const pal = PALETTES[store.state.settings.palette] || PALETTES.keep;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", resolvedDark() ? pal.dark : pal.light);
+  if (!meta) return;
+  const surface = getComputedStyle(document.documentElement)
+    .getPropertyValue("--surface").trim();
+  if (surface) meta.setAttribute("content", surface);
 }
 
 function applyTheme(theme) {
@@ -226,8 +271,19 @@ function applyTheme(theme) {
 
 function applyPalette(palette) {
   const root = document.documentElement;
-  if (palette && palette !== "keep") root.setAttribute("data-palette", palette);
-  else root.removeAttribute("data-palette");
+  // drop any custom inline overrides from a previous selection
+  CUSTOM_TOKENS.forEach((t) => root.style.removeProperty(t));
+  if (palette === "custom") {
+    root.setAttribute("data-palette", "custom");
+    const c = store.state.settings.custom || {};
+    CUSTOM_TOKENS.forEach((t) => {
+      if (HEX_RE.test(c[t] || "")) root.style.setProperty(t, c[t]);
+    });
+  } else if (palette && palette !== "keep") {
+    root.setAttribute("data-palette", palette);
+  } else {
+    root.removeAttribute("data-palette");
+  }
   updateThemeColor();
 }
 
@@ -1024,6 +1080,11 @@ function renderSettings(state) {
   $$("#setPalette button").forEach((b) => {
     b.classList.toggle("on", b.dataset.palette === (state.settings.palette || "keep"));
   });
+
+  const ctf = $("#customThemeField");
+  ctf.hidden = state.settings.palette !== "custom";
+  if (!ctf.hidden) renderCustomGrid(state);
+
   const t = $("#setToken");
   if (document.activeElement !== t) t.value = state.settings.token || "";
 
@@ -1032,11 +1093,7 @@ function renderSettings(state) {
   st.textContent = tokenStatus.text;
   st.className = "token-status " + tokenStatus.state;
 
-  const ago = timeAgo(store.sync.syncedAt);
-  const pend = store.queue.length;
-  $("#syncedAt").textContent =
-    (ago ? `Last synced ${ago}.` : "Not synced yet.") +
-    (pend ? ` ${pend} change${pend === 1 ? "" : "s"} not yet pushed.` : "");
+  renderSyncStatus();
 
   const rb = $("#refreshBtn");
   if (rb.textContent !== "Syncing...") {
@@ -1046,32 +1103,66 @@ function renderSettings(state) {
   }
 }
 
-/* ---------- top-level render ---------- */
+/* the sync section: connection, queue depth, last-synced. rebuilt on each
+   render and by a slow timer so "5 minutes ago" keeps advancing. */
+function renderSyncStatus() {
+  const box = $("#syncStatus");
+  if (!box) return;
+  const lines = [];
+  if (!store.state.settings.token) {
+    lines.push(["warn", "No token set"]);
+  } else if (syncState.kind === "unauthorized") {
+    lines.push(["error", "Token rejected"]);
+  } else if (syncState.kind === "offline") {
+    lines.push(["warn", "Offline"]);
+  } else if (syncState.kind === "rateLimited") {
+    lines.push(["warn", `GitHub busy, retrying at ${hhmm(syncState.resetAt)}`]);
+  } else if (syncing || flushing) {
+    lines.push(["muted", "Syncing now…"]);
+  } else {
+    lines.push(["ok", "Connected"]);
+  }
 
-// the single status line above the list. one message, highest priority wins.
-function statusBanner(state) {
-  const cached = store.hasCache();
-  if (syncState.kind === "unauthorized") {
-    return { warn: true, text: "Token rejected. Update it in Settings." };
-  }
-  if (!state.settings.token) {
-    return cached
-      ? { warn: true, text: "Showing the last synced list. Add your token in Settings to edit and sync." }
-      : { warn: false, text: "Add a GitHub token in Settings to load your shared list and recipes." };
-  }
-  if (syncState.kind === "rateLimited") {
-    return { warn: true, text: `GitHub is busy. Retrying at ${hhmm(syncState.resetAt)}.` };
-  }
-  if (syncState.kind === "offline") {
-    const from = store.sync.syncedAt ? ` from ${hhmm(store.sync.syncedAt)}` : "";
-    return { warn: false, text: `Offline. Showing the list${from}.` };
-  }
-  if (store.queue.length && !flushing) {
-    const n = store.queue.length;
-    return { warn: false, text: `${n} change${n === 1 ? "" : "s"} waiting to sync.` };
-  }
-  return null;
+  const q = store.queue.length;
+  if (q) lines.push(["warn", `${q} change${q === 1 ? "" : "s"} waiting to sync`]);
+
+  const ago = timeAgo(store.sync.syncedAt);
+  lines.push(["muted", ago ? `Last synced ${ago}` : "Not synced yet"]);
+
+  box.innerHTML = lines
+    .map(([k, text]) => `<span class="sync-line ${k}"><i></i>${escapeHtml(text)}</span>`)
+    .join("");
 }
+
+let customGridBuilt = false;
+function renderCustomGrid(state) {
+  const grid = $("#customGrid");
+  if (!grid) return;
+  const c = state.settings.custom || readCurrentTokens();
+  if (!customGridBuilt) {
+    grid.innerHTML = CUSTOM_TOKENS.map((tok) => {
+      const v = c[tok] || "#000000";
+      return `<label class="ct-row">
+        <span class="ct-name">${escapeHtml(TOKEN_LABELS[tok] || tok)}</span>
+        <span class="ct-prev" data-prev="${tok}" style="background:${escapeHtml(v)}"></span>
+        <input class="ct-hex" data-token="${tok}" value="${escapeHtml(v)}"
+               inputmode="text" autocapitalize="off" autocorrect="off"
+               spellcheck="false" maxlength="7" enterkeyhint="done" />
+      </label>`;
+    }).join("");
+    customGridBuilt = true;
+  } else {
+    // keep in sync when values change from elsewhere, but never fight the caret
+    CUSTOM_TOKENS.forEach((tok) => {
+      const inp = grid.querySelector(`.ct-hex[data-token="${tok}"]`);
+      const prev = grid.querySelector(`.ct-prev[data-prev="${tok}"]`);
+      if (inp && document.activeElement !== inp && c[tok]) inp.value = c[tok];
+      if (prev && c[tok]) prev.style.background = c[tok];
+    });
+  }
+}
+
+/* ---------- top-level render ---------- */
 
 function render(state) {
   $("#viewTitle").textContent = VIEW_TITLES[state.view];
@@ -1081,14 +1172,6 @@ function render(state) {
   });
 
   document.body.classList.toggle("readonly", store.readOnly());
-
-  const sb = $("#statusBanner");
-  const msg = statusBanner(state);
-  sb.hidden = !msg;
-  if (msg) {
-    sb.textContent = msg.text;
-    sb.className = "banner" + (msg.warn ? " banner-warn" : "");
-  }
 
   // header dot: spinner while working, amber when edits are unsynced, red on error
   const dot = $("#syncDot");
@@ -1139,6 +1222,18 @@ function wire() {
   });
   $$("#setPalette button").forEach((b) => {
     b.addEventListener("click", () => store.setPalette(b.dataset.palette));
+  });
+  $("#customGrid").addEventListener("input", (e) => {
+    const inp = e.target.closest(".ct-hex");
+    if (!inp) return;
+    let v = inp.value.trim();
+    if (/^([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v)) v = "#" + v; // tolerate a pasted "aabbcc"
+    if (!HEX_RE.test(v)) { inp.classList.add("bad"); return; }
+    inp.classList.remove("bad");
+    if (v !== inp.value) inp.value = v;
+    store.setCustomToken(inp.dataset.token, v);
+    const prev = inp.parentElement.querySelector(".ct-prev");
+    if (prev) prev.style.background = v;
   });
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
     if ((store.state.settings.theme || "system") === "system") applyTheme("system");
@@ -1512,13 +1607,25 @@ startPolling();                      // no-ops each tick until there is a token
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) pollTick();  // catch up on becoming visible
 });
+
+// keep the Settings sync section live ("2 minutes ago" -> "3 minutes ago")
+setInterval(() => {
+  if (!document.hidden && store.state.view === "settings") renderSyncStatus();
+}, 20000);
 window.addEventListener("online", () => {
   flushQueue();
   pollTick();
 });
 
 /* ---------- PWA: service worker + update toast ---------- */
-if ("serviceWorker" in navigator) {
+// never run the SW on the local dev server: it caches the shell and hides
+// every edit behind a stale copy. Tear down any that a previous load left.
+const IS_LOCAL_DEV = ["localhost", "127.0.0.1"].includes(location.hostname);
+if ("serviceWorker" in navigator && IS_LOCAL_DEV) {
+  navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => r.unregister()));
+  if (window.caches) caches.keys().then((ks) => ks.forEach((k) => caches.delete(k)));
+}
+if ("serviceWorker" in navigator && !IS_LOCAL_DEV) {
   navigator.serviceWorker.register("service-worker.js").catch(() => {});
   // the first controllerchange is this session's initial takeover, not an update
   let firstControl = !navigator.serviceWorker.controller;

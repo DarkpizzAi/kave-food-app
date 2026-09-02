@@ -5,7 +5,7 @@
    data-palette on <html> selects the set; absent = Google Keep.
    ============================================================ */
 
-:root { --nav-h: 60px; }
+:root { --nav-h: 64px; }
 
 /* ---- Google Keep (default) ---- */
 :root {
@@ -195,6 +195,9 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { overscroll-behavior-y: contain; }
+/* always reserve the scrollbar gutter so switching between a short view
+   (list) and a tall one (recipes) does not re-centre the fixed bars */
+html { scrollbar-gutter: stable; }
 
 html, body {
   margin: 0;
@@ -625,8 +628,8 @@ input, .search {
 }
 .who-buttons button.on .pal-swatch { border-color: var(--accent-text); }
 
-.token-row { display: flex; gap: 8px; }
-.token-row input { flex: 1; }
+.token-row { display: flex; gap: 8px; width: 75%; min-width: 240px; }
+.token-row input { flex: 1; min-width: 0; }
 .hint { color: var(--text-dim); font-size: 0.85rem; margin: 6px 0 0; }
 
 .token-status { font-size: 0.85rem; margin: 8px 0 0; font-weight: 600; }
@@ -634,11 +637,31 @@ input, .search {
 .token-status.ok { color: var(--accent); }
 .token-status.error { color: var(--danger); }
 
-.token-help { margin: 8px 0 0; font-size: 0.85rem; color: var(--text-dim); }
-.token-help summary { cursor: pointer; color: var(--accent); }
-.token-help ol { margin: 8px 0 0; padding-left: 20px; }
-.token-help li { margin-bottom: 5px; line-height: 1.4; }
-.token-help code { font-size: 0.9em; }
+/* sync section */
+.sync-status { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+.sync-line { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; }
+.sync-line i {
+  width: 8px; height: 8px; border-radius: 50%; flex: none;
+  background: var(--text-dim);
+}
+.sync-line.ok i { background: var(--accent); }
+.sync-line.warn i { background: #e6a700; }
+.sync-line.error i { background: var(--danger); }
+.sync-line.muted { color: var(--text-dim); }
+
+/* custom theme editor */
+.custom-grid { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.ct-row { display: flex; align-items: center; gap: 10px; }
+.ct-name { flex: 1; font-size: 0.88rem; }
+.ct-prev {
+  width: 22px; height: 22px; border-radius: 6px; flex: none;
+  border: 1px solid var(--rule-strong);
+}
+.ct-hex {
+  width: 96px; flex: none; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.85rem; text-transform: lowercase;
+}
+.ct-hex.bad { border-color: var(--danger); color: var(--danger); }
 
 /* banner */
 .banner {
@@ -924,20 +947,41 @@ body.readonly .add-row input { cursor: not-allowed; }
   border-radius: 0;
   height: var(--nav-h);
   color: var(--text-dim);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 0;
+}
+/* the pill that appears behind the icon on the active tab */
+.nav-icon {
+  position: relative;
   display: grid;
   place-items: center;
+  width: 52px;
+  height: 30px;
+  border-radius: 999px;
+  transition: background 0.18s ease;
 }
-.bottom-nav button svg { width: 25px; height: 25px; }
+.bottom-nav button svg { width: 24px; height: 24px; }
+/* safety: an older cached index.html may still ship a second (filled) icon */
+.bottom-nav .icon-filled { display: none; }
+/* selected tab: icon takes the accent colour, pill bubble behind it */
 .bottom-nav button.active { color: var(--accent); }
-/* selected tab: accent stroke plus a wash of accent inside the shape */
-.bottom-nav button.active svg {
-  fill: color-mix(in srgb, var(--accent) 26%, transparent);
+.bottom-nav button.active .nav-icon { background: var(--accent-soft); }
+
+.nav-label {
+  font-size: 0.66rem;
+  line-height: 1;
+  letter-spacing: 0.01em;
 }
+.bottom-nav button.active .nav-label { font-weight: 600; }
 
 .nav-badge {
   position: absolute;
-  top: 8px;
-  left: calc(50% + 4px);
+  top: -3px;
+  left: calc(50% + 8px);
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
