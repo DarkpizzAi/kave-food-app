@@ -3,20 +3,15 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <!-- Chrome 93+ reads THESE, and only for an installed PWA, to fill both the
-       light and the dark status-bar colour of the WebAPK. Nothing may rewrite
-       them: overwriting both with one colour - which app.js used to do on every
-       theme change - erases the light/dark distinction Chrome is looking for,
-       and the dark slot stays empty. Cobalt's two backgrounds; static on
-       purpose. -->
-  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f7fd" />
-  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#16181d" />
+  <!-- No theme-color meta on purpose: an installed app ignores it (measured),
+       and a hardcoded pair would be wrong for five of the six themes anywhere
+       it is honoured. The phone paints its bars white or black from its own
+       light/dark setting, and that is the whole story. -->
   <meta name="color-scheme" content="light dark" />
   <script>
-  /* Paint the phone's status and gesture bars in the right colour on the very
-     first frame. Without this the document starts on the default (Cobalt light)
-     tokens until app.js has loaded and applied the saved palette, so the system
-     bars flash - and stay - the wrong colour behind a dark or off-palette app. */
+  /* Apply the saved theme before the first frame. Without this the document
+     paints on the default Cobalt tokens until app.js has loaded, so any other
+     theme arrives as a visible flash of the wrong colours. */
   (function () {
     try {
       var s = JSON.parse(localStorage.getItem("foodapp.settings")) || {};
@@ -178,12 +173,6 @@
           <p class="field-label">Update</p>
           <div id="updateStatus" class="sync-status"></div>
           <button type="button" id="updateBtn">Check for updates</button>
-        </div>
-        <div class="field">
-          <p class="field-label">Display</p>
-          <div id="displayDiag" class="sync-status"></div>
-          <p class="hint">What the app asks the phone for. Screenshot this if
-          the status or gesture bar looks wrong.</p>
         </div>
         </div>
       </div>

@@ -195,7 +195,7 @@ const store = {
     this.saveSettings();
     if (this.state.settings.palette === "custom") {
       applyCustomForTheme();
-      updateThemeColor();
+      syncColorScheme();
     }
   },
 };
@@ -292,17 +292,10 @@ function applyCustomForTheme() {
   });
 }
 
-/* Match the phone's status/notification bar AND its gesture bar to the app
-   header. The header and the bottom nav are both painted with --bg, so read
-   that back after palette/theme apply. color-scheme goes with it: that is what
-   tells the browser to paint its own chrome (and the Android gesture bar) dark
-   rather than leaving a light strip under a dark app. */
-function updateThemeColor() {
-  // The theme-color metas are deliberately NOT touched here. Chrome reads them
-  // as authored to fill the installed app's light AND dark status-bar colours;
-  // rewriting both to one value - which this function used to do - is what kept
-  // the dark one empty for five releases. colorScheme is ours to set: it drives
-  // the Android gesture bar, which the metas do not reach.
+/* Tell the browser which way the page is leaning. This is what darkens the
+   Android gesture bar at the bottom; the status bar at the top is the phone's
+   own and takes no instruction from us. */
+function syncColorScheme() {
   document.documentElement.style.colorScheme = darkNow() ? "dark" : "light";
 }
 
@@ -319,7 +312,7 @@ function applyTheme(theme) {
   if (theme === "light" || theme === "dark") root.setAttribute("data-theme", theme);
   else root.removeAttribute("data-theme");
   if (store.state.settings.palette === "custom") applyCustomForTheme();
-  updateThemeColor();
+  syncColorScheme();
 }
 
 function applyPalette(palette) {
@@ -334,7 +327,7 @@ function applyPalette(palette) {
   } else {
     root.removeAttribute("data-palette");
   }
-  updateThemeColor();
+  syncColorScheme();
 }
 
 const VIEW_TITLES = {
@@ -1256,7 +1249,6 @@ function renderSettings(state) {
 
   renderSyncStatus();
   renderUpdateStatus();
-  renderDisplayDiag();
   renderAdvanced();
 
   const rb = $("#refreshBtn");
@@ -1411,71 +1403,6 @@ function renderUpdateStatus() {
     .join("");
 }
 
-/* The phone's status and gesture bars have been wrong three times running and
-   cannot be inspected from a PC, so the app reports what it is actually asking
-   for. Compare these lines against a photo of the bars to tell "we asked for
-   the wrong colour" apart from "we asked correctly and Android ignored us". */
-function renderDisplayDiag() {
-  const box = $("#displayDiag");
-  if (!box) return;
-  const root = document.documentElement;
-  const bg = getComputedStyle(root).getPropertyValue("--bg").trim() || "?";
-  const osDark = matchMedia("(prefers-color-scheme: dark)").matches;
-  const mode = ["fullscreen", "standalone", "minimal-ui"]
-    .find((m) => matchMedia(`(display-mode: ${m})`).matches) || "browser";
-
-  // Is the page drawing edge-to-edge, behind the system bars? If it is, the
-  // safe-area insets are non-zero and the viewport covers the whole screen -
-  // which would mean the bars are transparent over our own --bg, and no colour
-  // needs to be sent to them at all. Measured, because it decides the fix.
-  const inset = insetPixels();
-  // both in CSS pixels: if the page really covers the screen these are equal,
-  // and the difference is exactly the strip the two bars are occupying
-  const vh = Math.round(window.innerHeight);
-  const sh = Math.round((screen && screen.height) || 0);
-  const gap = sh > 0 ? sh - vh : null;
-  const edge = inset.top > 0 || inset.bottom > 0;
-
-  const lines = [
-    ["muted", `App ${darkNow() ? "dark" : "light"} · phone ${osDark ? "dark" : "light"}`],
-    ["muted", `Asking for ${bg} · scheme ${root.style.colorScheme || "unset"}`],
-    ["muted", `Window ${mode}`],
-    [edge ? "ok" : "warn", `Safe area top ${inset.top}px · bottom ${inset.bottom}px`],
-    ["muted", sh > 0
-      ? `Viewport ${vh}px of ${sh}px screen · ${gap}px is bars`
-      : `Viewport ${vh}px (screen size unavailable)`],
-    [edge ? "ok" : "warn", edge
-      ? "Edge to edge - the page reaches under the bars"
-      : "Not edge to edge - the bars are their own strip"],
-  ];
-  [...document.querySelectorAll('meta[name="theme-color"]')].forEach((m) => {
-    const q = m.media || "always";
-    const live = !m.media || matchMedia(m.media).matches;
-    lines.push([live ? "ok" : "muted", `${live ? "USED" : "idle"} ${q} → ${m.content}`]);
-  });
-  box.innerHTML = lines
-    .map(([k, text]) => `<span class="sync-line ${k}"><i></i>${escapeHtml(text)}</span>`)
-    .join("");
-}
-
-/* env() is only readable through the cascade, so measure it on a throwaway
-   element rather than guessing at the device's cutout. */
-function insetPixels() {
-  const probe = document.createElement("div");
-  probe.style.cssText =
-    "position:fixed;left:0;top:0;width:0;visibility:hidden;pointer-events:none;" +
-    "padding-top:env(safe-area-inset-top,0px);" +
-    "padding-bottom:env(safe-area-inset-bottom,0px);";
-  document.body.appendChild(probe);
-  const cs = getComputedStyle(probe);
-  const out = {
-    top: Math.round(parseFloat(cs.paddingTop) || 0),
-    bottom: Math.round(parseFloat(cs.paddingBottom) || 0),
-  };
-  probe.remove();
-  return out;
-}
-
 function renderSyncStatus() {
   const box = $("#syncStatus");
   if (!box) return;
@@ -1613,8 +1540,7 @@ function wire() {
   });
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
     if ((store.state.settings.theme || "system") === "system") applyTheme("system");
-    renderDisplayDiag();
-  });
+    });
 
   let resizeTimer;
   window.addEventListener("resize", () => {
