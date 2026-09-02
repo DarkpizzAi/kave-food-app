@@ -1249,6 +1249,7 @@ function renderSettings(state) {
 
   renderSyncStatus();
   renderUpdateStatus();
+  renderDisplayDiag();
   renderAdvanced();
 
   const rb = $("#refreshBtn");
@@ -1398,6 +1399,44 @@ function renderUpdateStatus() {
     if (ago) lines.push(["muted", `Checked ${ago}`]);
   }
 
+  box.innerHTML = lines
+    .map(([k, text]) => `<span class="sync-line ${k}"><i></i>${escapeHtml(text)}</span>`)
+    .join("");
+}
+
+/* Does the window draw edge-to-edge, behind the system bars? If it does the
+   safe-area insets are non-zero and the bars are transparent over our own
+   --bg - the v9.11 header padding then closes the seam for free. Can only be
+   read on the phone, so the app reports it. (Previously shipped in v9.9,
+   removed in v9.10, restored once v9.11 gave the reading something to drive.) */
+function renderDisplayDiag() {
+  const box = $("#displayDiag");
+  if (!box) return;
+  const mode = ["fullscreen", "standalone", "minimal-ui"]
+    .find((m) => matchMedia(`(display-mode: ${m})`).matches) || "browser";
+  const probe = document.createElement("div");
+  probe.style.cssText =
+    "position:fixed;left:0;top:0;width:0;visibility:hidden;pointer-events:none;" +
+    "padding-top:env(safe-area-inset-top,0px);" +
+    "padding-bottom:env(safe-area-inset-bottom,0px);";
+  document.body.appendChild(probe);
+  const cs = getComputedStyle(probe);
+  const top = Math.round(parseFloat(cs.paddingTop) || 0);
+  const bottom = Math.round(parseFloat(cs.paddingBottom) || 0);
+  probe.remove();
+  const vh = Math.round(window.innerHeight);
+  const sh = Math.round((screen && screen.height) || 0);
+  const edge = top > 0 || bottom > 0;
+  const lines = [
+    ["muted", `Window ${mode}`],
+    [edge ? "ok" : "warn", `Safe area top ${top}px · bottom ${bottom}px`],
+    ["muted", sh > 0
+      ? `Viewport ${vh}px of ${sh}px screen · ${sh - vh}px is bars`
+      : `Viewport ${vh}px (screen size unavailable)`],
+    [edge ? "ok" : "warn", edge
+      ? "Edge to edge - the page reaches under the bars"
+      : "Not edge to edge - the bars are their own strip"],
+  ];
   box.innerHTML = lines
     .map(([k, text]) => `<span class="sync-line ${k}"><i></i>${escapeHtml(text)}</span>`)
     .join("");
