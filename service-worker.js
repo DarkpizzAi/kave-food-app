@@ -4,10 +4,31 @@
    (api.github.com) always hits the network - the app's own localStorage cache
    is the offline data store. Bump VERSION on every deploy so the old cache is
    cleared and the "new version" toast fires.
+
+   On the local dev server this file is a kill switch instead: it wipes every
+   cache and unregisters itself. app.js also refuses to register on localhost,
+   but that guard is unreachable once an old SW is serving a stale app.js -
+   the browser always re-fetches THIS file from the network, so the teardown
+   has to live here to be able to break a browser out of a stale shell.
 */
 
-const VERSION = "v1";
+const VERSION = "v3";
 const CACHE = `kave-food-${VERSION}`;
+
+const IS_LOCAL_DEV = ["localhost", "127.0.0.1"].includes(self.location.hostname);
+
+if (IS_LOCAL_DEV) {
+  self.addEventListener("install", () => self.skipWaiting());
+  self.addEventListener("activate", (e) => {
+    e.waitUntil(
+      caches.keys()
+        .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+        .then(() => self.registration.unregister())
+        .then(() => self.clients.matchAll({ type: "window" }))
+        .then((cs) => cs.forEach((c) => c.navigate(c.url)))
+    );
+  });
+} else {
 
 const SHELL = [
   "./",
@@ -49,13 +70,20 @@ self.addEventListener("fetch", (e) => {
   // GitHub API and any other host: straight to the network, never cached
   if (url.origin !== self.location.origin && !FONT_HOSTS.includes(url.hostname)) return;
 
-  // navigation: always the app shell
+  // navigation: network first so a new shell always wins, cache as the
+  // offline fallback. Cache-only here strands the browser on an old
+  // index.html that no amount of reloading can replace.
   if (req.mode === "navigate") {
     e.respondWith(
-      caches.match(req)
-        .then((c) => c || caches.match("index.html"))
-        .then((c) => c || fetch(req))
-        .catch(() => caches.match("index.html"))
+      fetch(req)
+        .then((res) => {
+          if (res && res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put("index.html", copy));
+          }
+          return res;
+        })
+        .catch(() => caches.match(req).then((c) => c || caches.match("index.html")))
     );
     return;
   }
@@ -77,3 +105,5 @@ self.addEventListener("fetch", (e) => {
     )
   );
 });
+
+}

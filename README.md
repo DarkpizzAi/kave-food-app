@@ -19,7 +19,12 @@ python dev_server.py
 
 Then open `http://localhost:8777/`. The server sends `no-store`, so a plain
 reload always shows your latest edit (`python -m http.server` caches and
-serves stale JS/CSS).
+serves stale JS/CSS). The service worker does not run on `localhost`.
+
+If a reload ever shows you an old version of the app, read the browser-preview
+notes in the private hub repo (`food/data/kave-food-app-browser-preview-on-pc.md`)
+before changing anything - the obvious fixes for that symptom do not work, and
+the service worker is the usual culprit.
 
 ## Deploy
 
