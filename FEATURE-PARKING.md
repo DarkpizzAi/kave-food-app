@@ -176,3 +176,39 @@ association from feature 1, plus the cooked log from Part C.
   book is exhausted? And is "new" never-cooked or not-cooked-in-a-year?
 
 ---
+
+## 3. Edge-to-edge window / transparent system bars
+
+**Status:** parked, blocked upstream. Nothing to build — the pre-wiring is
+already shipped (v9.11) and a probe to detect the change is in Settings >
+Advanced > Display (v9.12).
+
+### The ask
+
+Bolt-style: app content fills the whole screen, status and gesture bars are
+transparent overlays. Native apps get this with the Android edge-to-edge APIs.
+
+### Why it does not work today
+
+Not an Android version issue — Isa's phone is on Android 17 and the probe still
+reads `Safe area top 0px` / "Not edge to edge". It is a **Chrome limitation**:
+installed PWAs in `display: standalone` still refuse to draw behind the status
+bar. Regular Chrome tabs have done edge-to-edge since Chrome 135; the WebApp
+shell has not. Google started landing "short-edges cutout mode" for WebApps in
+Chromium in July 2026 - not in stable, no flag, no timeline.
+
+### What is already done
+
+- **v9.11** - `.app-header` pads by `env(safe-area-inset-top)`. Zero effect
+  while the inset is 0; when Chrome flips, the title clears the clock and the
+  bar goes transparent over `--bg` in every theme, both schemes, for free.
+  `syncHeaderHeight()` feeds it into `--header-h` so body/ptr/detail follow.
+- **v9.12** - Settings > Advanced > Display reports display-mode, safe-area
+  insets, viewport-vs-screen, ending in "Edge to edge" / "Not edge to edge".
+
+### When to revisit
+
+Either Isa notices the bars change on the phone, or a scheduled check ~Nov 2026.
+Open the Display readout after any Chrome update. If it still says "Not edge to
+edge" and this matters, the only route is a TWA (Bubblewrap) native shell -
+sideloaded APK, no Play Store, sets the transparent bars itself.
