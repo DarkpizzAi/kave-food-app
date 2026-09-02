@@ -341,7 +341,13 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 16px;
+  /* env(safe-area-inset-top) is 0 in today's standalone window, where the
+     status bar is its own opaque strip. If the platform ever hands this PWA an
+     edge-to-edge window (Android 15 + newer Chrome), the inset goes non-zero
+     and the bar becomes transparent over --bg on its own - the title just
+     needs to clear the clock. syncHeaderHeight() measures this padding into
+     --header-h, so <body>, .ptr and .detail all follow with no other change. */
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 14px;
   background: var(--bg);
 }
 .app-header h1 {
