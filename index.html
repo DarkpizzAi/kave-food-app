@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#ffffff" />
-  <title>Kave Food</title>
+  <meta name="theme-color" content="#f4f7fd" />
+  <title>Spoon</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='88'%3E%F0%9F%9B%92%3C/text%3E%3C/svg%3E" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='88'%3E%F0%9F%A5%A3%3C/text%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;1,9..144,600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -95,24 +95,31 @@
       <div class="field">
         <p class="field-label">Colour palette</p>
         <div id="setPalette" class="who-buttons">
-          <button type="button" data-palette="drive">
-            <span class="pal-swatch" style="background: conic-gradient(#131314 0 90deg, #a8c7fa 90deg 180deg, #0b57d0 180deg 270deg, #ffffff 270deg 360deg)"></span>
-            <span>Google Drive</span>
+          <button type="button" data-palette="cobalt">
+            <span class="pal-swatch" style="background: conic-gradient(#0f1013 0 90deg, #1a73e8 90deg 180deg, #dbe3f2 180deg 270deg, #ffffff 270deg 360deg)"></span>
+            <span>Cobalt</span>
           </button>
-          <button type="button" data-palette="keep">
-            <span class="pal-swatch" style="background: conic-gradient(#202124 0 90deg, #fdd663 90deg 180deg, #fbbc04 180deg 270deg, #ffffff 270deg 360deg)"></span>
-            <span>Google Keep</span>
+          <button type="button" data-palette="amber">
+            <span class="pal-swatch" style="background: conic-gradient(#100f0c 0 90deg, #f4b400 90deg 180deg, #e6e2d4 180deg 270deg, #ffffff 270deg 360deg)"></span>
+            <span>Amber</span>
           </button>
-          <button type="button" data-palette="whatsapp">
-            <span class="pal-swatch" style="background: conic-gradient(#0b141a 0 90deg, #25d366 90deg 180deg, #008069 180deg 270deg, #efeae2 270deg 360deg)"></span>
-            <span>WhatsApp</span>
+          <button type="button" data-palette="chartreuse">
+            <span class="pal-swatch" style="background: conic-gradient(#0f1012 0 90deg, #d7d63a 90deg 180deg, #dde0ea 180deg 270deg, #ffffff 270deg 360deg)"></span>
+            <span>Chartreuse</span>
           </button>
-          <button type="button" data-palette="todoist">
-            <span class="pal-swatch" style="background: conic-gradient(#1f1f1f 0 90deg, #eb6150 90deg 180deg, #e44332 180deg 270deg, #ffffff 270deg 360deg)"></span>
-            <span>Todoist</span>
+          <button type="button" data-palette="lime">
+            <span class="pal-swatch" style="background: conic-gradient(#0c111c 0 90deg, #c3ee5c 90deg 180deg, #d0dbf0 180deg 270deg, #ffffff 270deg 360deg)"></span>
+            <span>Lime</span>
+          </button>
+          <button type="button" data-palette="tangerine">
+            <span class="pal-swatch" style="background: conic-gradient(#100e0a 0 90deg, #ff7a1a 90deg 180deg, #e4d7c3 180deg 270deg, #ffffff 270deg 360deg)"></span>
+            <span>Tangerine</span>
+          </button>
+          <button type="button" data-palette="volt">
+            <span class="pal-swatch" style="background: conic-gradient(#0b0b0a 0 90deg, #dcff33 90deg 180deg, #e0e0dc 180deg 270deg, #ffffff 270deg 360deg)"></span>
+            <span>Volt</span>
           </button>
           <button type="button" data-palette="custom">
-            <span class="pal-swatch" style="background: conic-gradient(from 90deg, #f4433e, #fb8c00, #43a047, #00acc1, #3949ab, #8e24aa, #f4433e)"></span>
             <span>Custom</span>
           </button>
         </div>
@@ -120,7 +127,6 @@
 
       <div class="field" id="customThemeField" hidden>
         <p class="field-label">Custom colours</p>
-        <p class="hint" style="margin-top:0">Paste a hex value into any field. One set is used in both light and dark mode.</p>
         <div id="customGrid" class="custom-grid"></div>
       </div>
 

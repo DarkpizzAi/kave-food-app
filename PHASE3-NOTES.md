@@ -1,13 +1,14 @@
 # Phase 3: the installable PWA
 
-Kave Food is now installable to the home screen and opens offline. What was
-added, and the rules to keep it working.
+Spoon (called Kave Food when this was written) is installable to the home
+screen and opens offline. What was added, and the rules to keep it working.
 
 ## What is wired
 
-- `manifest.json`: standalone display, portrait, green (`#2f6f4f`) theme and
-  splash, three icons (192, 512, 512 maskable). `start_url` and `scope` are
-  `./` so it works from the `/kave-food-app/` project path on GitHub Pages.
+- `manifest.json`: standalone display, portrait, theme and splash matching the
+  Cobalt light background (`#f4f7fd`), three icons (192, 512, 512 maskable).
+  `start_url` and `scope` are `./` so it works from the `/kave-food-app/`
+  project path on GitHub Pages.
 - `service-worker.js`: precaches the static shell on install and serves it
   stale-while-revalidate. Navigation is network-first with the cached
   `index.html` as the offline fallback - it must not be cache-only, or a new
@@ -46,26 +47,37 @@ browser happens to expire the worker (can be days).
 
 If you add or remove a shell file, update the `SHELL` array too.
 
-## How to swap the placeholder icons
+## How to swap the icons
 
-`icon-192.png`, `icon-512.png`, `icon-512-maskable.png`, `apple-touch-icon.png`
-are a plain white cart on the green. To replace them:
+`icon-512.png` is the master. Everything else is derived from it:
 
-1. Make four PNGs at those exact pixel sizes (apple-touch-icon is 180x180).
-   The maskable one needs its content inside the centre ~80% (safe zone), the
-   rest is padding the launcher may crop to any shape.
-2. Drop them in at the same filenames.
-3. Bump VERSION.
+```bash
+python make_icons.py
+```
 
-Keep `theme_color` / `background_color` in `manifest.json` in step with the
-icon background or the splash screen will not match.
+- `icon-192.png` - the same transparent artwork at 192.
+- `icon-512-maskable.png` - opaque background, artwork at 70% so it survives
+  any launcher crop shape. The maskable safe zone is the centre 80%, and a
+  square-ish drawing at 80% width already pokes out of that circle at the
+  corners, which is why it is 70% and not 80%.
+- `apple-touch-icon.png` - 180x180, flattened onto the background. iOS paints
+  alpha black, so this one must not be transparent.
+
+Then bump VERSION. `BG` in `make_icons.py` must stay in step with
+`theme_color` / `background_color` in `manifest.json`, or the splash will not
+match the icon.
+
+The maskable icon was briefly dropped during the UI batch and put back before
+that batch shipped. Do not drop it again: without it Android letterboxes the
+"any" icon inside a grey squircle on the home screen, and Spoon is an
+Android-only app.
 
 ## Verified
 
 - Live on GitHub Pages (`https://darkpizzai.github.io/kave-food-app/`): worker
   registers, activates, takes control, precaches all 11 shell files
-  (verified at `kave-food-v1`; VERSION is now v3). App runs normally with the worker controlling it, no
-  console errors, add/nav/settings all work.
+  (verified at `kave-food-v1`). App runs normally with the worker controlling
+  it, no console errors, add/nav/settings all work.
 - CORRECTED: an earlier version of this note claimed the local dev browser
   pane blocks service-worker script fetches, so the worker "only registers on
   the real HTTPS site". That was wrong. It registered on `localhost` happily
@@ -74,6 +86,17 @@ icon background or the splash screen will not match.
   `service-worker.js` and the guard in `app.js`. Full account in the
   browser-preview notes in the private hub repo.
 
+## The UI batch deploy (VERSION v6)
+
+Shipped on top of Phase 3: the rename to Spoon, the new icon set, six own
+palettes, the light/dark custom editor, tab labels. The live site was on `v3`,
+so `v6` is a fresh cache name and every installed copy refetches the shell and
+shows the update toast.
+
+The cache name stays `kave-food-${VERSION}`. It is internal, `activate` deletes
+every cache that is not the current one regardless of prefix, and renaming it
+would buy nothing.
+
 Still to check on a real phone (Isa / Hugo): the install prompt, offline
-launch from the home screen with the network off, and the update toast after
-a VERSION bump.
+launch from the home screen with the network off, the update toast after this
+VERSION bump, and that the new maskable icon crops correctly on the launcher.

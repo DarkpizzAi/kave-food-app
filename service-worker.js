@@ -1,4 +1,4 @@
-/* Kave Food service worker (Phase 3).
+/* Spoon service worker (Phase 3).
 
    Caches the static shell so the app installs and opens offline. Data
    (api.github.com) always hits the network - the app's own localStorage cache
@@ -12,7 +12,7 @@
    has to live here to be able to break a browser out of a stale shell.
 */
 
-const VERSION = "v3";
+const VERSION = "v6";
 const CACHE = `kave-food-${VERSION}`;
 
 const IS_LOCAL_DEV = ["localhost", "127.0.0.1"].includes(self.location.hostname);

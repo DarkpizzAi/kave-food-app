@@ -1,17 +1,17 @@
 {
   "id": "/kave-food-app/",
-  "name": "Kave Food",
-  "short_name": "Kave Food",
+  "name": "Spoon",
+  "short_name": "Spoon",
   "description": "The household shopping list and recipe book.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#2f6f4f",
-  "background_color": "#2f6f4f",
+  "theme_color": "#f4f7fd",
+  "background_color": "#f4f7fd",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

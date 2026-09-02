@@ -1,4 +1,4 @@
-/* Kave Food. Phase 2: offline-first cache of the shared list + recipes, kept
+/* Spoon. Phase 2: offline-first cache of the shared list + recipes, kept
    in sync with a private GitHub repo. */
 "use strict";
 
@@ -14,7 +14,7 @@ const store = {
   state: {
     view: "list",
     list: [],
-    settings: { token: "", who: "", theme: "system", palette: "keep", custom: null },
+    settings: { token: "", who: "", theme: "system", palette: "cobalt", custom: null },
     recipes: [],
   },
   sync: { listSha: null, listEtag: null, recipesSha: null, recipesEtag: null, syncedAt: null },
@@ -46,8 +46,8 @@ const store = {
           token: s.token || "",
           who: s.who || "",
           theme: s.theme || "system",
-          palette: PALETTES[s.palette] ? s.palette : "keep",
-          custom: (s.custom && typeof s.custom === "object") ? s.custom : null,
+          palette: PALETTES[s.palette] ? s.palette : "cobalt",
+          custom: normaliseCustom(s.custom),
         };
       }
     } catch (e) { /* ignore */ }
@@ -177,22 +177,25 @@ const store = {
   },
   setPalette(palette) {
     if (!PALETTES[palette]) return;
-    // seed the custom set from whatever theme is on screen right now
-    if (palette === "custom" && !this.state.settings.custom) {
-      this.state.settings.custom = readCurrentTokens();
+    // entering Custom always copies the theme that was on screen a moment ago,
+    // both its light and dark sets, so the editor starts from the last look
+    if (palette === "custom" && this.state.settings.palette !== "custom") {
+      this.state.settings.custom = seedCustom();
+      customGridBuilt = false;
     }
     this.state.settings.palette = palette;
     this.saveSettings();
     applyPalette(palette);
     this.notify();
   },
-  setCustomToken(token, value) {
-    if (!CUSTOM_TOKENS.includes(token) || !HEX_RE.test(value)) return;
-    const c = this.state.settings.custom || (this.state.settings.custom = readCurrentTokens());
-    c[token] = value;
+  setCustomToken(mode, token, value) {
+    if ((mode !== "light" && mode !== "dark") ||
+        !CUSTOM_TOKENS.includes(token) || !HEX_RE.test(value)) return;
+    const c = this.state.settings.custom || (this.state.settings.custom = seedCustom());
+    (c[mode] || (c[mode] = {}))[token] = value;
     this.saveSettings();
     if (this.state.settings.palette === "custom") {
-      document.documentElement.style.setProperty(token, value);
+      applyCustomForTheme();
       updateThemeColor();
     }
   },
@@ -215,34 +218,28 @@ const uid = () =>
    keyed by [data-palette]; the browser-chrome colour is read from the
    resolved --surface (the app header's background) so they never drift. */
 const PALETTES = {
-  keep:     { name: "Google Keep"  },
-  drive:    { name: "Google Drive" },
-  whatsapp: { name: "WhatsApp"     },
-  todoist:  { name: "Todoist"      },
-  custom:   { name: "Custom"       },
+  cobalt:     { name: "Cobalt"     },
+  amber:      { name: "Amber"      },
+  chartreuse: { name: "Chartreuse" },
+  lime:       { name: "Lime"       },
+  tangerine:  { name: "Tangerine"  },
+  volt:       { name: "Volt"       },
+  custom:     { name: "Custom"     },
 };
 
 /* every themeable token, in the order shown in the custom editor */
 const CUSTOM_TOKENS = [
-  "--bg", "--surface", "--surface-2", "--text", "--text-dim",
+  "--bg", "--surface", "--surface-2", "--card", "--text", "--text-dim",
   "--accent", "--accent-text", "--accent-soft",
   "--border", "--rule", "--rule-strong", "--danger",
 ];
 const TOKEN_LABELS = {
   "--bg": "Background", "--surface": "Surface", "--surface-2": "Surface (raised)",
-  "--text": "Text", "--text-dim": "Text (dim)", "--accent": "Accent",
+  "--card": "Card", "--text": "Text", "--text-dim": "Text (dim)", "--accent": "Accent",
   "--accent-text": "Text on accent", "--accent-soft": "Accent (soft)",
   "--border": "Border", "--rule": "Rule", "--rule-strong": "Rule (strong)",
   "--danger": "Danger",
 };
-
-/* the tokens the app resolves to right now, as hex, to seed the custom editor */
-function readCurrentTokens() {
-  const cs = getComputedStyle(document.documentElement);
-  const o = {};
-  CUSTOM_TOKENS.forEach((t) => { o[t] = (cs.getPropertyValue(t).trim() || "#000000"); });
-  return o;
-}
 
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
@@ -252,20 +249,65 @@ function resolvedDark() {
     (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
 }
 
+/* Read the tokens a given palette resolves to in one theme, as hex. Forces
+   data-theme for the read, then restores it. Custom inline overrides are
+   stripped first so we sample the stylesheet, not our own edits. */
+function readTokensFor(themeMode) {
+  const root = document.documentElement;
+  const prevTheme = root.getAttribute("data-theme");
+  const prevInline = {};
+  CUSTOM_TOKENS.forEach((t) => {
+    prevInline[t] = root.style.getPropertyValue(t);
+    root.style.removeProperty(t);
+  });
+  root.setAttribute("data-theme", themeMode);
+  const cs = getComputedStyle(root);
+  const o = {};
+  CUSTOM_TOKENS.forEach((t) => { o[t] = (cs.getPropertyValue(t).trim() || "#000000"); });
+  if (prevTheme === null) root.removeAttribute("data-theme");
+  else root.setAttribute("data-theme", prevTheme);
+  CUSTOM_TOKENS.forEach((t) => { if (prevInline[t]) root.style.setProperty(t, prevInline[t]); });
+  return o;
+}
+
+/* a fresh custom set: { light, dark } seeded from the palette on screen now */
+function seedCustom() {
+  return { light: readTokensFor("light"), dark: readTokensFor("dark") };
+}
+
+/* accept { light, dark }; migrate a legacy flat set; null if unusable */
+function normaliseCustom(c) {
+  if (!c || typeof c !== "object") return null;
+  if (c.light || c.dark) return { light: c.light || c.dark || {}, dark: c.dark || c.light || {} };
+  return { light: { ...c }, dark: { ...c } }; // legacy single set
+}
+
+/* push the right custom set (light or dark) onto <html> as inline overrides */
+function applyCustomForTheme() {
+  const root = document.documentElement;
+  const c = store.state.settings.custom;
+  const set = c && (resolvedDark() ? (c.dark || c.light) : (c.light || c.dark));
+  CUSTOM_TOKENS.forEach((t) => {
+    if (set && HEX_RE.test(set[t] || "")) root.style.setProperty(t, set[t]);
+    else root.style.removeProperty(t);
+  });
+}
+
 /* Match the phone's status/notification bar to the app header. The header
-   is painted with --surface, so read that back after palette/theme apply. */
+   is painted with --bg, so read that back after palette/theme apply. */
 function updateThemeColor() {
   const meta = document.querySelector('meta[name="theme-color"]');
   if (!meta) return;
-  const surface = getComputedStyle(document.documentElement)
-    .getPropertyValue("--surface").trim();
-  if (surface) meta.setAttribute("content", surface);
+  const bg = getComputedStyle(document.documentElement)
+    .getPropertyValue("--bg").trim();
+  if (bg) meta.setAttribute("content", bg);
 }
 
 function applyTheme(theme) {
   const root = document.documentElement;
   if (theme === "light" || theme === "dark") root.setAttribute("data-theme", theme);
   else root.removeAttribute("data-theme");
+  if (store.state.settings.palette === "custom") applyCustomForTheme();
   updateThemeColor();
 }
 
@@ -275,11 +317,8 @@ function applyPalette(palette) {
   CUSTOM_TOKENS.forEach((t) => root.style.removeProperty(t));
   if (palette === "custom") {
     root.setAttribute("data-palette", "custom");
-    const c = store.state.settings.custom || {};
-    CUSTOM_TOKENS.forEach((t) => {
-      if (HEX_RE.test(c[t] || "")) root.style.setProperty(t, c[t]);
-    });
-  } else if (palette && palette !== "keep") {
+    applyCustomForTheme();
+  } else if (palette && palette !== "cobalt") {
     root.setAttribute("data-palette", palette);
   } else {
     root.removeAttribute("data-palette");
@@ -598,31 +637,31 @@ function renderRecipeFilters(state) {
     r.mainIngredient === "other" ? null : r.mainIngredient,
   );
 
-  const cbox = $("#cuisineFilters");
-  cbox.querySelectorAll(".chip").forEach((c) => c.remove());
-  cuisines.forEach((c) => {
+  // "All" (default) chip first, then one chip per value
+  const filterChip = (box, key, value, label) => {
     const b = document.createElement("button");
-    b.className = "chip" + (recipeFilters.cuisine === c ? " on" : "");
-    b.textContent = cap(c);
+    b.className = "chip" + (recipeFilters[key] === value ? " on" : "");
+    b.textContent = label;
     b.addEventListener("click", () => {
-      recipeFilters.cuisine = recipeFilters.cuisine === c ? "" : c;
+      recipeFilters[key] = value === "" ? "" : (recipeFilters[key] === value ? "" : value);
       renderRecipes(store.state);
     });
-    cbox.appendChild(b);
-  });
+    box.appendChild(b);
+  };
+
+  const cbox = $("#cuisineFilters");
+  cbox.querySelectorAll(".chip").forEach((c) => c.remove());
+  if (cuisines.length) {
+    filterChip(cbox, "cuisine", "", "All");
+    cuisines.forEach((c) => filterChip(cbox, "cuisine", c, cap(c)));
+  }
 
   const mbox = $("#mainFilters");
   mbox.querySelectorAll(".chip").forEach((c) => c.remove());
-  mains.forEach((m) => {
-    const b = document.createElement("button");
-    b.className = "chip" + (recipeFilters.main === m ? " on" : "");
-    b.textContent = MAIN_LABELS[m] || m;
-    b.addEventListener("click", () => {
-      recipeFilters.main = recipeFilters.main === m ? "" : m;
-      renderRecipes(store.state);
-    });
-    mbox.appendChild(b);
-  });
+  if (mains.length) {
+    filterChip(mbox, "main", "", "All");
+    mains.forEach((m) => filterChip(mbox, "main", m, MAIN_LABELS[m] || m));
+  }
 
   updateRailFade(cbox);
   updateRailFade(mbox);
@@ -662,12 +701,14 @@ function renderRecipes(state) {
     li.className = "recipe-card";
     const eff = effortFor(r.category);
     const times = timesText(r);
+    const meta = r.stub
+      ? `<span class="card-stub">${r.stubKind === "link" ? "link only" : "to write"}</span>`
+      : `${times ? `<span class="card-time">${escapeHtml(times)}</span>` : ""}
+         <span class="dots" title="Effort ${eff}/3" aria-label="effort ${eff} of 3">${'<i class="on"></i>'.repeat(eff)}${"<i></i>".repeat(3 - eff)}</span>`;
+    li.classList.toggle("stub", !!r.stub);
     li.innerHTML = `
       <span class="main">${escapeHtml(r.name)}</span>
-      <span class="card-meta">
-        ${times ? `<span class="card-time">${escapeHtml(times)}</span>` : ""}
-        <span class="dots" title="Effort ${eff}/3" aria-label="effort ${eff} of 3">${'<i class="on"></i>'.repeat(eff)}${"<i></i>".repeat(3 - eff)}</span>
-      </span>`;
+      <span class="card-meta">${meta}</span>`;
     if (typeof foodPixelIcon === "function") {
       li.appendChild(foodPixelIcon(r.name, r.category, 34));
     }
@@ -884,6 +925,27 @@ function qtyText(qty, unit) {
 
 function renderDetail() {
   const { recipe } = detailState;
+
+  // index-only entry: no card written yet. Show the name + where to cook it
+  // from, nothing to scale.
+  if (recipe.stub) {
+    $("#detailBar").innerHTML = `<span class="rname">${escapeHtml(recipe.name)}</span>`;
+    const tags = [recipe.cuisine, recipe.category].filter(Boolean)
+      .map((x) => `<span class="stub-tag">${escapeHtml(cap(x))}</span>`).join("");
+    const links = (recipe.sources || []).map((u, i) =>
+      `<a class="stub-link" href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer">
+         Open recipe${recipe.sources.length > 1 ? " " + (i + 1) : ""} &nearr;</a>`).join("");
+    $("#detailBody").innerHTML = `
+      <div class="stub-body">
+        ${tags ? `<div class="stub-tags">${tags}</div>` : ""}
+        ${links || `<p class="hint">Not written up yet. Cook it once and add it
+          with the <code>add-recipe</code> skill and it becomes a full card here.</p>`}
+        ${links ? `<p class="hint">Not saved as a full recipe yet, so there is no
+          scaler or shopping-list add for this one.</p>` : ""}
+      </div>`;
+    return;
+  }
+
   const base = recipe.portions;
   const target = detailState.servings;
   const factor = base ? target / base : 1;
@@ -1078,7 +1140,7 @@ function renderSettings(state) {
     b.classList.toggle("on", b.dataset.theme === (state.settings.theme || "system"));
   });
   $$("#setPalette button").forEach((b) => {
-    b.classList.toggle("on", b.dataset.palette === (state.settings.palette || "keep"));
+    b.classList.toggle("on", b.dataset.palette === (state.settings.palette || "cobalt"));
   });
 
   const ctf = $("#customThemeField");
@@ -1134,31 +1196,39 @@ function renderSyncStatus() {
     .join("");
 }
 
+function ctCell(mode, tok, v) {
+  return `<span class="ct-cell">
+    <span class="ct-prev" data-prev="${mode}:${tok}" style="background:${escapeHtml(v)}"></span>
+    <input class="ct-hex" data-mode="${mode}" data-token="${tok}" value="${escapeHtml(v)}"
+           inputmode="text" autocapitalize="off" autocorrect="off"
+           spellcheck="false" maxlength="7" enterkeyhint="done" />
+  </span>`;
+}
+
 let customGridBuilt = false;
 function renderCustomGrid(state) {
   const grid = $("#customGrid");
   if (!grid) return;
-  const c = state.settings.custom || readCurrentTokens();
+  const c = state.settings.custom || seedCustom();
+  const val = (mode, tok) => (c[mode] && c[mode][tok]) || "#000000";
   if (!customGridBuilt) {
-    grid.innerHTML = CUSTOM_TOKENS.map((tok) => {
-      const v = c[tok] || "#000000";
-      return `<label class="ct-row">
+    grid.innerHTML =
+      `<div class="ct-head"><span></span><span>Light</span><span>Dark</span></div>` +
+      CUSTOM_TOKENS.map((tok) => `<div class="ct-row">
         <span class="ct-name">${escapeHtml(TOKEN_LABELS[tok] || tok)}</span>
-        <span class="ct-prev" data-prev="${tok}" style="background:${escapeHtml(v)}"></span>
-        <input class="ct-hex" data-token="${tok}" value="${escapeHtml(v)}"
-               inputmode="text" autocapitalize="off" autocorrect="off"
-               spellcheck="false" maxlength="7" enterkeyhint="done" />
-      </label>`;
-    }).join("");
+        ${ctCell("light", tok, val("light", tok))}
+        ${ctCell("dark", tok, val("dark", tok))}
+      </div>`).join("");
     customGridBuilt = true;
   } else {
     // keep in sync when values change from elsewhere, but never fight the caret
-    CUSTOM_TOKENS.forEach((tok) => {
-      const inp = grid.querySelector(`.ct-hex[data-token="${tok}"]`);
-      const prev = grid.querySelector(`.ct-prev[data-prev="${tok}"]`);
-      if (inp && document.activeElement !== inp && c[tok]) inp.value = c[tok];
-      if (prev && c[tok]) prev.style.background = c[tok];
-    });
+    ["light", "dark"].forEach((mode) => CUSTOM_TOKENS.forEach((tok) => {
+      const inp = grid.querySelector(`.ct-hex[data-mode="${mode}"][data-token="${tok}"]`);
+      const prev = grid.querySelector(`.ct-prev[data-prev="${mode}:${tok}"]`);
+      const v = val(mode, tok);
+      if (inp && document.activeElement !== inp) inp.value = v;
+      if (prev) prev.style.background = v;
+    }));
   }
 }
 
@@ -1231,7 +1301,7 @@ function wire() {
     if (!HEX_RE.test(v)) { inp.classList.add("bad"); return; }
     inp.classList.remove("bad");
     if (v !== inp.value) inp.value = v;
-    store.setCustomToken(inp.dataset.token, v);
+    store.setCustomToken(inp.dataset.mode, inp.dataset.token, v);
     const prev = inp.parentElement.querySelector(".ct-prev");
     if (prev) prev.style.background = v;
   });
@@ -1592,7 +1662,7 @@ function initPullToSync() {
 
 store.load();                       // list + recipes + sync meta from the cache
 github.setToken(store.state.settings.token);
-applyPalette(store.state.settings.palette || "keep");
+applyPalette(store.state.settings.palette || "cobalt");
 applyTheme(store.state.settings.theme || "system");
 store.subscribe(render);
 wire();
@@ -1603,6 +1673,21 @@ if (store.state.settings.token) {
   checkToken();                      // "Connected as ..."; on success it kicks fullSync
 }
 startPolling();                      // no-ops each tick until there is a token
+
+// dev-only: on the local server with no token, load a bundled recipes snapshot
+// so the Recipes tab is browsable without GitHub. Never runs on the real site.
+if (["localhost", "127.0.0.1"].includes(location.hostname) &&
+    !store.state.settings.token && store.state.recipes.length === 0) {
+  fetch("recipes.dev.json")
+    .then((r) => (r.ok ? r.json() : null))
+    .then((arr) => {
+      if (Array.isArray(arr) && store.state.recipes.length === 0) {
+        store.state.recipes = arr;
+        store.notify();
+      }
+    })
+    .catch(() => {});
+}
 
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) pollTick();  // catch up on becoming visible

@@ -1,4 +1,4 @@
-/* Kave Food, Phase 2: GitHub Contents API client.
+/* Spoon, Phase 2: GitHub Contents API client.
 
    No app logic. Typed get / put against one private repo. The app pushes the
    token in with github.setToken(); nothing here reads localStorage or the
