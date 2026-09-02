@@ -3,9 +3,11 @@
    LIGHT  - card (lightest), then header/footer, then background,
             then filters/search (darkest).
    DARK   - that order inverted (card darkest, filters lightest).
-   Theme resolution unchanged: explicit data-theme wins over OS,
-   "system" (no attribute) follows prefers-color-scheme.
-   data-palette on <html> selects the set; absent = Cobalt.
+   Light or dark follows the phone and nothing else - there is no
+   in-app override any more, so data-theme is never set and the
+   prefers-color-scheme blocks below always decide.
+   data-palette on <html> selects the theme; absent = Cobalt.
+   A verbatim snapshot of all six lives in themes-legacy.css.
    ============================================================ */
 
 :root { --nav-h: 64px; }
@@ -551,14 +553,6 @@ input, .search {
 }
 .advanced-block > .checked-toggle span:first-child { color: var(--text-dim); }
 #advancedFields { margin-top: 6px; }
-
-/* the one hint that reports a real mismatch, rather than just explaining a
-   field - it earns a marker and the danger colour's restraint */
-.warn-hint {
-  border-left: 2px solid var(--rule-strong);
-  padding-left: 10px;
-  margin-top: 10px;
-}
 
 .empty { color: var(--text-dim); text-align: center; padding: 32px 0; }
 

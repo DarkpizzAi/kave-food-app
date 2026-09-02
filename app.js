@@ -50,7 +50,7 @@ const store = {
         this.state.settings = {
           token: s.token || "",
           who: s.who || "",
-          theme: s.theme || "system",
+          theme: "system",  // no longer a choice; see setPalette/applyTheme
           palette: PALETTES[s.palette] ? s.palette : "cobalt",
           custom: normaliseCustom(s.custom),
         };
@@ -168,12 +168,6 @@ const store = {
     this.saveList(); this.notify();
   },
   setWho(who) { this.state.settings.who = who; this.saveSettings(); this.notify(); },
-  setTheme(theme) {
-    this.state.settings.theme = theme;
-    this.saveSettings();
-    applyTheme(theme);
-    this.notify();
-  },
   setToken(token) {
     this.state.settings.token = token;
     this.saveSettings();
@@ -315,11 +309,11 @@ function updateThemeColor() {
   root.style.colorScheme = darkNow() ? "dark" : "light";
 }
 
-/* is the app dark right now, whichever way it got there */
+/* Light or dark is the phone's call and only the phone's: an installed PWA
+   cannot colour the status and gesture bars, it only gets the light or dark
+   pair the system chose. Following that setting exactly is what lets --bg
+   (pure white or pure black) meet those bars without a seam. */
 function darkNow() {
-  const t = store.state.settings.theme || "system";
-  if (t === "dark") return true;
-  if (t === "light") return false;
   return matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
@@ -1247,13 +1241,9 @@ function renderSettings(state) {
   $$("#setWho button").forEach((b) => {
     b.classList.toggle("on", b.dataset.who === state.settings.who);
   });
-  $$("#setTheme button").forEach((b) => {
-    b.classList.toggle("on", b.dataset.theme === (state.settings.theme || "system"));
-  });
   $$("#setPalette button").forEach((b) => {
     b.classList.toggle("on", b.dataset.palette === (state.settings.palette || "cobalt"));
   });
-  renderThemeHint(state);
 
   const ctf = $("#customThemeField");
   ctf.hidden = state.settings.palette !== "custom";
@@ -1424,30 +1414,6 @@ function renderUpdateStatus() {
     .join("");
 }
 
-/* The phone paints its own status bar from ITS light/dark setting, not from
-   ours - Chrome gives an installed app a dark status bar whenever the phone is
-   in dark mode, whatever theme-color the page asks for. So Light-on-a-dark-
-   phone (or the reverse) always leaves the bar fighting the header, and no
-   amount of CSS fixes it. Say so where the choice is made, and name the
-   setting that makes both bars blend: System. */
-function renderThemeHint(state) {
-  const hint = $("#themeHint");
-  if (!hint) return;
-  const chosen = state.settings.theme || "system";
-  const phoneDark = matchMedia("(prefers-color-scheme: dark)").matches;
-  const fighting =
-    (chosen === "light" && phoneDark) || (chosen === "dark" && !phoneDark);
-  hint.hidden = !fighting;
-  if (fighting) {
-    hint.textContent =
-      `Your phone is set to ${phoneDark ? "dark" : "light"} mode, and the status ` +
-      `bar at the top always follows the phone - not Spoon. On ${chosen}, it will ` +
-      `stay ${phoneDark ? "dark" : "light"} above a ${chosen} header. Choose System ` +
-      `to keep the bar and the app in step, the way Drive does. Your colour ` +
-      `palette is unaffected either way.`;
-  }
-}
-
 /* The phone's status and gesture bars have been wrong three times running and
    cannot be inspected from a PC, so the app reports what it is actually asking
    for. Compare these lines against a photo of the bars to tell "we asked for
@@ -1596,9 +1562,6 @@ function wire() {
   $$("#setWho button").forEach((b) => {
     b.addEventListener("click", () => store.setWho(b.dataset.who));
   });
-  $$("#setTheme button").forEach((b) => {
-    b.addEventListener("click", () => store.setTheme(b.dataset.theme));
-  });
   $$("#setPalette button").forEach((b) => {
     b.addEventListener("click", () => store.setPalette(b.dataset.palette));
   });
@@ -1617,7 +1580,6 @@ function wire() {
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
     if ((store.state.settings.theme || "system") === "system") applyTheme("system");
     renderDisplayDiag();
-    renderThemeHint(store.state);
   });
 
   let resizeTimer;

@@ -20,9 +20,7 @@
       var s = JSON.parse(localStorage.getItem("foodapp.settings")) || {};
       var root = document.documentElement;
       if (s.palette && s.palette !== "cobalt") root.setAttribute("data-palette", s.palette);
-      if (s.theme === "light" || s.theme === "dark") root.setAttribute("data-theme", s.theme);
-      var dark = s.theme === "dark" ||
-        (s.theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+      var dark = matchMedia("(prefers-color-scheme: dark)").matches;
       root.style.colorScheme = dark ? "dark" : "light";
       var set = s.palette === "custom" && s.custom && s.custom[dark ? "dark" : "light"];
       if (set) {
@@ -112,25 +110,7 @@
     <!-- SETTINGS -->
     <section id="view-settings" class="view" hidden>
       <div class="field">
-        <p class="field-label">Theme</p>
-        <div id="setTheme" class="who-buttons">
-          <button type="button" data-theme="light">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M4.8 4.8l1.8 1.8M17.4 17.4l1.8 1.8M4.8 19.2l1.8-1.8M17.4 6.6l1.8-1.8"/></svg>
-            <span>Light</span>
-          </button>
-          <button type="button" data-theme="dark">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/></svg>
-            <span>Dark</span>
-          </button>
-          <button type="button" data-theme="system">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18Z" fill="currentColor" stroke="none"/></svg>
-            <span>System</span>
-          </button>
-        </div>
-        <p id="themeHint" class="hint warn-hint" hidden></p>
-      </div>
-      <div class="field">
-        <p class="field-label">Colour palette</p>
+        <p class="field-label">Themes</p>
         <div id="setPalette" class="who-buttons">
           <button type="button" data-palette="cobalt">
             <span class="pal-swatch" style="background: conic-gradient(#0f1013 0 90deg, #1a73e8 90deg 180deg, #dbe3f2 180deg 270deg, #ffffff 270deg 360deg)"></span>
