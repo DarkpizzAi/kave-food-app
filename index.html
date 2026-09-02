@@ -131,28 +131,42 @@
       </div>
 
       <div class="field">
-        <p class="field-label">User</p>
-        <div id="setWho" class="who-buttons">
-          <button type="button" data-who="hugo">Hugo</button>
-          <button type="button" data-who="isa">Isa</button>
-        </div>
-      </div>
-      <div class="field">
-        <label for="setToken">GitHub token</label>
-        <div class="token-row">
-          <input id="setToken" type="password" placeholder="github_pat_..."
-                 autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
-                 enterkeyhint="done" />
-          <button type="button" id="clearToken">Clear</button>
-        </div>
-        <p id="tokenStatus" class="token-status" hidden></p>
-        <p class="hint">Stored on this device only, sent only to GitHub. It
-        unlocks your shared list and recipes.</p>
-      </div>
-      <div class="field">
         <p class="field-label">Sync</p>
         <div id="syncStatus" class="sync-status"></div>
         <button type="button" id="refreshBtn" disabled>Sync now</button>
+      </div>
+
+      <div class="advanced-block">
+        <button id="advancedToggle" class="checked-toggle" type="button"
+                aria-expanded="false" aria-controls="advancedFields">
+          <span id="advancedCaret">&#9656;</span> <span>Advanced settings</span>
+        </button>
+        <div id="advancedFields" hidden>
+        <div class="field">
+          <p class="field-label">User</p>
+          <div id="setWho" class="who-buttons">
+            <button type="button" data-who="hugo">Hugo</button>
+            <button type="button" data-who="isa">Isa</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="setToken">GitHub token</label>
+          <div class="token-row">
+            <input id="setToken" type="password" placeholder="github_pat_..."
+                   autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+                   enterkeyhint="done" />
+            <button type="button" id="clearToken">Clear</button>
+          </div>
+          <p id="tokenStatus" class="token-status" hidden></p>
+          <p class="hint">Stored on this device only, sent only to GitHub. It
+          unlocks your shared list and recipes.</p>
+        </div>
+        <div class="field">
+          <p class="field-label">Update</p>
+          <div id="updateStatus" class="sync-status"></div>
+          <button type="button" id="updateBtn">Check for updates</button>
+        </div>
+        </div>
       </div>
     </section>
   </main>

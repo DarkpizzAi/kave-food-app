@@ -536,6 +536,22 @@ input, .search {
 }
 .checked-list { opacity: 0.85; }
 
+/* Settings > Advanced settings: the ticked-items disclosure, given a rule so
+   it reads as a section divider rather than a footnote under Sync */
+.advanced-block {
+  margin-top: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+}
+.advanced-block > .checked-toggle {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text);
+  padding-left: 0;
+}
+.advanced-block > .checked-toggle span:first-child { color: var(--text-dim); }
+#advancedFields { margin-top: 6px; }
+
 .empty { color: var(--text-dim); text-align: center; padding: 32px 0; }
 
 /* recipe filter bar */

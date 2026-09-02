@@ -12,7 +12,7 @@
    has to live here to be able to break a browser out of a stale shell.
 */
 
-const VERSION = "v7";
+const VERSION = "v8";
 const CACHE = `kave-food-${VERSION}`;
 
 const IS_LOCAL_DEV = ["localhost", "127.0.0.1"].includes(self.location.hostname);
@@ -45,6 +45,18 @@ const SHELL = [
 ];
 
 const FONT_HOSTS = ["fonts.googleapis.com", "fonts.gstatic.com"];
+
+// The page asks for the running VERSION (shown in Settings > Update) and can
+// tell a worker stuck in "waiting" to take over. install() already calls
+// skipWaiting, so the second case is a belt-and-braces path for a browser
+// that held the new worker back anyway.
+self.addEventListener("message", (e) => {
+  const d = e.data || {};
+  if (d.type === "version" && e.ports && e.ports[0]) {
+    e.ports[0].postMessage({ version: VERSION });
+  }
+  if (d.type === "skipWaiting") self.skipWaiting();
+});
 
 // Precache with cache: "reload" on every request. c.addAll() would go through
 // the browser's HTTP cache, and GitHub Pages serves the shell with a 10 minute

@@ -10,6 +10,11 @@ const LS_RECIPES = "foodapp.recipes";  // last-synced recipes (offline cache)
 const LS_SYNC = "foodapp.sync";        // { listSha, listEtag, recipesSha, recipesEtag, syncedAt }
 const LS_QUEUE = "foodapp.queue";      // pending list changes not yet pushed to GitHub
 
+// Declared here, not down with the service-worker block: render() runs during
+// init and can reach Settings > Update, which reads this. A const further down
+// the file is still in its temporal dead zone at that point.
+const IS_LOCAL_DEV = ["localhost", "127.0.0.1"].includes(location.hostname);
+
 const store = {
   state: {
     view: "list",
@@ -1156,6 +1161,8 @@ function renderSettings(state) {
   st.className = "token-status " + tokenStatus.state;
 
   renderSyncStatus();
+  renderUpdateStatus();
+  renderAdvanced();
 
   const rb = $("#refreshBtn");
   if (rb.textContent !== "Syncing...") {
@@ -1167,6 +1174,148 @@ function renderSettings(state) {
 
 /* the sync section: connection, queue depth, last-synced. rebuilt on each
    render and by a slow timer so "5 minutes ago" keeps advancing. */
+let advancedOpen = false;   // Settings > Advanced settings disclosure
+
+function renderAdvanced() {
+  const fields = $("#advancedFields");
+  const caret = $("#advancedCaret");
+  const btn = $("#advancedToggle");
+  if (!fields || !caret || !btn) return;
+  fields.hidden = !advancedOpen;
+  caret.textContent = advancedOpen ? "▾" : "▸";
+  btn.setAttribute("aria-expanded", String(advancedOpen));
+}
+
+/* ---------- app update (Settings > Update) ---------- */
+/* The toast on `controllerchange` only helps if the app happens to be open
+   when the browser notices a new worker, which on a phone it usually is not.
+   This is the manual path: ask the registration to re-fetch the worker
+   script, report honestly what came back, and reload once it has taken over. */
+
+let updateState = { kind: "idle", version: null, checkedAt: null };
+
+// ask the controlling worker which VERSION it is running
+function swVersion() {
+  return new Promise((resolve) => {
+    const sw = navigator.serviceWorker && navigator.serviceWorker.controller;
+    if (!sw) return resolve(null);
+    const ch = new MessageChannel();
+    const t = setTimeout(() => resolve(null), 1500);
+    ch.port1.onmessage = (e) => {
+      clearTimeout(t);
+      resolve((e.data && e.data.version) || null);
+    };
+    try { sw.postMessage({ type: "version" }, [ch.port2]); }
+    catch (err) { clearTimeout(t); resolve(null); }
+  });
+}
+
+// resolves when an incoming worker finishes installing, or rejects if it fails
+function whenSettled(worker) {
+  return new Promise((resolve, reject) => {
+    const check = () => {
+      if (worker.state === "activated") resolve("activated");
+      else if (worker.state === "installed") resolve("installed");
+      else if (worker.state === "redundant") reject(new Error("install failed"));
+    };
+    worker.addEventListener("statechange", check);
+    check();
+  });
+}
+
+async function checkForUpdate() {
+  if (!("serviceWorker" in navigator) || IS_LOCAL_DEV) {
+    updateState = { ...updateState, kind: "unsupported" };
+    renderUpdateStatus();
+    return;
+  }
+  updateState = { ...updateState, kind: "checking" };
+  renderUpdateStatus();
+
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) {
+      updateState = { ...updateState, kind: "unsupported" };
+      renderUpdateStatus();
+      return;
+    }
+
+    await reg.update();
+    const incoming = reg.installing || reg.waiting;
+
+    if (!incoming) {
+      updateState = { kind: "current", version: await swVersion(), checkedAt: Date.now() };
+      renderUpdateStatus();
+      return;
+    }
+
+    updateState = { ...updateState, kind: "installing" };
+    renderUpdateStatus();
+
+    const state = await whenSettled(incoming);
+    // install() calls skipWaiting, but nudge a worker the browser held back
+    if (state === "installed") incoming.postMessage({ type: "skipWaiting" });
+
+    updateState = { ...updateState, kind: "ready", checkedAt: Date.now() };
+    renderUpdateStatus();
+  } catch (e) {
+    updateState = { ...updateState, kind: "error", checkedAt: Date.now() };
+    renderUpdateStatus();
+  }
+}
+
+let versionAsked = false;
+function renderUpdateStatus() {
+  const box = $("#updateStatus");
+  const btn = $("#updateBtn");
+  if (!box || !btn) return;
+
+  // fill the version line in the background the first time Settings renders
+  if (!versionAsked && !updateState.version && !IS_LOCAL_DEV) {
+    versionAsked = true;
+    swVersion().then((v) => {
+      if (!v) return;
+      updateState = { ...updateState, version: v };
+      renderUpdateStatus();
+    });
+  }
+
+  const lines = [];
+
+  if (updateState.version) lines.push(["muted", `Version ${updateState.version}`]);
+
+  const busy = updateState.kind === "checking" || updateState.kind === "installing";
+  btn.disabled = busy;
+  btn.textContent = updateState.kind === "ready" ? "Restart to finish" : "Check for updates";
+
+  if (updateState.kind === "checking") {
+    lines.push(["muted", "Checking…"]);
+  } else if (updateState.kind === "installing") {
+    lines.push(["muted", "New version found, downloading…"]);
+  } else if (updateState.kind === "ready") {
+    lines.push(["ok", "New version ready"]);
+  } else if (updateState.kind === "current") {
+    lines.push(["ok", "Up to date"]);
+  } else if (updateState.kind === "error") {
+    lines.push(["error", "Check failed. Try again when you have signal."]);
+  } else if (updateState.kind === "unsupported") {
+    lines.push(["muted", "Updates apply on reload here"]);
+  } else if (IS_LOCAL_DEV) {
+    lines.push(["muted", "Updates apply on reload here"]);
+  } else if (!updateState.checkedAt) {
+    lines.push(["muted", "Not checked yet"]);
+  }
+
+  if (updateState.kind !== "ready" && updateState.checkedAt) {
+    const ago = timeAgo(updateState.checkedAt);
+    if (ago) lines.push(["muted", `Checked ${ago}`]);
+  }
+
+  box.innerHTML = lines
+    .map(([k, text]) => `<span class="sync-line ${k}"><i></i>${escapeHtml(text)}</span>`)
+    .join("");
+}
+
 function renderSyncStatus() {
   const box = $("#syncStatus");
   if (!box) return;
@@ -1330,6 +1479,16 @@ function wire() {
     tokenStatus = { state: "idle", text: "" };
     syncState = { kind: "idle", resetAt: null };
     render(store.state);
+  });
+
+  $("#advancedToggle").addEventListener("click", () => {
+    advancedOpen = !advancedOpen;
+    renderAdvanced();
+  });
+
+  $("#updateBtn").addEventListener("click", () => {
+    if (updateState.kind === "ready") { location.reload(); return; }
+    checkForUpdate();
   });
 
   $("#refreshBtn").addEventListener("click", async (e) => {
@@ -1705,13 +1864,17 @@ window.addEventListener("online", () => {
 /* ---------- PWA: service worker + update toast ---------- */
 // never run the SW on the local dev server: it caches the shell and hides
 // every edit behind a stale copy. Tear down any that a previous load left.
-const IS_LOCAL_DEV = ["localhost", "127.0.0.1"].includes(location.hostname);
 if ("serviceWorker" in navigator && IS_LOCAL_DEV) {
   navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => r.unregister()));
   if (window.caches) caches.keys().then((ks) => ks.forEach((k) => caches.delete(k)));
 }
 if ("serviceWorker" in navigator && !IS_LOCAL_DEV) {
-  navigator.serviceWorker.register("service-worker.js").catch(() => {});
+  // updateViaCache "none": always revalidate the worker script itself, so
+  // Settings > Update can actually find a new version instead of being served
+  // the old script out of the HTTP cache.
+  navigator.serviceWorker
+    .register("service-worker.js", { updateViaCache: "none" })
+    .catch(() => {});
   // the first controllerchange is this session's initial takeover, not an update
   let firstControl = !navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener("controllerchange", () => {

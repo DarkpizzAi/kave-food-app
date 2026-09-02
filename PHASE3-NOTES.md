@@ -106,6 +106,30 @@ The lesson for any earlier note in this file that says "verified on GitHub
 Pages": verify by reading a value that only the new CSS can produce, not just
 by checking the worker activated.
 
+## Settings > Update (VERSION v8)
+
+The `controllerchange` toast only fires if the app happens to be open at the
+moment the browser notices a new worker. On a phone that almost never lines
+up, so in practice nobody saw it. Settings now has an **Update** section (in
+Advanced settings) with a manual path:
+
+- "Check for updates" calls `registration.update()`, then reads what came
+  back: no incoming worker means "Up to date"; an `installing` or `waiting`
+  one means a new version is downloading; once it settles the button becomes
+  "Restart to finish" and reloads.
+- A worker that ends up `redundant` failed to install, and the section says
+  the check failed rather than claiming success.
+- `install()` already calls `skipWaiting`, but a worker still sitting in
+  `installed` gets a `{type: "skipWaiting"}` message as a fallback.
+- The worker answers a `{type: "version"}` message over a `MessageChannel`,
+  so the section can show which VERSION is actually running. That line is the
+  honest way to confirm an update landed.
+- Registration now passes `updateViaCache: "none"`. Without it the browser may
+  serve the worker script itself from the HTTP cache, and the check finds
+  nothing however many times it is pressed.
+
+The toast is kept: it is still the right thing when the app *is* open.
+
 ## The UI batch deploy (VERSION v6, then v7)
 
 Shipped on top of Phase 3: the rename to Spoon, the new icon set, six own
