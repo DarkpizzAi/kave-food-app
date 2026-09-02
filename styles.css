@@ -497,8 +497,18 @@ input, .search {
   padding: 11px 4px;
   border-bottom: 1px solid var(--rule);
 }
-.list li .main { flex: 1; min-width: 0; }
-.list li .sub { color: var(--text-dim); font-size: 0.85rem; }
+.list li .main { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 7px; }
+.list li .nm { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list li .sub {
+  flex: 0 1 auto; min-width: 0;
+  color: var(--text-dim); font-size: 0.85rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.list li .qty {
+  flex: none; margin-left: auto; padding-left: 8px;
+  color: var(--text-dim); font-size: 0.85rem;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
 .list.keep li .tick {
   width: 22px; height: 22px; min-height: 22px;
   border-radius: 6px;
@@ -509,7 +519,8 @@ input, .search {
   color: var(--text-dim);
 }
 .list.keep li.checked { color: var(--text-dim); }
-.list.keep li.checked .main { text-decoration: line-through; }
+.list.keep li.checked .main,
+.list.keep li.checked .main > * { text-decoration: line-through; }
 .list.keep li.checked .tick { background: var(--accent); box-shadow: none; color: var(--accent-text); }
 .list li .del {
   border: none;

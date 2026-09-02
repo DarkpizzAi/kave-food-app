@@ -389,12 +389,13 @@ let checkedOpen = false;
 function itemRow(it) {
   const li = document.createElement("li");
   li.className = it.checked ? "checked" : "";
-  const qtyStr = it.qty != null ? ` ${it.qty}${it.unit ? " " + it.unit : ""}` : "";
+  const qtyStr = it.qty != null ? `${it.qty}${it.unit ? " " + it.unit : ""}` : "";
   li.innerHTML = `
     <button class="tick" aria-label="Toggle">${it.checked ? "✓" : ""}</button>
     <span class="main">
-      <span>${escapeHtml(it.name)}${escapeHtml(qtyStr)}</span>
-      ${it.note ? `<span class="sub"> (${escapeHtml(it.note)})</span>` : ""}
+      <span class="nm">${escapeHtml(it.name)}</span>
+      ${it.note ? `<span class="sub">${escapeHtml(it.note)}</span>` : ""}
+      ${qtyStr ? `<span class="qty">${escapeHtml(qtyStr)}</span>` : ""}
     </span>
     <button class="del" aria-label="Remove">✕</button>`;
   $(".tick", li).addEventListener("click", () => store.toggleItem(it.id));
@@ -1213,7 +1214,13 @@ function renderDetail() {
             qty = scaled ? scaleQty(ing, factor) : ing.qty;
             unit = ing.unit;
           }
-          store.addItem({ name: ing.name, qty, unit, note: ing.note, source: key, slug: ing.slug || null });
+          store.addItem({
+            name: ing.conceptName || ing.name,
+            qty, unit,
+            note: [ing.variantHint, ing.note].filter(Boolean).join(", ") || null,
+            source: key,
+            slug: ing.slug || null,
+          });
         }
         detailState.added.add(i);
       }
