@@ -8,11 +8,12 @@ Threaded, reuses the address, and exits cleanly so a restart never hits a
 """
 import contextlib
 import http.server
+import os
 import pathlib
 import socketserver
 import sys
 
-PORT = 8777
+PORT = int(os.environ.get("PORT", "8777"))
 ROOT = pathlib.Path(__file__).resolve().parent
 
 

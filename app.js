@@ -111,7 +111,7 @@ const store = {
     // coming back to Recipes: bring the stashed sheet straight back
     if (sheetOpen && v === "recipes") unparkRecipe();
   },
-  addItem({ name, qty, unit, note, source = "manual" }) {
+  addItem({ name, qty, unit, note, source = "manual", slug = null }) {
     if (this.readOnly()) return null;
     const item = {
       id: uid(),
@@ -119,6 +119,7 @@ const store = {
       qty: qty === "" || qty == null ? null : Number(qty),
       unit: (unit || "").trim() || null,
       note: (note || "").trim() || null,
+      slug: slug || null,     // ingredients-dictionary concept, when added from a recipe
       checked: false,
       source,
       addedBy: this.state.settings.who || "?",
@@ -997,14 +998,32 @@ function isCountUnit(unit) {
   return !unit || ["gousse", "branche", "botte", "paquet", "tranche"].includes(unit);
 }
 
+function isWeightVolumeUnit(u) { return /^(g|kg|mg|ml|cl|l)$/i.test(u || ""); }
+function isSpoonUnit(u) { return /^(cs|cc)$/i.test(u || ""); }
+
+// snap a fractional count to 0, 1/3, 1/2, 2/3 (a scaled onion reads as
+// "1 1/2", not "1.5"). qtyText renders the mixed number.
+function snapCount(x) {
+  const whole = Math.floor(x), f = x - whole;
+  const near = [0, 1 / 3, 1 / 2, 2 / 3, 1].reduce(
+    (a, b) => Math.abs(b - f) < Math.abs(a - f) ? b : a);
+  return whole + near;
+}
+
 // scale one ingredient quantity for a new servings count, honouring its
-// fractionnability class from recipes.json. Falls back to the old unit
-// heuristic for recipes cached before Task 2 added `frac`.
+// fractionnability class from recipes.json. Scaling display policy (Isa,
+// 2026-09-02): weight and volume round UP to a whole unit with no decimal,
+// spoons to the nearest half, counted items stay fractional. Falls back to
+// the old unit heuristic for recipes cached before `frac` existed.
 function scaleQty(ing, factor) {
   const x = ing.qty * factor;
   if (ing.frac === "au gout") return ing.qty;                // never scaled
   if (ing.frac === "entier") return Math.max(1, Math.round(x));
-  if (ing.frac === "fractionnable") return roundQty(x, false);
+  if (ing.frac === "fractionnable") {
+    if (isWeightVolumeUnit(ing.unit)) return Math.ceil(x);   // up to the next g / ml
+    if (isSpoonUnit(ing.unit)) return Math.round(x * 2) / 2; // nearest half spoon
+    return snapCount(x);                                     // counted: 1 1/2, 1 1/3
+  }
   return roundQty(x, isCountUnit(ing.unit));                 // no `frac`
 }
 
@@ -1015,7 +1034,17 @@ function servingPresets(recipe) {
 }
 
 function qtyText(qty, unit) {
-  return `${qty}${unit ? " " + escapeHtml(unit) : ""}`;
+  let q = qty;
+  // a counted quantity with a fraction shows as a mixed number: "1 1/2",
+  // "1 1/2 branche" - but never for a weight, volume or spoon measure
+  if (typeof qty === "number" && !Number.isInteger(qty)
+      && !isWeightVolumeUnit(unit) && !isSpoonUnit(unit)) {
+    const whole = Math.floor(qty);
+    const label = [[1 / 3, "1/3"], [1 / 2, "1/2"], [2 / 3, "2/3"]].reduce(
+      (a, b) => Math.abs(b[0] - (qty - whole)) < Math.abs(a[0] - (qty - whole)) ? b : a)[1];
+    q = whole > 0 ? `${whole} ${label}` : label;
+  }
+  return `${q}${unit ? " " + escapeHtml(unit) : ""}`;
 }
 
 function renderDetail() {
@@ -1184,7 +1213,7 @@ function renderDetail() {
             qty = scaled ? scaleQty(ing, factor) : ing.qty;
             unit = ing.unit;
           }
-          store.addItem({ name: ing.name, qty, unit, note: ing.note, source: key });
+          store.addItem({ name: ing.name, qty, unit, note: ing.note, source: key, slug: ing.slug || null });
         }
         detailState.added.add(i);
       }
