@@ -3,10 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <!-- Two theme-colors, one per OS scheme, so the phone's bars are already the
-       right side of light/dark before a single line of script runs. app.js
-       rewrites BOTH to the exact colour of the palette actually on screen, so
-       whichever one the browser matches is correct. -->
+  <!-- Chrome 93+ reads THESE, and only for an installed PWA, to fill both the
+       light and the dark status-bar colour of the WebAPK. Nothing may rewrite
+       them: overwriting both with one colour - which app.js used to do on every
+       theme change - erases the light/dark distinction Chrome is looking for,
+       and the dark slot stays empty. Cobalt's two backgrounds; static on
+       purpose. -->
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f7fd" />
   <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#16181d" />
   <meta name="color-scheme" content="light dark" />
@@ -27,12 +29,6 @@
         Object.keys(set).forEach(function (t) {
           if (/^--[a-z0-9-]+$/.test(t) && /^#[0-9a-fA-F]{3,8}$/.test(set[t]))
             root.style.setProperty(t, set[t]);
-        });
-      }
-      var bg = getComputedStyle(root).getPropertyValue("--bg").trim();
-      if (bg) {
-        document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) {
-          m.setAttribute("content", bg);
         });
       }
     } catch (e) { /* first run, or storage blocked */ }

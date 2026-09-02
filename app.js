@@ -298,15 +298,12 @@ function applyCustomForTheme() {
    tells the browser to paint its own chrome (and the Android gesture bar) dark
    rather than leaving a light strip under a dark app. */
 function updateThemeColor() {
-  const root = document.documentElement;
-  const bg = getComputedStyle(root).getPropertyValue("--bg").trim();
-  // both metas, not just the first: they are scoped to the OS light/dark
-  // scheme, and an explicit theme in Settings has to beat the OS either way
-  if (bg) {
-    document.querySelectorAll('meta[name="theme-color"]')
-      .forEach((m) => m.setAttribute("content", bg));
-  }
-  root.style.colorScheme = darkNow() ? "dark" : "light";
+  // The theme-color metas are deliberately NOT touched here. Chrome reads them
+  // as authored to fill the installed app's light AND dark status-bar colours;
+  // rewriting both to one value - which this function used to do - is what kept
+  // the dark one empty for five releases. colorScheme is ours to set: it drives
+  // the Android gesture bar, which the metas do not reach.
+  document.documentElement.style.colorScheme = darkNow() ? "dark" : "light";
 }
 
 /* Light or dark is the phone's call and only the phone's: an installed PWA
