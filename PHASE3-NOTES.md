@@ -106,7 +106,18 @@ The lesson for any earlier note in this file that says "verified on GitHub
 Pages": verify by reading a value that only the new CSS can produce, not just
 by checking the worker activated.
 
-## Settings > Update (VERSION v8)
+## An old cache can come back from the dead (fixed in v9)
+
+`activate` deleted the old caches and then called `clients.claim()`. In that
+order the outgoing worker is still handling fetches while the delete runs, and
+its stale-while-revalidate calls `caches.open(<its own CACHE>)` - recreating
+the cache that was just removed. `kave-food-v7` reappeared seconds after the
+v8 worker cleaned it up.
+
+Claim first, delete second. The old worker stops serving fetches once the
+claim resolves, so nothing is left to recreate the cache.
+
+## Settings > Update (VERSION v8, cache fix in v9)
 
 The `controllerchange` toast only fires if the app happens to be open at the
 moment the browser notices a new worker. On a phone that almost never lines

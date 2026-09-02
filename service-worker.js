@@ -12,7 +12,7 @@
    has to live here to be able to break a browser out of a stale shell.
 */
 
-const VERSION = "v8";
+const VERSION = "v9";
 const CACHE = `kave-food-${VERSION}`;
 
 const IS_LOCAL_DEV = ["localhost", "127.0.0.1"].includes(self.location.hostname);
@@ -77,11 +77,16 @@ self.addEventListener("install", (e) => {
   );
 });
 
+// Claim BEFORE deleting the old caches, not after. The outgoing worker keeps
+// handling fetches until this worker claims its clients, and its
+// stale-while-revalidate does caches.open(<its own CACHE>) - which recreates
+// the cache we just deleted. Observed on the v8 deploy: kave-food-v7 came back
+// from the dead moments after activate cleaned it up.
 self.addEventListener("activate", (e) => {
   e.waitUntil(
-    caches.keys()
+    self.clients.claim()
+      .then(() => caches.keys())
       .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
-      .then(() => self.clients.claim())
   );
 });
 
