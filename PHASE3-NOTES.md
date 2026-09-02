@@ -86,12 +86,34 @@ Android-only app.
   `service-worker.js` and the guard in `app.js`. Full account in the
   browser-preview notes in the private hub repo.
 
-## The UI batch deploy (VERSION v6)
+## Bumping VERSION is not enough on its own (fixed in v7)
+
+`install` used `cache.addAll(SHELL)`. That goes through the browser's normal
+HTTP cache, and GitHub Pages serves the shell with `max-age=600`. So a
+VERSION bump within ten minutes of a deploy precaches the very files it was
+meant to replace, into a cache whose name says it is fresh.
+
+This is not theoretical: it happened on the v6 deploy. `index.html` and
+`app.js` arrived new (title "Spoon", the six palettes), `styles.css` came out
+of the HTTP cache still carrying the old Keep palette, so the app rendered the
+new markup with the old colours and `--card` resolved to nothing.
+
+`install` now fetches every shell URL with `cache: "reload"` and fails the
+install if any one of them is not `ok`, so a broken deploy leaves the previous
+worker in place instead of installing a half-stale shell.
+
+The lesson for any earlier note in this file that says "verified on GitHub
+Pages": verify by reading a value that only the new CSS can produce, not just
+by checking the worker activated.
+
+## The UI batch deploy (VERSION v6, then v7)
 
 Shipped on top of Phase 3: the rename to Spoon, the new icon set, six own
 palettes, the light/dark custom editor, tab labels. The live site was on `v3`,
-so `v6` is a fresh cache name and every installed copy refetches the shell and
-shows the update toast.
+so the bump is a fresh cache name and every installed copy refetches the shell
+and shows the update toast. `v6` shipped the batch and `v7` shipped the
+precache fix above, which is what actually got the new stylesheet onto the
+site.
 
 The cache name stays `kave-food-${VERSION}`. It is internal, `activate` deletes
 every cache that is not the current one regardless of prefix, and renaming it

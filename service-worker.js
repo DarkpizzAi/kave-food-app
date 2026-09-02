@@ -12,7 +12,7 @@
    has to live here to be able to break a browser out of a stale shell.
 */
 
-const VERSION = "v6";
+const VERSION = "v7";
 const CACHE = `kave-food-${VERSION}`;
 
 const IS_LOCAL_DEV = ["localhost", "127.0.0.1"].includes(self.location.hostname);
@@ -46,10 +46,21 @@ const SHELL = [
 
 const FONT_HOSTS = ["fonts.googleapis.com", "fonts.gstatic.com"];
 
+// Precache with cache: "reload" on every request. c.addAll() would go through
+// the browser's HTTP cache, and GitHub Pages serves the shell with a 10 minute
+// max-age - so a VERSION bump right after a deploy can fill the brand new
+// cache with the files it was meant to replace. That is what happened on the
+// v6 deploy: index.html and app.js came through fresh, styles.css did not.
 self.addEventListener("install", (e) => {
   e.waitUntil(
     caches.open(CACHE)
-      .then((c) => c.addAll(SHELL))
+      .then((c) => Promise.all(
+        SHELL.map((u) => fetch(new Request(u, { cache: "reload" }))
+          .then((res) => {
+            if (!res || !res.ok) throw new Error(`precache ${u}: ${res && res.status}`);
+            return c.put(u, res);
+          }))
+      ))
       .then(() => self.skipWaiting())
   );
 });
