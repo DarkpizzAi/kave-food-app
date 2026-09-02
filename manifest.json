@@ -5,9 +5,11 @@
   "description": "The household shopping list and recipe book.",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
+  "_comment_display": "fullscreen, not standalone. An installed WebAPK bakes its status-bar colour from theme_color at install time and ignores <meta name=theme-color> thereafter, and Chrome never colours the Android gesture bar at all - so in standalone the two bars are constants that cannot follow the light/dark theme. Fullscreen removes them and lets the page paint the whole screen, which is the only way they always match. display_override falls back to standalone where fullscreen is unsupported.",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
   "orientation": "portrait",
-  "_comment_colours": "The manifest spec has no media queries, so these two cannot follow the theme. They are read at install time and only drive the splash and the very first frame; the live bars come from the paired theme-color metas in index.html, which do follow it. Dark Cobalt is the constant because both phones run dark - a dark splash under a light app beats a white flash under a dark one.",
+  "_comment_colours": "Read at install time; no media queries in the manifest spec, so these cannot follow the theme. In fullscreen they only tint the splash. Dark Cobalt because both phones run dark.",
   "theme_color": "#16181d",
   "background_color": "#16181d",
   "icons": [
