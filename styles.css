@@ -339,11 +339,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  /* fullscreen: the page owns the strip the status bar used to sit in, so the
-     header pads itself past the cutout and paints it --bg. --header-h is
-     measured from this element, so body, the sheet and the pull-to-sync
-     indicator all follow without knowing about the inset. */
-  padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 14px;
+  padding: 14px 16px;
   background: var(--bg);
 }
 .app-header h1 {

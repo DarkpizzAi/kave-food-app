@@ -1268,6 +1268,7 @@ function renderSettings(state) {
 
   renderSyncStatus();
   renderUpdateStatus();
+  renderDisplayDiag();
   renderAdvanced();
 
   const rb = $("#refreshBtn");
@@ -1422,6 +1423,34 @@ function renderUpdateStatus() {
     .join("");
 }
 
+/* The phone's status and gesture bars have been wrong three times running and
+   cannot be inspected from a PC, so the app reports what it is actually asking
+   for. Compare these lines against a photo of the bars to tell "we asked for
+   the wrong colour" apart from "we asked correctly and Android ignored us". */
+function renderDisplayDiag() {
+  const box = $("#displayDiag");
+  if (!box) return;
+  const root = document.documentElement;
+  const bg = getComputedStyle(root).getPropertyValue("--bg").trim() || "?";
+  const osDark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const mode = ["fullscreen", "standalone", "minimal-ui"]
+    .find((m) => matchMedia(`(display-mode: ${m})`).matches) || "browser";
+
+  const lines = [
+    ["muted", `App ${darkNow() ? "dark" : "light"} · phone ${osDark ? "dark" : "light"}`],
+    ["muted", `Asking for ${bg} · scheme ${root.style.colorScheme || "unset"}`],
+    ["muted", `Window ${mode}`],
+  ];
+  [...document.querySelectorAll('meta[name="theme-color"]')].forEach((m) => {
+    const q = m.media || "always";
+    const live = !m.media || matchMedia(m.media).matches;
+    lines.push([live ? "ok" : "muted", `${live ? "USED" : "idle"} ${q} → ${m.content}`]);
+  });
+  box.innerHTML = lines
+    .map(([k, text]) => `<span class="sync-line ${k}"><i></i>${escapeHtml(text)}</span>`)
+    .join("");
+}
+
 function renderSyncStatus() {
   const box = $("#syncStatus");
   if (!box) return;
@@ -1562,6 +1591,7 @@ function wire() {
   });
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
     if ((store.state.settings.theme || "system") === "system") applyTheme("system");
+    renderDisplayDiag();
   });
 
   let resizeTimer;
