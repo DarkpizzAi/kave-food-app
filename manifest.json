@@ -8,8 +8,19 @@
   "_comment_display": "standalone. Fullscreen was tried in v9.2 to escape the system bars entirely and was worse: Android left a black band where the status bar had been, cutout and all, and hid the gesture bar. Reverted in v9.3.",
   "display": "standalone",
   "orientation": "portrait",
-  "_comment_colours": "theme_color is deliberately ABSENT. With it set, Chrome bakes that one colour into the WebAPK at install and the status bar ignores <meta name=theme-color> forever after - proven across three builds: #f4f7fd gave a light bar, #16181d gave a black one, in every app theme. Removing it leaves Chrome nothing to bake, so the live meta - which app.js keeps in step with the resolved --bg - is the only colour on offer. background_color stays: it only tints the launch splash, and dark suits both phones.",
-  "background_color": "#16181d",
+  "_comment_colours": "chrome://webapks shows FOUR colour slots for an installed app - Theme color, Background color, Dark theme color, Dark background color - so Chrome can hold a light AND a dark pair. Ours only ever filled the light ones, which is why the status bar could not follow the theme: it had nothing else to use. These are the Cobalt backgrounds, the default theme, and they are read from the manifest at parse time. Two spellings of the dark member are given because the W3C moved it to a top-level color_scheme_dark in Feb 2026 (PR 1207) while earlier Chromium shipped it nested under user_preferences; unknown manifest members are ignored, so whichever Chrome reads, the other is harmless. Check which landed at chrome://webapks - the Dark theme color row tells you.",
+  "theme_color": "#f4f7fd",
+  "background_color": "#f4f7fd",
+  "color_scheme_dark": {
+    "theme_color": "#16181d",
+    "background_color": "#16181d"
+  },
+  "user_preferences": {
+    "color_scheme_dark": {
+      "theme_color": "#16181d",
+      "background_color": "#16181d"
+    }
+  },
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
