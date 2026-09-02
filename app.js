@@ -298,14 +298,29 @@ function applyCustomForTheme() {
   });
 }
 
-/* Match the phone's status/notification bar to the app header. The header
-   is painted with --bg, so read that back after palette/theme apply. */
+/* Match the phone's status/notification bar AND its gesture bar to the app
+   header. The header and the bottom nav are both painted with --bg, so read
+   that back after palette/theme apply. color-scheme goes with it: that is what
+   tells the browser to paint its own chrome (and the Android gesture bar) dark
+   rather than leaving a light strip under a dark app. */
 function updateThemeColor() {
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (!meta) return;
-  const bg = getComputedStyle(document.documentElement)
-    .getPropertyValue("--bg").trim();
-  if (bg) meta.setAttribute("content", bg);
+  const root = document.documentElement;
+  const bg = getComputedStyle(root).getPropertyValue("--bg").trim();
+  // both metas, not just the first: they are scoped to the OS light/dark
+  // scheme, and an explicit theme in Settings has to beat the OS either way
+  if (bg) {
+    document.querySelectorAll('meta[name="theme-color"]')
+      .forEach((m) => m.setAttribute("content", bg));
+  }
+  root.style.colorScheme = darkNow() ? "dark" : "light";
+}
+
+/* is the app dark right now, whichever way it got there */
+function darkNow() {
+  const t = store.state.settings.theme || "system";
+  if (t === "dark") return true;
+  if (t === "light") return false;
+  return matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
 function applyTheme(theme) {
@@ -530,12 +545,67 @@ function escapeHtml(s) {
 
 /* ---------- rendering: recipes ---------- */
 
+/* Order-by options, in menu order. `cmp` is the primary comparator; name
+   ascending is always the tie-breaker, applied in renderRecipes. */
+const SORT_MODES = [
+  { id: "complexity-asc",  label: "Complexity, simplest first",
+    cmp: (a, b) => effortFor(a.category) - effortFor(b.category) },
+  { id: "complexity-desc", label: "Complexity, hardest first",
+    cmp: (a, b) => effortFor(b.category) - effortFor(a.category) },
+  { id: "name-asc",        label: "Alphabetical, A to Z", cmp: () => 0 },
+  { id: "name-desc",       label: "Alphabetical, Z to A",
+    cmp: (a, b) => deburr(b.name).localeCompare(deburr(a.name)) },
+  { id: "time-asc",        label: "Cooking time, quickest first",
+    cmp: (a, b) => timeCmp(a, b, 1) },
+  { id: "time-desc",       label: "Cooking time, longest first",
+    cmp: (a, b) => timeCmp(a, b, -1) },
+  { id: "incomplete-first", label: "Incomplete first",
+    cmp: (a, b) => incompleteRank(b) - incompleteRank(a) },
+  { id: "incomplete-last",  label: "Incomplete last",
+    cmp: (a, b) => incompleteRank(a) - incompleteRank(b) },
+];
+const DEFAULT_SORT = "complexity-asc";
+const sortMode = (id) => SORT_MODES.find((m) => m.id === id) || SORT_MODES[0];
+
+/* "1h30", "45 min", "1 h 15" -> minutes. prep + cook together; a recipe with
+   no times at all sorts to the very bottom either way rather than pretending
+   to take zero minutes. */
+function totalMinutes(recipe) {
+  let total = 0;
+  let seen = false;
+  [recipe.prep, recipe.cook].forEach((t) => {
+    if (!t) return;
+    const str = String(t).toLowerCase();
+    const h = /(\d+(?:[.,]\d+)?)\s*h/.exec(str);
+    // minutes written after the hours ("1h30") as well as on their own ("45min")
+    const m = /(\d+)\s*(?:min|mn|m(?![a-z]))/.exec(str) || (h && /h\s*(\d{1,2})(?!\d)/.exec(str));
+    const bare = !h && !m ? /(\d+)/.exec(str) : null;
+    if (h) { total += parseFloat(h[1].replace(",", ".")) * 60; seen = true; }
+    if (m) { total += parseInt(m[1], 10); seen = true; }
+    if (bare) { total += parseInt(bare[1], 10); seen = true; }
+  });
+  return seen ? total : null;
+}
+
+/* recipes with no time at all sit at the bottom whichever way you sort, rather
+   than pretending to be the quickest (or the longest) thing in the book */
+function timeCmp(a, b, dir) {
+  const ta = totalMinutes(a);
+  const tb = totalMinutes(b);
+  if (ta == null || tb == null) return (ta == null) - (tb == null);
+  return dir * (ta - tb);
+}
+
+/* incomplete = still to write, or written but not yet confirmed in the kitchen */
+const incompleteRank = (r) => (r.stub || !r.portionsConfirmed ? 1 : 0);
+
 const recipeFilters = {
   q: "",
   cuisine: "",
   main: "",
   searchOpen: false,
-  sortDir: "asc", // asc = simplest first
+  sort: DEFAULT_SORT,
+  sortOpen: false,
 };
 
 const recipeFiltersActive = () =>
@@ -543,7 +613,7 @@ const recipeFiltersActive = () =>
     recipeFilters.cuisine ||
     recipeFilters.main ||
     recipeFilters.q.trim() ||
-    recipeFilters.sortDir !== "asc"
+    recipeFilters.sort !== DEFAULT_SORT
   );
 
 // distinct values ordered by how many recipes have them, most first
@@ -610,30 +680,70 @@ function renderRecipeControlRow(state) {
   const spacer = document.createElement("div");
   spacer.className = "spacer";
 
+  // Clear sits immediately left of Order by, on the right of the row, and is
+  // accent-coloured so it reads as the one active thing to undo
   const clear = document.createElement("button");
   clear.className = "clear-btn";
   clear.hidden = !recipeFiltersActive();
-  clear.innerHTML = `${ICON.x}Clear`;
+  clear.innerHTML = `${ICON.x}<span>Clear filters</span>`;
   clear.addEventListener("click", () => {
     recipeFilters.q = "";
     recipeFilters.cuisine = "";
     recipeFilters.main = "";
-    recipeFilters.sortDir = "asc";
+    recipeFilters.sort = DEFAULT_SORT;
+    recipeFilters.sortOpen = false;
     renderRecipes(store.state);
   });
 
-  const asc = recipeFilters.sortDir === "asc";
+  const sortWrap = document.createElement("div");
+  sortWrap.className = "sort-wrap";
+
   const sort = document.createElement("button");
   sort.className = "sort-btn";
-  sort.innerHTML =
-    (asc ? ICON.sortUp : ICON.sortDown) +
-    `<span>${asc ? "Simplest first" : "Most complex first"}</span>`;
-  sort.addEventListener("click", () => {
-    recipeFilters.sortDir = asc ? "desc" : "asc";
-    renderRecipes(store.state);
+  sort.setAttribute("aria-haspopup", "listbox");
+  sort.setAttribute("aria-expanded", String(recipeFilters.sortOpen));
+  sort.innerHTML = ICON.sortUp + `<span>Order by</span>`;
+  sort.addEventListener("click", (e) => {
+    e.stopPropagation();
+    recipeFilters.sortOpen = !recipeFilters.sortOpen;
+    renderRecipeControlRow(store.state);
   });
+  sortWrap.appendChild(sort);
 
-  row.append(glass, clear, spacer, sort);
+  if (recipeFilters.sortOpen) {
+    const menu = document.createElement("div");
+    menu.className = "sort-menu";
+    menu.setAttribute("role", "listbox");
+    SORT_MODES.forEach((m) => {
+      const opt = document.createElement("button");
+      opt.type = "button";
+      opt.className = "sort-opt" + (m.id === recipeFilters.sort ? " on" : "");
+      opt.setAttribute("role", "option");
+      opt.setAttribute("aria-selected", String(m.id === recipeFilters.sort));
+      opt.innerHTML = `<span>${m.label}</span>` +
+        (m.id === recipeFilters.sort ? ICON.check : "");
+      opt.addEventListener("click", (e) => {
+        e.stopPropagation();
+        recipeFilters.sort = m.id;
+        recipeFilters.sortOpen = false;
+        renderRecipes(store.state);
+      });
+      menu.appendChild(opt);
+    });
+    sortWrap.appendChild(menu);
+    // one-shot: the next tap anywhere else closes the menu
+    setTimeout(() => {
+      document.addEventListener("click", closeSortMenu, { once: true });
+    }, 0);
+  }
+
+  row.append(glass, spacer, clear, sortWrap);
+}
+
+function closeSortMenu() {
+  if (!recipeFilters.sortOpen) return;
+  recipeFilters.sortOpen = false;
+  renderRecipeControlRow(store.state);
 }
 
 function renderRecipeFilters(state) {
@@ -686,7 +796,7 @@ function renderRecipes(state) {
   renderRecipeControlRow(state);
   renderRecipeFilters(state);
   const q = deburr(recipeFilters.q);
-  const dir = recipeFilters.sortDir === "asc" ? 1 : -1;
+  const mode = sortMode(recipeFilters.sort);
   const rows = state.recipes
     .filter((r) => {
       if (recipeFilters.cuisine && r.cuisine !== recipeFilters.cuisine) return false;
@@ -694,11 +804,7 @@ function renderRecipes(state) {
       if (q && !deburr(r.name).includes(q)) return false;
       return true;
     })
-    .sort(
-      (a, b) =>
-        dir * (effortFor(a.category) - effortFor(b.category)) ||
-        deburr(a.name).localeCompare(deburr(b.name)),
-    );
+    .sort((a, b) => mode.cmp(a, b) || deburr(a.name).localeCompare(deburr(b.name)));
   const ul = $("#recipeList");
   ul.innerHTML = "";
   rows.forEach((r) => {
@@ -715,7 +821,7 @@ function renderRecipes(state) {
       <span class="main">${escapeHtml(r.name)}</span>
       <span class="card-meta">${meta}</span>`;
     if (typeof foodPixelIcon === "function") {
-      li.appendChild(foodPixelIcon(r.name, r.category, 34));
+      li.appendChild(foodPixelIcon(r.name, r.category, 38));
     }
     li.addEventListener("click", () => openRecipe(r.slug));
     ul.appendChild(li);
