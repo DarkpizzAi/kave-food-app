@@ -820,14 +820,6 @@ input, .search {
   letter-spacing: 0.02em;
 }
 .stub-body { padding: 4px 0 8px; }
-.stub-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
-.stub-tag {
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: var(--surface-2);
-  color: var(--text-dim);
-  font-size: 0.8rem;
-}
 .stub-link {
   display: inline-block;
   margin: 0 10px 8px 0;
@@ -1001,6 +993,15 @@ body.readonly .add-row input { cursor: not-allowed; }
   line-height: 1.15;
   letter-spacing: -0.02em;
   text-wrap: balance;
+}
+.detail-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.detail-tag {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
 }
 
 .detail-inner { max-width: 720px; margin: 0 auto; padding: 16px; }

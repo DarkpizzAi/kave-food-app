@@ -1081,21 +1081,32 @@ function qtyText(qty, unit) {
   return `${q}${unit ? " " + escapeHtml(unit) : ""}`;
 }
 
+// up to 3 pills for the detail header: cuisine, type, and the stub status
+function detailBarHtml(recipe) {
+  const tags = [];
+  if (recipe.cuisine) tags.push(cap(recipe.cuisine));
+  if (recipe.mainIngredient && recipe.mainIngredient !== "other") {
+    tags.push(MAIN_LABELS[recipe.mainIngredient] || cap(recipe.mainIngredient));
+  }
+  if (recipe.stub) tags.push(recipe.stubKind === "link" ? "link only" : "to write");
+  const pills = tags.slice(0, 3)
+    .map((t) => `<span class="detail-tag">${escapeHtml(t)}</span>`).join("");
+  return `<span class="rname">${escapeHtml(recipe.name)}</span>` +
+    (pills ? `<div class="detail-tags">${pills}</div>` : "");
+}
+
 function renderDetail() {
   const { recipe } = detailState;
 
   // index-only entry: no card written yet. Show the name + where to cook it
   // from, nothing to scale.
   if (recipe.stub) {
-    $("#detailBar").innerHTML = `<span class="rname">${escapeHtml(recipe.name)}</span>`;
-    const tags = [recipe.cuisine, recipe.category].filter(Boolean)
-      .map((x) => `<span class="stub-tag">${escapeHtml(cap(x))}</span>`).join("");
+    $("#detailBar").innerHTML = detailBarHtml(recipe);
     const links = (recipe.sources || []).map((u, i) =>
       `<a class="stub-link" href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer">
          Open recipe${recipe.sources.length > 1 ? " " + (i + 1) : ""} &nearr;</a>`).join("");
     $("#detailBody").innerHTML = `
       <div class="stub-body">
-        ${tags ? `<div class="stub-tags">${tags}</div>` : ""}
         ${links || `<p class="hint">Not written up yet. Cook it once and add it
           with the <code>add-recipe</code> skill and it becomes a full card here.</p>`}
         ${links ? `<p class="hint">Not saved as a full recipe yet, so there is no
@@ -1160,7 +1171,7 @@ function renderDetail() {
     customBubble = `<button class="bubble bubble-custom" id="customBubble">Custom</button>`;
   }
 
-  $("#detailBar").innerHTML = `<span class="rname">${escapeHtml(recipe.name)}</span>`;
+  $("#detailBar").innerHTML = detailBarHtml(recipe);
 
   $("#detailBody").innerHTML = `
     <div class="scaler">
