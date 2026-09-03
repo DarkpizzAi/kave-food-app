@@ -534,27 +534,38 @@ function tidyChecked() {
   }
 
   if (!drop.size) {
-    cleanupMessage("Nothing to clean up.");
+    showTidyResult("Nothing to clean up.");
     return;
   }
+  const stillChecked = store.state.list.some((x) => x.checked && !drop.has(x.id));
   store.removeMany([...drop]);
   const msg = `${drop.size} line${drop.size === 1 ? "" : "s"} cleaned up.`;
-  // the message shows in the reserved slot above the row; if the whole ticked
-  // block just emptied there is no slot, so fall back to the page banner
-  if (store.state.list.some((x) => x.checked)) cleanupMessage(msg);
+  // the result briefly replaces the Clean up button; if the whole ticked block
+  // just emptied there is no button, so fall back to the page banner
+  if (stillChecked) showTidyResult(msg);
   else flashBanner(msg);
 }
 
-let cleanupMsgTimer;
-function cleanupMessage(text) {
-  const el = $("#cleanupMsg");
-  if (!el) return;
-  el.textContent = text;
-  clearTimeout(cleanupMsgTimer);
-  cleanupMsgTimer = setTimeout(() => {
-    const e = $("#cleanupMsg");
-    if (e) e.textContent = "";
-  }, 3500);
+/* the Clean up result fades in over the button, holds, then the button fades
+   back. render() does not touch #tidyChecked, so the swap survives it. */
+let tidyResultTimer;
+function showTidyResult(text) {
+  const btn = $("#tidyChecked");
+  if (!btn) return;
+  clearTimeout(tidyResultTimer);
+  btn.classList.add("fading");
+  setTimeout(() => {
+    btn.textContent = text;
+    btn.classList.add("result");
+    btn.classList.remove("fading");
+  }, 200);
+  tidyResultTimer = setTimeout(() => {
+    btn.classList.add("fading");
+    setTimeout(() => {
+      btn.textContent = "Clean up";
+      btn.classList.remove("result", "fading");
+    }, 200);
+  }, 2600);
 }
 
 const HTML_ENTITIES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
