@@ -124,6 +124,12 @@ const store = {
       source,
       addedBy: this.state.settings.who || "?",
       addedAt: new Date().toISOString(),
+      // Last time this row was actually used - ticked or un-ticked while
+      // shopping. addedAt cannot stand in for it: every seed row carries the
+      // bootstrap date, so it says when the catalogue was built, not whether
+      // anyone has bought the thing since. food/tools/prune_shopping_list.py
+      // reads it (falling back to addedAt) to retire rows nobody touches.
+      touchedAt: new Date().toISOString(),
     };
     this.state.list.push(item);
     this.enqueue({ t: "add", id: item.id, item: { ...item } });
@@ -135,7 +141,8 @@ const store = {
     const it = this.state.list.find((x) => x.id === id);
     if (it) {
       it.checked = !it.checked;
-      this.enqueue({ t: "check", id, checked: it.checked });
+      it.touchedAt = new Date().toISOString();
+      this.enqueue({ t: "check", id, checked: it.checked, touchedAt: it.touchedAt });
       this.saveList(); this.notify();
     }
   },
@@ -144,7 +151,8 @@ const store = {
     const it = this.state.list.find((x) => x.id === id);
     if (it && it.checked) {
       it.checked = false;
-      this.enqueue({ t: "check", id, checked: false });
+      it.touchedAt = new Date().toISOString();
+      this.enqueue({ t: "check", id, checked: false, touchedAt: it.touchedAt });
       this.saveList(); this.notify();
     }
   },
@@ -497,6 +505,19 @@ function submitAddName() {
   input.focus();
 }
 
+/* An amount at the end of a name, but only an unambiguous one: it carries a
+   unit ("200 g"), an x multiplier ("x2"), or brackets ("(2x400g)"). A bare
+   trailing number is NOT an amount - "Omega 3" is a name, not three of
+   something, and "Vitamine B12" and "Ratio 16 9" are names too.
+
+   One rule, used for both halves of Clean up, because both halves delete:
+   isQuantified decides whether a row is a recipe leftover to remove, and
+   stripQty builds the key that decides which rows are duplicates of each
+   other. Letting the key strip a bare number merged "Omega 3" with "Omega 6"
+   and deleted one of them; a unit-bearing suffix is the only safe signal. */
+const TRAILING_AMOUNT =
+  /(?:\s+x\s*\d+(?:[.,]\d+)?|\s+\d+(?:[.,]\d+)?\s*(?:kg|g|mg|l|ml|cl|pcs?|pc)|\s*[([][^()[\]]*\d[^()[\]]*[)\]])$/i;
+
 /* strip a trailing quantity / size note from a name, e.g. "Parmesan 200 g" ->
    "parmesan", "Tomatoes (2x400g)" -> "tomatoes". Deburred, so it doubles as a
    grouping key. A bracketed note is only stripped when it has a digit, so real
@@ -506,29 +527,59 @@ function stripQty(name) {
   let prev;
   do {
     prev = s;
-    s = s
-      .replace(/[.,;]+$/, "")
-      .replace(/\s*[([][^()[\]]*\d[^()[\]]*[)\]]$/, "")
-      .replace(/\s+(?:x\s*)?\d+(?:[.,]\d+)?\s*(?:kg|g|mg|l|ml|cl|pcs?|pc|x)?$/i, "")
-      .trim();
+    s = s.replace(/[.,;]+$/, "").replace(TRAILING_AMOUNT, "").trim();
   } while (s !== prev);
   return s;
 }
 
-/* An amount at the end of a name, but only an unambiguous one: it carries a
-   unit, an x multiplier, or brackets. A bare trailing number is NOT enough -
-   "Omega 3" is a name, not three of something. */
-const TRAILING_AMOUNT =
-  /(?:\s+x\s*\d+(?:[.,]\d+)?|\s+\d+(?:[.,]\d+)?\s*(?:kg|g|mg|l|ml|cl|pcs?|pc)|[([][^()[\]]*\d[^()[\]]*[)\]])$/i;
-
 /* a ticked item is "recipe-specific" if it carries an amount: a real qty
-   field, or a quantity left in the name (hand-typed items don't parse one).
-   Deliberately stricter than stripQty(), which is only a grouping key: this
-   one decides what Clean up DELETES, so a false positive loses a real row. */
+   field, or a quantity left in the name (hand-typed items don't parse one) */
 function isQuantified(it) {
   const q = Number(it.qty);
   if (Number.isFinite(q) && q !== 0) return true;
   return TRAILING_AMOUNT.test(deburr(it.name || "").replace(/\s+/g, " ").trim());
+}
+
+/* Clean up also retires ticked rows nobody has used in a long time.
+
+   Same gesture, same meaning ("tidy the ticked block"), and doing it on an
+   explicit tap beats a scheduled job that removes things unasked. It matters
+   because the whole list is re-uploaded on every write, so the ticked
+   catalogue is paid for on every single tick; this is what stops it growing
+   forever. Retired rows also stop appearing as "add back" suggestions, which
+   is the point: they are things nobody buys. */
+const PRUNE_MONTHS = 6;
+// a sweep bigger than this asks before deleting, see tidyChecked
+const CONFIRM_OVER = 20;
+
+/* The clock starts here, not at whatever addedAt a row happens to carry.
+   Usage tracking began with v9.22; before that nothing recorded whether an
+   item was ever actually bought. The seed's addedAt is the bootstrap date, so
+   letting it age rows out on its own would retire the catalogue on the
+   strength of a timestamp that never meant "last used". Flooring at the epoch
+   means the first prune cannot land until PRUNE_MONTHS of real use have been
+   observed: six months from this build, whatever the data says.
+   food/tools/prune_shopping_list.py mirrors both constants. */
+const PRUNE_EPOCH = Date.parse("2026-09-03T00:00:00Z");
+
+let pruneArmed = false;
+let pruneArmTimer;
+
+/* Last evidence a row was used: touchedAt moves on every tick and un-tick.
+   Without one, the row counts as last used at its addedAt or the epoch,
+   whichever is later, so a row added tomorrow ages from tomorrow and a seed
+   row ages from the epoch. Never null: every row has a defensible date. */
+function lastUsedAt(it) {
+  const touched = Date.parse(it.touchedAt || "");
+  if (Number.isFinite(touched)) return touched;
+  const added = Date.parse(it.addedAt || "");
+  return Math.max(Number.isFinite(added) ? added : PRUNE_EPOCH, PRUNE_EPOCH);
+}
+
+function pruneCutoffMs() {
+  const d = new Date();
+  d.setMonth(d.getMonth() - PRUNE_MONTHS);
+  return d.getTime();
 }
 
 /* the group key: same concept (slug, or the de-quantified name) and same
@@ -537,11 +588,12 @@ function cleanupKey(it) {
   return `${it.slug || stripQty(it.name)}|${deburr((it.note || "").trim())}`;
 }
 
-/* Clean up: nothing happens until this is pressed, and then it deletes real
-   records. Per group of ticked items: keep one (a non-quantified staple by
-   preference, else the shortest name), delete the rest; then delete that
-   survivor too if it is itself quantified. Survivors stay ticked. */
-function tidyChecked() {
+/* Everything Clean up would remove, and why. Per group of ticked items: keep
+   one (a non-quantified staple by preference, else the shortest name), delete
+   the rest; then delete that survivor too if it is itself quantified.
+   Survivors stay ticked. Then, separately, anything ticked and past the age
+   cutoff. Computing without mutating lets the confirm step show a count. */
+function cleanupPlan() {
   const groups = new Map();
   for (const it of store.state.list) {
     if (!it.checked) continue;
@@ -562,14 +614,53 @@ function tidyChecked() {
     rest.forEach((it) => drop.add(it.id));
     if (isQuantified(keep)) drop.add(keep.id);
   }
+  const dupes = drop.size;
 
-  if (!drop.size) {
+  const cut = pruneCutoffMs();
+  let stale = 0;
+  for (const it of store.state.list) {
+    if (!it.checked || drop.has(it.id)) continue;
+    if (lastUsedAt(it) < cut) { drop.add(it.id); stale++; }
+  }
+  return { ids: [...drop], dupes, stale };
+}
+
+
+function disarmPrune() {
+  clearTimeout(pruneArmTimer);
+  pruneArmed = false;
+}
+
+function tidyChecked() {
+  const plan = cleanupPlan();
+
+  if (!plan.ids.length) {
+    disarmPrune();
     showTidyResult("Nothing to clean up");
     return;
   }
-  const stillChecked = store.state.list.some((x) => x.checked && !drop.has(x.id));
-  store.removeMany([...drop]);
-  const msg = `${drop.size} line${drop.size === 1 ? "" : "s"} cleaned up`;
+
+  /* A big sweep - typically the first prune, retiring the untouched half of
+     the seed catalogue in one go - is irreversible and there is no undo, so
+     make it two taps. Small tidies go straight through, as they always have.
+     The guard covers a large duplicate merge too, which was never confirmed. */
+  if (plan.ids.length > CONFIRM_OVER && !pruneArmed) {
+    pruneArmed = true;
+    clearTimeout(pruneArmTimer);
+    showTidyResult(`Remove ${plan.ids.length}? Tap again`, { hold: 6000 });
+    pruneArmTimer = setTimeout(() => { pruneArmed = false; }, 6000);
+    return;
+  }
+  disarmPrune();
+
+  const dropSet = new Set(plan.ids);
+  const stillChecked = store.state.list.some((x) => x.checked && !dropSet.has(x.id));
+  store.removeMany(plan.ids);
+
+  const bits = [];
+  if (plan.dupes) bits.push(`${plan.dupes} duplicate${plan.dupes === 1 ? "" : "s"}`);
+  if (plan.stale) bits.push(`${plan.stale} unused`);
+  const msg = `${bits.join(" and ")} cleaned up`;
   // the result briefly replaces the Clean up button; if the whole ticked block
   // just emptied there is no button, so fall back to the page banner
   if (stillChecked) showTidyResult(msg);
@@ -579,7 +670,8 @@ function tidyChecked() {
 /* the Clean up result fades in over the button, holds, then the button fades
    back. render() does not touch #tidyChecked, so the swap survives it. */
 let tidyResultTimer;
-function showTidyResult(text) {
+function showTidyResult(text, opts) {
+  const hold = (opts && opts.hold) || 2600;
   const btn = $("#tidyChecked");
   if (!btn) return;
   clearTimeout(tidyResultTimer);
@@ -595,7 +687,7 @@ function showTidyResult(text) {
       btn.textContent = "Clean up";
       btn.classList.remove("result", "fading");
     }, 200);
-  }, 2600);
+  }, hold);
 }
 
 const HTML_ENTITIES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
@@ -1842,7 +1934,12 @@ function replayOps(items, ops) {
       if (!out.some((x) => x.id === op.id)) out.push(op.item);
     } else if (op.t === "check") {
       const it = out.find((x) => x.id === op.id);
-      if (it) it.checked = op.checked;
+      if (it) {
+        it.checked = op.checked;
+        // carry the touch to the remote copy, so the prune sees real use from
+        // either phone, not just the one that happened to write last
+        if (op.touchedAt) it.touchedAt = op.touchedAt;
+      }
     } else if (op.t === "delete") {
       out = out.filter((x) => x.id !== op.id);
     }
@@ -1862,9 +1959,16 @@ function queueMessage(ops) {
   return `list ${bits.join(" ")} (${who})`;
 }
 
+/* 5s, not 800ms. Every push is a ~106 KB GET plus a ~141 KB base64 PUT of the
+   whole list, so a debounce shorter than the gap between two ticks means one
+   full round trip per ticked item - a 15-item shop was ~3.5 MB. At 5s a run of
+   ticks coalesces into one write and the other phone is still under ~6s
+   behind. The queue survives backgrounding, so nothing is at risk in the gap. */
+const FLUSH_DEBOUNCE_MS = 5000;
+
 function scheduleFlush() {
   clearTimeout(flushTimer);
-  flushTimer = setTimeout(flushQueue, 800);
+  flushTimer = setTimeout(flushQueue, FLUSH_DEBOUNCE_MS);
 }
 
 // push pending list changes to GitHub: GET -> replay -> PUT, retry on 409
