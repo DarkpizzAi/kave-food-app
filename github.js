@@ -18,6 +18,7 @@ const github = {
     branch: "main",
     listPath: "food/data/shopping-list.json",
     recipesPath: "food/data/recipes.json",
+    pricesPath: "food/data/price-series.json",
   },
   // GitHub's suggested minimum seconds between polls, if it ever sends one
   pollInterval: 60,

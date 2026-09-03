@@ -7,7 +7,8 @@
 const LS_LIST = "foodapp.list";        // the shopping list, optimistic working copy
 const LS_SETTINGS = "foodapp.settings";
 const LS_RECIPES = "foodapp.recipes";  // last-synced recipes (offline cache)
-const LS_SYNC = "foodapp.sync";        // { listSha, listEtag, recipesSha, recipesEtag, syncedAt }
+const LS_PRICES = "foodapp.prices";    // last-synced price-series.json (offline cache)
+const LS_SYNC = "foodapp.sync";        // { listSha, listEtag, recipesSha, recipesEtag, pricesSha, pricesEtag, syncedAt }
 const LS_QUEUE = "foodapp.queue";      // pending list changes not yet pushed to GitHub
 
 // Declared here, not down with the service-worker block: render() runs during
@@ -21,8 +22,14 @@ const store = {
     list: [],
     settings: { token: "", who: "", theme: "system", palette: "cobalt", custom: null },
     recipes: [],
+    // {products: {key: {l1,l1_label,l2,label,series}}, resolve: {name: {level,l1,l1_label,l2?}}}
+    // - see build_price_series.py in kave-hub for exactly what these mean
+    prices: { products: {}, resolve: {} },
   },
-  sync: { listSha: null, listEtag: null, recipesSha: null, recipesEtag: null, syncedAt: null },
+  sync: {
+    listSha: null, listEtag: null, recipesSha: null, recipesEtag: null,
+    pricesSha: null, pricesEtag: null, syncedAt: null,
+  },
   queue: [],  // [{ opId, t: "add"|"check"|"delete", id, ts, ... }]
   subs: [],
   subscribe(fn) { this.subs.push(fn); },
@@ -39,6 +46,10 @@ const store = {
     try {
       const r = JSON.parse(localStorage.getItem(LS_RECIPES));
       if (Array.isArray(r)) this.state.recipes = r;
+    } catch (e) { /* ignore */ }
+    try {
+      const p = JSON.parse(localStorage.getItem(LS_PRICES));
+      if (p && typeof p === "object" && p.products) this.state.prices = p;
     } catch (e) { /* ignore */ }
     try {
       const y = JSON.parse(localStorage.getItem(LS_SYNC));
@@ -64,6 +75,10 @@ const store = {
   },
   saveRecipes() {
     try { localStorage.setItem(LS_RECIPES, JSON.stringify(this.state.recipes)); }
+    catch (e) { /* ignore */ }
+  },
+  savePrices() {
+    try { localStorage.setItem(LS_PRICES, JSON.stringify(this.state.prices)); }
     catch (e) { /* ignore */ }
   },
   saveSync() {
@@ -367,82 +382,12 @@ const VIEW_TITLES = {
   settings: "Settings",
 };
 
-/* ---------- prices (mock data pending build_price_series.py in kave-hub) ---------
-
-   PRICE_MOCK stands in for food/data/price-series.json until the real builder
-   exists. Keyed by stripQty(item name) so a list row can look itself up the
-   same way "add back to the list" already matches names. Each entry is one
-   product-level series (see the v10 spec: keying by product, not slug, is
-   what keeps a series honest) - l1/l2 are display-only breadcrumb labels,
-   not a real drill hierarchy yet, because this mock only carries one product
-   per branch. */
-const PRICE_MOCK = {
-  "fusilli": {
-    l1: "Pasta", l2: "Fusilli", label: "Fusilli",
-    series: [
-      { date: "2024-09-05", store: "Condis", price: 3.40 },
-      { date: "2025-01-12", store: "Keisy", price: 3.50 },
-      { date: "2025-02-20", store: "Keisy", price: 3.48 },
-      { date: "2025-07-14", store: "Condis", price: 3.48 },
-      { date: "2026-02-03", store: "Keisy", price: 3.60 },
-      { date: "2026-05-11", store: "Ametller Origen", price: 7.38 },
-      { date: "2026-07-02", store: "Keisy", price: 3.29, promo: true },
-      { date: "2026-08-26", store: "Keisy", price: 3.48 },
-    ],
-  },
-  "mozzarella": {
-    l1: "Mozzarella", l2: null, label: "Mozzarella",
-    series: [
-      { date: "2025-03-02", store: "Mercadona", price: 9.50 },
-      { date: "2025-09-18", store: "Keisy", price: 10.00 },
-      { date: "2026-01-22", store: "Condis", price: 13.90 },
-      { date: "2026-06-14", store: "Keisy", price: 10.00 },
-      { date: "2026-08-10", store: "Keisy", price: 7.60 },
-    ],
-  },
-  "ous de corral vall de mestral": {
-    l1: "Oeufs", l2: "Plein air", label: "Ous de corral Vall de Mestral",
-    series: [
-      { date: "2024-04-10", store: "Keisy", price: 5.50 },
-      { date: "2024-07-08", store: "Keisy", price: 5.69 },
-      { date: "2025-01-15", store: "Keisy", price: 5.69 },
-      { date: "2025-08-02", store: "Keisy", price: 6.15 },
-      { date: "2026-01-10", store: "Ametller Origen", price: 4.90 },
-      { date: "2026-04-02", store: "Ametller Origen", price: 5.10 },
-      { date: "2026-06-11", store: "Keisy", price: 8.20 },
-      { date: "2026-08-29", store: "Keisy", price: 5.69 },
-    ],
-  },
-  "creme de cuisine": {
-    l1: "Creme fraiche", l2: "Creme de cuisine 18%", label: "Creme de cuisine",
-    series: [
-      { date: "2025-05-01", store: "Carrefour", price: 5.18 },
-      { date: "2025-09-01", store: "Carrefour", price: 5.40 },
-      { date: "2025-11-20", store: "Keisy", price: 7.50 },
-      { date: "2026-04-09", store: "Keisy", price: 9.46 },
-      { date: "2026-08-15", store: "Keisy", price: 6.34 },
-    ],
-  },
-  "pa cristal-li pretallat": {
-    l1: "Pain", l2: "Pan de cristal", label: "Pa cristal-li pretallat",
-    series: [
-      { date: "2025-01-05", store: "Mercadona", price: 6.50 },
-      { date: "2025-06-01", store: "Keisy", price: 9.17 },
-      { date: "2026-02-14", store: "Keisy", price: 9.33 },
-      { date: "2026-07-20", store: "Mercadona", price: 6.50 },
-      { date: "2026-08-22", store: "Ametller Origen", price: 8.63 },
-    ],
-  },
-  "ceba dolca": {
-    l1: "Oignon", l2: "Doux", label: "Ceba dolca",
-    series: [
-      { date: "2025-02-10", store: "Keisy", price: 1.99 },
-      { date: "2025-09-05", store: "Keisy", price: 2.59 },
-      { date: "2026-03-11", store: "Keisy", price: 2.15 },
-      { date: "2026-07-30", store: "Keisy", price: 1.99 },
-    ],
-  },
-};
+/* ---------- prices ---------- */
+/* Data is store.state.prices, synced from food/data/price-series.json in
+   kave-hub (build_price_series.py). Everything below reads it live off
+   store.state, never a cached snapshot, so a background sync updates the
+   Prices tab the same way a list sync updates the list. See that script's
+   docstring for exactly what "products" and "resolve" mean and why. */
 
 // fixed roster (v10 spec): a store outside this list renders greyscale, never
 // a made-up colour. Ametller needs a theme-aware pair, so it is read from a
@@ -468,6 +413,90 @@ function priceKeyFor(name) {
   return stripQty(name);
 }
 
+// the resolve index is keyed the same way build_price_series.py's
+// normalise() builds it: deburred, lowercased, elision and punctuation
+// stripped. The 3-way suffix try below (as typed / "es"->"a" / trailing "s"
+// dropped) mirrors link_shopping_list.py's match() exactly, on purpose - one
+// algorithm, two languages, so the two never drift apart. Deliberately NOT
+// the fuller stopword/singularisation machinery those Python tools use for
+// bulk, unsupervised matching: this is one word, tapped live, and a miss
+// just means no hint (never a guess) rather than needing that much power.
+function normaliseForResolve(name) {
+  return deburr(name || "")
+    .toLowerCase()
+    .replace(/\b[dl]'/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+function resolveInIndex(name) {
+  const resolve = store.state.prices.resolve;
+  const n = normaliseForResolve(name);
+  if (!n) return null;
+  for (const cand of [n, n.replace(/es$/, "a"), n.replace(/s$/, "")]) {
+    if (cand && resolve[cand]) return resolve[cand];
+  }
+  return null;
+}
+
+// what a typed name (a list item, a recipe ingredient) resolves to: the
+// exact product if it matches one (someone typed the full product name), else
+// the variant it names, else the card it names, else nothing - never guessed.
+function resolvePriceTarget(name) {
+  const exactKey = priceKeyFor(name);
+  if (store.state.prices.products[exactKey]) return { level: "l3", key: exactKey };
+  const hit = resolveInIndex(name);
+  if (!hit) return null;
+  return hit.level === "l2"
+    ? { level: "l2", l1: hit.l1, l1_label: hit.l1_label, l2: hit.l2 }
+    : { level: "l1", l1: hit.l1, l1_label: hit.l1_label };
+}
+
+// every point from every product sharing this l1 (and l2, if given) - Isa's
+// call on the L1/L2 chart (v10 follow-up): pool every product under a card
+// or variant into one line per store, same as the very first sketch of this
+// feature. Deliberately re-mixes what the product-level key (spec §2) keeps
+// apart at L3 - flagged and confirmed, not a silent regression.
+function pooledSeries(l1, l2) {
+  const out = [];
+  for (const entry of Object.values(store.state.prices.products)) {
+    if (entry.l1 !== l1) continue;
+    if (l2 != null && entry.l2 !== l2) continue;
+    out.push(...entry.series);
+  }
+  return out;
+}
+
+// the series array for whatever pricesUiState currently points at - the one
+// place that knows how to turn {level, l1, l2, key} into actual points, so
+// nothing else has to branch on level.
+function seriesForTarget(target) {
+  if (!target) return [];
+  if (target.level === "l3") {
+    const entry = store.state.prices.products[target.key];
+    return entry ? entry.series : [];
+  }
+  return pooledSeries(target.l1, target.level === "l2" ? target.l2 : null);
+}
+
+// everything the Trends card and the price sheet both need to display for
+// the current target: the breadcrumb strings and the points. One place
+// that knows how l3 (a single product) differs from a pooled l1/l2 view,
+// so the two renderers can never disagree about it.
+function resolveTargetInfo(target) {
+  if (!target) return null;
+  const series = seriesForTarget(target);
+  if (target.level === "l3") {
+    const entry = store.state.prices.products[target.key];
+    if (!entry) return null;
+    return { l1: entry.l1, l1_label: entry.l1_label, l2: entry.l2, label: entry.label, series };
+  }
+  return {
+    l1: target.l1, l1_label: target.l1_label,
+    l2: target.level === "l2" ? target.l2 : null,
+    label: null, series,
+  };
+}
+
 // one point per date across every store, its median - a single overall
 // trend line, deliberately pooling stores rather than one line each (that
 // finer view is what the Trends chart is for). Only for a trend statistic:
@@ -489,10 +518,16 @@ function dailyPoints(series) {
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
-const PRICE_TODAY = Object.values(PRICE_MOCK)
-  .flatMap((e) => e.series.map((p) => p.date))
-  .sort()
-  .pop();
+// "today" for the 6-month window: the most recent date this device has
+// actually seen a price for. Live, not a constant - before the first sync
+// there is no data at all, and a background sync can extend it later.
+function priceToday() {
+  let latest = null;
+  for (const entry of Object.values(store.state.prices.products)) {
+    for (const p of entry.series) if (!latest || p.date > latest) latest = p.date;
+  }
+  return latest;
+}
 
 // pure UTC arithmetic throughout - mixing a local-time Date with the UTC
 // conversion toISOString() does can shift the result by a day depending on
@@ -505,19 +540,27 @@ function monthsBefore(dateStr, n) {
   return dt.toISOString().slice(0, 10);
 }
 
-function seriesForPeriod(entry, period) {
+function seriesInPeriod(series, period) {
   let cutFrom = null, cutTo = null;
-  if (period === "6m") cutFrom = monthsBefore(PRICE_TODAY, 6);
-  else if (/^\d{4}$/.test(period)) { cutFrom = `${period}-01-01`; cutTo = `${period}-12-31`; }
-  return entry.series.filter((p) => (!cutFrom || p.date >= cutFrom) && (!cutTo || p.date <= cutTo));
+  if (period === "6m") {
+    const today = priceToday();
+    if (!today) return series;
+    cutFrom = monthsBefore(today, 6);
+  } else if (/^\d{4}$/.test(period)) {
+    cutFrom = `${period}-01-01`; cutTo = `${period}-12-31`;
+  }
+  return series.filter((p) => (!cutFrom || p.date >= cutFrom) && (!cutTo || p.date <= cutTo));
 }
 
 // v10 spec §1: rank what comes back down, not what only rises. Excludes any
-// product that never dropped in the window, even if it moved a lot.
+// product that never dropped in the window, even if it moved a lot. Always
+// product-level (unaffected by whatever the Trends chart's L1/L2 pooling is
+// currently showing) - the spec validated this ranking at product
+// granularity specifically, pooling was never re-examined for it.
 function computeOpportunities(period) {
   const out = [];
-  for (const [key, entry] of Object.entries(PRICE_MOCK)) {
-    const pts = dailyPoints(seriesForPeriod(entry, period).filter((p) => !p.promo));
+  for (const [key, entry] of Object.entries(store.state.prices.products)) {
+    const pts = dailyPoints(seriesInPeriod(entry.series, period).filter((p) => !p.promo));
     if (pts.length < 2) continue;
     const prices = pts.map((p) => p.price);
     let hasDrop = false;
@@ -531,12 +574,13 @@ function computeOpportunities(period) {
 
 // v10 spec §6: a position hint, not a store recommendation - needs >=2
 // observations at each of two stores and >=15% apart before it fires, so it
-// never reacts to a single coincidental cheap trip.
-function computeBubble(key) {
-  const entry = PRICE_MOCK[key];
-  if (!entry) return null;
+// never reacts to a single coincidental cheap trip. Takes a plain points
+// array so it works the same for one product's own series or a pooled L1/L2
+// array - the arithmetic does not care where the points came from.
+function computeBubble(series) {
+  if (!series || !series.length) return null;
   const byStore = new Map();
-  entry.series.forEach((p) => {
+  series.forEach((p) => {
     if (!byStore.has(p.store)) byStore.set(p.store, []);
     byStore.get(p.store).push(p.price);
   });
@@ -555,12 +599,10 @@ function computeBubble(key) {
 
 // the lowest price paid in a period, and which store - promo included,
 // since "best price" means the best you could actually have paid, unlike
-// the Opportunities ranking which deliberately excludes promos (§4).
-// Worth watching always calls this with "6m" (its own window, independent
-// of whatever the Trends period chip is set to); the Trends card calls it
-// with pricesUiState.period so the two can legitimately differ.
-function bestPriceInPeriod(entry, period) {
-  const pts = seriesForPeriod(entry, period);
+// the Opportunities ranking which deliberately excludes promos (§4). Same
+// plain-points-array shape as computeBubble, same reason.
+function bestPriceInPeriod(series, period) {
+  const pts = seriesInPeriod(series, period);
   if (!pts.length) return null;
   const best = pts.reduce((a, b) => (b.price < a.price ? b : a));
   return { price: best.price, store: best.store };
@@ -628,14 +670,16 @@ const PRICE_ICON_PATH = '<path d="M4 17l5-6 4 3 7-7"/><path d="M15 7h5v5"/>';
 // same mark, flipped: a downward trend for an Opportunities row
 const PRICE_ICON_DOWN_PATH = '<path d="M4 7l5 6 4-3 7 7"/><path d="M15 17h5v-5"/>';
 
-// price hint for one list row: only unticked, only when the product has a
-// history at all - a row with no data gets no icon (v10 spec §6)
+// price hint for one list row: only unticked, only when the name resolves to
+// something with a history at all - a row with no data gets no icon
+// (v10 spec §6)
 function priceHintFor(it) {
   if (it.checked) return null;
-  const key = priceKeyFor(it.name);
-  const entry = PRICE_MOCK[key];
-  if (!entry) return null;
-  return { key, bubbleStore: computeBubble(key) };
+  const target = resolvePriceTarget(it.name);
+  if (!target) return null;
+  const series = seriesForTarget(target);
+  if (!series.length) return null;
+  return { target, bubbleStore: computeBubble(series) };
 }
 
 function itemRow(it) {
@@ -644,7 +688,7 @@ function itemRow(it) {
   const qtyStr = it.qty != null ? `${it.qty}${it.unit ? " " + it.unit : ""}` : "";
   const hint = priceHintFor(it);
   const priceBtn = hint ? `
-    <button class="price-btn" aria-label="Price history" data-price-key="${escapeHtml(hint.key)}">
+    <button class="price-btn" aria-label="Price history">
       ${hint.bubbleStore ? `<span class="price-bubble" style="background:${storeColor(hint.bubbleStore)}"></span>` : ""}
       <svg viewBox="0 0 24 24" fill="none" stroke="${hint.bubbleStore ? storeOnColor(hint.bubbleStore) : "currentColor"}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${PRICE_ICON_PATH}</svg>
     </button>` : "";
@@ -660,7 +704,7 @@ function itemRow(it) {
   $(".tick", li).addEventListener("click", () => store.toggleItem(it.id));
   $(".del", li).addEventListener("click", () => store.deleteItem(it.id));
   if (hint) {
-    $(".price-btn", li).addEventListener("click", () => goToPriceChart(hint.key));
+    $(".price-btn", li).addEventListener("click", () => goToPriceChart(hint.target));
   }
   return li;
 }
@@ -1367,15 +1411,17 @@ function closeRecipe() {
 /* ---------- price detail sheet (same swoop-up as a recipe) ---------- */
 
 // { key, highlightDate, highlightStore } - the two identify one row to
-// scroll to and highlight when a chart point (not a whole product) opens it
+// always whatever the Trends card is currently showing (pricesUiState.target)
+// - "See all" and a chart-dot tap both open the same sheet, the dot just
+// also carries a {date, store} to scroll to and highlight
 let priceDetailState = null;
 let priceSheetClosing = false;
 let priceCloseRequested = false;
 let priceSheetHasHistory = false;
 
-function openPriceDetail(key, highlight = null) {
-  if (!PRICE_MOCK[key]) return;
-  priceDetailState = { key, highlight };
+function openPriceDetail(highlight = null) {
+  if (!pricesUiState.target) return;
+  priceDetailState = { highlight };
   const el = $("#priceDetail");
   priceSheetClosing = false;
   priceCloseRequested = false;
@@ -1804,14 +1850,27 @@ async function checkToken() {
 /* ---------- rendering: prices ---------- */
 
 let pricesUiState = {
-  period: "6m",           // "6m" | "all" | a "YYYY" year
-  selectedKey: "fusilli",  // which PRICE_MOCK product the Trends chart shows
+  target: null,   // {level:"l3", key} | {level:"l1"|"l2", l1, l1_label, l2?} | null (nothing seen yet)
+  period: "6m",   // "6m" | "all" | a "YYYY" year
   oppOpen: false,
 };
 
-// the one entry point both a shopping-list tap and a Worth watching tap
-// go through, so the two never drift into two different behaviours: show
-// this product's chart, and (v10 spec) scroll to it rather than silently
+// picks a sensible first thing to show the moment real data exists and
+// nothing has been tapped yet: the top Worth-watching mover if there is
+// one, else whichever product has the deepest history. Never runs again
+// once something has actually been selected.
+function defaultPriceTarget() {
+  const top = computeOpportunities("6m")[0];
+  if (top) return { level: "l3", key: top.key };
+  const entries = Object.entries(store.state.prices.products);
+  if (!entries.length) return null;
+  entries.sort((a, b) => b[1].series.length - a[1].series.length);
+  return { level: "l3", key: entries[0][0] };
+}
+
+// the one entry point every tap goes through, so a shopping-list tap and a
+// Worth watching tap can never drift into two different behaviours: show
+// this target's chart, and (v10 spec) scroll to it rather than silently
 // updating off-screen.
 //
 // Default period is 6 months, but a bubble is a claim ("Carrefour is
@@ -1819,13 +1878,14 @@ let pricesUiState = {
 // months the chart would show the bubble's colour on the list row with no
 // way to check it. So: if there is a bubble and its store has no point in
 // the 6-month window, open on "all time" instead, where the evidence is.
-function selectPriceProduct(key, opts = {}) {
-  const entry = PRICE_MOCK[key];
-  if (!entry) return;
-  pricesUiState.selectedKey = key;
-  const bubbleStore = computeBubble(key);
+function selectPriceTarget(target, opts = {}) {
+  if (!target) return;
+  const series = seriesForTarget(target);
+  if (!series.length) return;
+  pricesUiState.target = target;
+  const bubbleStore = computeBubble(series);
   const bubbleInWindow = !bubbleStore ||
-    seriesForPeriod(entry, "6m").some((p) => p.store === bubbleStore);
+    seriesInPeriod(series, "6m").some((p) => p.store === bubbleStore);
   pricesUiState.period = bubbleInWindow ? "6m" : "all";
   renderTrends();
   if (opts.scroll) {
@@ -1834,9 +1894,9 @@ function selectPriceProduct(key, opts = {}) {
   }
 }
 
-function goToPriceChart(key) {
+function goToPriceChart(target) {
   store.setView("prices");
-  selectPriceProduct(key, { scroll: true });
+  selectPriceTarget(target, { scroll: true });
 }
 
 const OPP_COLLAPSED = 5;
@@ -1855,8 +1915,9 @@ function renderOpportunities() {
   // (v10 spec §6), so a coloured bubble means "clear cheapest store"
   // everywhere it shows up, not just on the list
   list.innerHTML = shown.map((o) => {
-    const bubbleStore = computeBubble(o.key);
-    const best6 = bestPriceInPeriod(PRICE_MOCK[o.key], "6m");
+    const entry = store.state.prices.products[o.key];
+    const bubbleStore = computeBubble(entry.series);
+    const best6 = bestPriceInPeriod(entry.series, "6m");
     return `
     <li class="opp-row" data-price-key="${escapeHtml(o.key)}">
       <span class="opp-name">${escapeHtml(o.label)}</span>
@@ -1868,7 +1929,8 @@ function renderOpportunities() {
     </li>`;
   }).join("");
   $$(".opp-row", list).forEach((row) => {
-    row.addEventListener("click", () => selectPriceProduct(row.dataset.priceKey, { scroll: true }));
+    row.addEventListener("click", () =>
+      selectPriceTarget({ level: "l3", key: row.dataset.priceKey }, { scroll: true }));
   });
   const toggle = $("#oppToggle");
   if (opps.length <= OPP_COLLAPSED) {
@@ -1920,11 +1982,18 @@ function buildPriceChartSvg(points) {
 }
 
 function renderTrends() {
-  const key = pricesUiState.selectedKey;
-  const entry = PRICE_MOCK[key];
-  if (!entry) return;
+  if (!pricesUiState.target) pricesUiState.target = defaultPriceTarget();
+  const target = pricesUiState.target;
+  const info = target && resolveTargetInfo(target);
+  if (!info) {
+    $("#priceNoData").hidden = false;
+    $("#priceTrendsBody").hidden = true;
+    return;
+  }
+  $("#priceNoData").hidden = true;
+  $("#priceTrendsBody").hidden = false;
 
-  const years = [...new Set(entry.series.map((p) => p.date.slice(0, 4)))].sort();
+  const years = [...new Set(info.series.map((p) => p.date.slice(0, 4)))].sort();
   const periods = [["6m", "6 months"], ...years.map((y) => [y, y]), ["all", "All time"]];
   $("#pricePeriod").innerHTML = `<span class="rail-label">Period</span>` +
     periods.map(([id, label]) =>
@@ -1934,14 +2003,32 @@ function renderTrends() {
     b.addEventListener("click", () => { pricesUiState.period = b.dataset.period; renderTrends(); });
   });
 
-  // read-only for now: the mock only carries one product per L1/L2 branch,
-  // so there is nothing yet for these chips to drill into (see PRICE_MOCK note)
+  // breadcrumb doubles as navigation: tapping card/variant zooms the chart
+  // out to that pooled level (Isa's v10 follow-up). The trailing chip names
+  // whatever is most specific about the current view but never itself opens
+  // anything further - there is no browsable catalogue below a variant yet.
+  const crumbs = [{
+    text: info.l1_label, on: target.level === "l1",
+    target: { level: "l1", l1: info.l1, l1_label: info.l1_label },
+  }];
+  if (info.l2) {
+    crumbs.push({
+      text: info.l2, on: target.level !== "l1",
+      target: { level: "l2", l1: info.l1, l1_label: info.l1_label, l2: info.l2 },
+    });
+  }
+  if (target.level === "l3") crumbs.push({ text: info.label, on: true, target: null });
+  else if (target.level === "l1") crumbs.push({ text: "All products", on: true, target: null });
   $("#priceBreadcrumb").innerHTML = `<span class="rail-label">Product</span>` +
-    `<span class="chip on">${escapeHtml(entry.l1)}</span>` +
-    (entry.l2 ? `<span class="chip on">${escapeHtml(entry.l2)}</span>` : "") +
-    `<span class="chip">All products</span>`;
+    crumbs.map((c, i) =>
+      `<button type="button" class="chip${c.on ? " on" : ""}" data-crumb="${i}">${escapeHtml(c.text)}</button>`
+    ).join("");
+  $$("#priceBreadcrumb .chip").forEach((b, i) => {
+    const t = crumbs[i].target;
+    if (t) b.addEventListener("click", () => selectPriceTarget(t));
+  });
 
-  const filtered = seriesForPeriod(entry, pricesUiState.period);
+  const filtered = seriesInPeriod(info.series, pricesUiState.period);
   const stores = [...new Set(filtered.map((p) => p.store))];
   $("#priceLegend").innerHTML = `<span class="rail-label">Legend</span>` + stores.map((s) =>
     `<span class="legend-item"><span class="legend-dot" style="background:${storeColor(s)}"></span>${escapeHtml(s)}</span>`
@@ -1957,7 +2044,7 @@ function renderTrends() {
     $("#priceEmpty").hidden = true;
     wrap.innerHTML = buildPriceChartSvg(filtered);
     $$(".price-pt", wrap).forEach((el) => {
-      el.addEventListener("click", () => openPriceDetail(key, { date: el.dataset.date, store: el.dataset.store }));
+      el.addEventListener("click", () => openPriceDetail({ date: el.dataset.date, store: el.dataset.store }));
     });
   }
 
@@ -1966,12 +2053,12 @@ function renderTrends() {
   // just draw". "Best price" is the opposite: it follows the period chip
   // and relabels itself, because "best" only means something within a
   // stated window.
-  const allSorted = [...entry.series].sort((a, b) => a.date.localeCompare(b.date));
+  const allSorted = [...info.series].sort((a, b) => a.date.localeCompare(b.date));
   const last = allSorted[allSorted.length - 1];
   $("#priceLastValue").innerHTML = `€${last.price.toFixed(2)}<span class="metric-unit">/kg</span>`;
   $("#priceLastStore").innerHTML = `<span class="legend-dot" style="background:${storeColor(last.store)}"></span>${escapeHtml(last.store)}`;
 
-  const bestInPeriod = bestPriceInPeriod(entry, pricesUiState.period);
+  const bestInPeriod = bestPriceInPeriod(info.series, pricesUiState.period);
   $("#priceBestLabel").textContent = `Best price · ${periodShortLabel(pricesUiState.period)}`;
   if (bestInPeriod) {
     $("#priceBestValue").innerHTML = `€${bestInPeriod.price.toFixed(2)}<span class="metric-unit">/kg</span>`;
@@ -1981,7 +2068,7 @@ function renderTrends() {
     $("#priceMetrics").hidden = true;
   }
 
-  $("#priceSeeAll").textContent = `See all · ${entry.series.length}`;
+  $("#priceSeeAll").textContent = `See all · ${info.series.length}`;
 }
 
 function renderPrices(state) {
@@ -1994,18 +2081,23 @@ function formatMonthYear(dateStr) {
 }
 
 function renderPriceDetail() {
-  if (!priceDetailState) return;
-  const { key, highlight } = priceDetailState;
-  const entry = PRICE_MOCK[key];
-  if (!entry) return;
-  $("#priceDetailTitle").textContent = entry.label;
-  const tags = [entry.l1, entry.l2].filter(Boolean);
-  $("#priceDetailTags").innerHTML = tags.map((t) =>
+  if (!priceDetailState || !pricesUiState.target) return;
+  const { highlight } = priceDetailState;
+  const target = pricesUiState.target;
+  const info = resolveTargetInfo(target);
+  if (!info) return;
+
+  const title = target.level === "l3" ? info.label
+    : target.level === "l2" ? info.l2 : info.l1_label;
+  const tags = target.level === "l3" ? [info.l1_label, info.l2]
+    : target.level === "l2" ? [info.l1_label] : [];
+  $("#priceDetailTitle").textContent = title;
+  $("#priceDetailTags").innerHTML = tags.filter(Boolean).map((t) =>
     `<span class="detail-tag">${escapeHtml(t)}</span>`
   ).join("");
 
   $("#priceTableHead").innerHTML = `<span>Date</span><span>Store</span><span class="thnum">€/kg</span>`;
-  const rows = [...entry.series].sort((a, b) => b.date.localeCompare(a.date));
+  const rows = [...info.series].sort((a, b) => b.date.localeCompare(a.date));
   $("#priceTableBody").innerHTML = rows.map((p) => {
     const isHi = highlight && highlight.date === p.date && highlight.store === p.store;
     return `<div class="price-row${isHi ? " hi" : ""}" data-date="${p.date}" data-store="${escapeHtml(p.store)}">
@@ -2386,7 +2478,7 @@ function wire() {
     pricesUiState.oppOpen = !pricesUiState.oppOpen;
     renderOpportunities();
   });
-  $("#priceSeeAll").addEventListener("click", () => openPriceDetail(pricesUiState.selectedKey));
+  $("#priceSeeAll").addEventListener("click", () => openPriceDetail());
 
   // the price sheet's own to-top: its scroll never reaches window scroll,
   // since .detail is its own overflow-y:auto container
@@ -2624,6 +2716,17 @@ async function syncRecipes() {
   store.saveSync();
 }
 
+async function syncPrices() {
+  const r = await github.getFile(github.config.pricesPath, { etag: store.sync.pricesEtag });
+  if (r.notModified) return;
+  const doc = r.json || {};
+  store.state.prices = { products: doc.products || {}, resolve: doc.resolve || {} };
+  store.sync.pricesSha = r.sha;
+  store.sync.pricesEtag = r.etag;
+  store.savePrices();
+  store.saveSync();
+}
+
 async function syncList() {
   const r = await github.getFile(github.config.listPath, { etag: store.sync.listEtag });
   const now = new Date().toISOString();
@@ -2654,6 +2757,14 @@ async function fullSync() {
     await syncList();
   } catch (e) {
     syncFailed(e, "fullSync");
+  }
+  // its own try/catch: a missing or unreachable price-series.json (a brand
+  // new file, easy to not have landed yet) must never block the list or
+  // recipes sync, or degrade the sync-status dot for something optional
+  try {
+    await syncPrices();
+  } catch (e) {
+    console.warn("syncPrices failed, Prices tab stays on cached/empty data:", e);
   } finally {
     syncing = false;
     render(store.state);
@@ -2862,6 +2973,21 @@ if (IS_LOCAL_DEV && !store.state.settings.token && store.state.recipes.length ==
     .then((arr) => {
       if (Array.isArray(arr) && store.state.recipes.length === 0) {
         store.state.recipes = arr;
+        store.notify();
+      }
+    })
+    .catch(() => {});
+}
+
+// same idea, for price-series.json: a gitignored snapshot copied from
+// kave-hub, since that file lives in the private repo like recipes.json does
+if (IS_LOCAL_DEV && !store.state.settings.token
+    && Object.keys(store.state.prices.products).length === 0) {
+  fetch("price-series.dev.json")
+    .then((r) => (r.ok ? r.json() : null))
+    .then((doc) => {
+      if (doc && doc.products && Object.keys(store.state.prices.products).length === 0) {
+        store.state.prices = { products: doc.products, resolve: doc.resolve || {} };
         store.notify();
       }
     })

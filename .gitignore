@@ -3,9 +3,10 @@ data/
 *.local
 .env
 
-# Local preview snapshot of recipes.json, generated from kave-hub. Dev only:
-# app.js loads it on localhost when there is no token. Not for the public repo.
+# Local preview snapshots, generated from kave-hub. Dev only: app.js loads
+# these on localhost when there is no token. Not for the public repo.
 recipes.dev.json
+price-series.dev.json
 
 # Local tooling: the preview launch config, kept out of the public repo.
 # It must stay on disk here - the preview tools read it relative to this

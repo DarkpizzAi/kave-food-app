@@ -78,15 +78,18 @@ index-only stubs ("link only" / "to write").
 
 **v10 - Prices** - a Prices tab: Worth watching (products that have
 genuinely dropped in the last 6 months, not just moved) and Trends (a
-per-product chart, one line per store, period and product filters, a
-full-history sheet). Shopping-list rows get a price-history icon and a
-store-coloured bubble when one store is clearly cheapest. Series are keyed
-by product, not by ingredient - see the spec in `V10-PRICE-TRACKING-SPEC.md`
-for why. **The price data is a hand-written mock in `app.js`
-(`PRICE_MOCK`)**, standing in for `food/data/price-series.json` until
-`build_price_series.py` exists in kave-hub - the tab is fully wired and
-working, just against six placeholder products rather than the real
-receipt history.
+per-product chart, one line per store, or a pooled per-store chart zoomed out
+to a card or a variant; period and product filters; a full-history sheet).
+Shopping-list rows get a price-history icon and a store-coloured bubble when
+one store is clearly cheapest. Series are keyed by product, not by
+ingredient - see the spec in `V10-PRICE-TRACKING-SPEC.md` for why. Real data:
+`state.prices` syncs from kave-hub's `food/data/price-series.json`
+(`build_price_series.py`), same GitHub Contents API path as recipes and the
+list, with `price-series.dev.json` (gitignored, copied from kave-hub) as the
+localhost stand-in when there is no token. A typed name ("Fusilli", "Pasta")
+resolves to a product, a variant or a card via that file's `resolve` index,
+built server-side against the ingredients dictionary - never guessed
+client-side.
 
 **Phase 4** - the meal planner. Not started; the Plan tab is a placeholder.
 
