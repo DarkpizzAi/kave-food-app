@@ -2173,6 +2173,10 @@ function buildPriceChartSvg(lines) {
 // what a Category/Product pill shows when that level has nothing to offer -
 // the same em dash the metric cards already use for "no value here"
 const NO_LEVEL = "—";
+// an unset level is not empty, it pools everything under it - so the pill says
+// exactly what the dropdown's leading option says, and both are the one string
+const ALL_VARIANTS = "All variants";
+const ALL_PRODUCTS = "All products";
 
 function priceOptRows(rows, currentId) {
   return rows.map((r) =>
@@ -2232,11 +2236,11 @@ function renderPricePills(target, info) {
     l2: forcedVariant ? { text: titleCaseVariant(forcedVariant), filled: true, opens: false }
       : !variants.length ? { text: NO_LEVEL, filled: false, opens: false }
       : info.l2 ? { text: titleCaseVariant(info.l2), filled: true, opens: true }
-      : { text: "Variant", filled: false, opens: true },
+      : { text: ALL_VARIANTS, filled: false, opens: true },
     l3: l3scope.length === 1 ? { text: l3scope[0].label, filled: true, opens: false }
       : !l3scope.length ? { text: NO_LEVEL, filled: false, opens: false }
       : target.level === "l3" ? { text: info.label, filled: true, opens: true }
-      : { text: "Product", filled: false, opens: true },
+      : { text: ALL_PRODUCTS, filled: false, opens: true },
   };
   // the deepest filled level is the subject of the chart, and the only accent
   const accent = ["l3", "l2", "l1"].find((k) => pills[k].filled);
@@ -2287,11 +2291,11 @@ function renderPricePills(target, info) {
     currentId = info.l1;
     withSearch = true;
   } else if (which === "l2") {
-    rows = [{ id: "", label: "All variants" }].concat(
+    rows = [{ id: "", label: ALL_VARIANTS }].concat(
       variants.map((v) => ({ id: v, label: titleCaseVariant(v) })));
     currentId = info.l2 || "";
   } else {
-    rows = [{ id: "", label: "All products" }].concat(
+    rows = [{ id: "", label: ALL_PRODUCTS }].concat(
       l3scope.map((p) => ({ id: p.key, label: p.label })));
     currentId = target.level === "l3" ? target.key : "";
   }

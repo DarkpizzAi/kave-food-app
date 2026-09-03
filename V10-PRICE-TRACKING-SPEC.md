@@ -155,7 +155,10 @@ Since **v10.4** the three sit on two labelled rows: **Category** (L1 + L2) and
 - Every pill that still has a choice to offer opens an inline dropdown.
   **L1 has a search field** (52 options);
   L2 and L3 never exceed ~15 rows so they don't. L2/L3 dropdowns lead with
-  **"All variants"** / **"All products"**.
+  **"All variants"** / **"All products"**, and since v10.8 an unset L2/L3 pill
+  carries that same wording rather than a bare "Variant" / "Product" — the pill
+  and the dropdown row it currently sits on are one string, and the pill now
+  describes the chart (everything pooled) instead of naming the level.
 - The dropdowns **cascade**: L2 lists the variants under the chosen L1, L3 the
   products under the chosen L1 *and* L2. Choosing L1 resets L2 and L3; choosing
   L2 resets L3.
