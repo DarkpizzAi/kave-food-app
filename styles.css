@@ -1371,11 +1371,12 @@ body.readonly .add-row input { cursor: not-allowed; }
 
 /* the Product dropdown opens in this full-width host below the pills row -
    the scroll container above would clip an anchored panel */
-.pill-panel-host { position: relative; z-index: 30; }
-.pill-panel-host .pill-panel {
-  position: static; width: 100%; min-width: 0; max-width: none;
-  margin-top: 6px;
-}
+/* the frame the open dropdown is positioned against */
+.trends-body { position: relative; }
+/* out of the flow, so opening a dropdown never moves the chart. app.js sets
+   top/left to sit it just under whichever pill is open. */
+.pill-panel-host { position: absolute; z-index: 30; }
+.pill-panel-host .pill-panel { position: static; margin: 0; }
 
 /* Period + Group by: plain grey dropdowns on one line, chart above, legend
    below. Never accent. */
@@ -1384,7 +1385,9 @@ body.readonly .add-row input { cursor: not-allowed; }
   margin: 10px 0 6px;
 }
 .dd-btn { gap: 5px; }
-.dd-caret { font-size: 0.6rem; opacity: 0.7; }
+/* the affordance that says a pill can be changed - full strength, and big
+   enough to read at arm's length on a phone */
+.dd-caret { font-size: 0.8rem; line-height: 1; opacity: 1; }
 /* Group by with nothing to switch to: still a grey chip, but no caret and inert */
 .dd-static { cursor: default; }
 

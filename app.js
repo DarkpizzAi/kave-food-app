@@ -708,13 +708,12 @@ function bestPriceInPeriod(series, period) {
   return { price: best.price, store: best.store };
 }
 
-// the short form used in "Best price · X" - matches the period chip text
-// but compact, since it sits inside a small metric card
-function periodShortLabel(period) {
-  if (period === "6m") return "6mo";
-  if (period === "all") return "all time";
-  return period; // a year, e.g. "2025"
-}
+// the two periods the chart offers, longest label first for the dropdown, and
+// the compact form used in "Best price · X" where it sits in a small metric
+// card. Per-year periods were dropped in v10.7: with six months and all time
+// the only choices, pricesUiState.period is always one of these two keys.
+const PERIODS = [["6m", "Last 6 months"], ["all", "All time"]];
+const PERIOD_SHORT = { "6m": "6mo", all: "all time" };
 
 const MAIN_LABELS = {
   meat: "Meat", fish: "Fish", rice: "Rice", pasta: "Pasta", soup: "Soup",
@@ -2300,6 +2299,7 @@ function renderPricePills(target, info) {
   panelHost.innerHTML = `<div class="pill-panel" data-panel="${which}">` +
     (withSearch ? `<input type="text" class="pill-search" placeholder="Search">` : "") +
     `<div class="pill-opts">${priceOptRows(rows, currentId)}</div></div>`;
+  positionPillPanel(which === "l3" ? prodHost : catHost, which);
 
   $$(".pill-opt", panelHost).forEach((o) => {
     o.addEventListener("click", (e) => {
@@ -2321,13 +2321,30 @@ function renderPricePills(target, info) {
   }
 }
 
+// Put the open dropdown directly under the pill it belongs to, floating over
+// whatever is below it. The panel cannot simply live inside the pills row: that
+// row scrolls horizontally and clips, so an anchored panel would be cut off.
+// It sits instead in a host absolutely positioned within the Trends card, which
+// is also what keeps the chart still when a dropdown opens - the host is out of
+// the flow, so nothing below it moves. Left is clamped to the card so a pill
+// near the right edge does not push the panel off it.
+function positionPillPanel(host, which) {
+  const panel = $("#pricePillPanel");
+  const btn = $(`.pill[data-pill="${which}"]`, host);
+  const body = $("#priceTrendsBody");
+  if (!btn || !body) return;
+  const b = body.getBoundingClientRect();
+  const r = btn.getBoundingClientRect();
+  panel.style.top = `${r.bottom - b.top + 6}px`;
+  const maxLeft = Math.max(0, body.clientWidth - panel.offsetWidth);
+  panel.style.left = `${Math.min(Math.max(0, r.left - b.left), maxLeft)}px`;
+}
+
 // Period and Group by: plain grey dropdowns (never accent), sitting on one
 // line between the chart and the legend. `canGroup` is false when "by product"
 // would draw a single line (one product/variant in scope) - then Group by is
 // shown as static text with no caret, since there is nothing to switch to.
-function renderPriceSubfilters(info, canGroup) {
-  const years = [...new Set(info.series.map((p) => p.date.slice(0, 4)))].sort();
-  const periods = [["6m", "6 months"], ...years.map((y) => [y, y]), ["all", "All time"]];
+function renderPriceSubfilters(canGroup) {
   const groups = [["supermarket", "By supermarket"], ["product", "By product"]];
 
   const dd = (hostId, which, rows, currentId, onPick, interactive = true) => {
@@ -2352,7 +2369,7 @@ function renderPriceSubfilters(info, canGroup) {
     });
   };
 
-  dd("#pricePeriod", "period", periods, pricesUiState.period, (id) => {
+  dd("#pricePeriod", "period", PERIODS, pricesUiState.period, (id) => {
     pricesUiState.period = id;
     pricesUiState.openPill = null;
     renderTrends();
@@ -2386,14 +2403,6 @@ function renderTrends() {
   $("#priceTrendsBody").hidden = false;
   $("#priceReset").hidden = false;
 
-  // a year option only exists while the current target has data in it; if the
-  // target changed under a selected year, fall back rather than filter the
-  // chart to nothing against a period the dropdown no longer offers
-  if (!["6m", "all"].includes(pricesUiState.period) &&
-      !info.series.some((p) => p.date.slice(0, 4) === pricesUiState.period)) {
-    pricesUiState.period = "6m";
-  }
-
   // "by product" is only a real choice when it would draw more than one line -
   // judged on what the chosen period actually shows, not on the whole history,
   // or the dropdown offers a switch that changes nothing. Otherwise force
@@ -2404,7 +2413,7 @@ function renderTrends() {
   if (!canGroupByProduct) pricesUiState.groupBy = "supermarket";
 
   renderPricePills(target, info);
-  renderPriceSubfilters(info, canGroupByProduct);
+  renderPriceSubfilters(canGroupByProduct);
 
   const granularity = lineGranularity(target);
   const lines = chartLines(filtered, granularity);
@@ -2455,7 +2464,7 @@ function renderTrends() {
   }
 
   const bestInPeriod = bestPriceInPeriod(info.series, pricesUiState.period);
-  $("#priceBestLabel").textContent = `Best price · ${periodShortLabel(pricesUiState.period)}`;
+  $("#priceBestLabel").textContent = `Best price · ${PERIOD_SHORT[pricesUiState.period]}`;
   if (bestInPeriod) {
     $("#priceBestValue").innerHTML = `€${bestInPeriod.price.toFixed(2)}<span class="metric-unit">/kg</span>`;
     $("#priceBestStore").innerHTML = `<span class="legend-dot" style="background:${storeColor(bestInPeriod.store)}"></span>${escapeHtml(bestInPeriod.store)}`;

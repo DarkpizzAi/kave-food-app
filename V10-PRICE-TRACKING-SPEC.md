@@ -163,7 +163,15 @@ Since **v10.4** the three sit on two labelled rows: **Category** (L1 + L2) and
   dropdowns — is emitted by one `pillButton()` (v10.5), so “opens” is a single
   switch: an opening pill carries the `data-pill` the handlers bind to, and an
   inert one is `aria-disabled` rather than `disabled`, keeping the pill colours
-  instead of the browser's greyed-out ones.
+  instead of the browser's greyed-out ones. A pill that opens shows a **caret**
+  at full strength (v10.7) — the affordance saying it can be changed.
+- An open dropdown sits **directly under the pill it belongs to and floats over
+  what is below** (v10.7). It cannot live inside the pills row itself: that row
+  scrolls horizontally and clips, so an anchored panel would be cut off. It
+  renders instead in a host absolutely positioned within the Trends card, which
+  is what keeps the chart still when a dropdown opens — the host is out of the
+  flow, so nothing below it moves. Left is clamped to the card, so a pill near
+  the right edge does not push the panel off it.
 - **Group by** = **Supermarket** (default) draws one line per store, pooling
   everything in pill scope — the original behaviour. **Group by = Product**
   draws one line per variant (when only L1 is set) or per product (L2/L3 set),
@@ -174,15 +182,20 @@ Since **v10.4** the three sit on two labelled rows: **Category** (L1 + L2) and
   everything in view, with the store it was bought at.
 - A **Reset** by the Trends title returns to the top Worth-watching item on the
   default 6-month, per-supermarket view — the same as tapping that row.
-- The default period is 6 months, but a new selection opens on **all time**
-  when 6 months cannot draw a line (fewer than two points) *and* all time has
-  more to show, or when 6 months would hide the evidence behind a
-  shopping-list bubble. The first test compares against the window rather than
-  a fixed count, so a card bought once, long ago (Bouillon, February 2025)
-  opens on all time and shows that purchase instead of reporting nothing.
-  A period picked **by hand** always stands, even when it draws nothing — a
-  year with one purchase is a true answer, and the chart says which nothing it
-  is.
+- **Period** offers two windows and no more (v10.7): **Last 6 months** and
+  **All time**. The per-year options that shipped with v10.0 are gone — with
+  most products holding a handful of observations, a year was usually one
+  point, and the tab is about whether a price is moving rather than about
+  browsing by calendar.
+- 6 months is the default, but a new selection opens on **all time** when 6
+  months cannot draw a line (fewer than two points) *and* all time has more to
+  show, or when 6 months would hide the evidence behind a shopping-list
+  bubble. The first test compares against the window rather than a fixed
+  count, so a card bought once, long ago (Bouillon, February 2025) opens on
+  all time and shows that purchase instead of reporting nothing. A period
+  picked **by hand** always stands, even when it draws nothing — the chart
+  then says which nothing it is: no purchases in the window, or one purchase
+  and so no line.
 
 **C. The full-history sheet** — reached from *See all* or by tapping a chart
 point, which scrolls to and highlights the row it came from. Rebuilt at v10.4

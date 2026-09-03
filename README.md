@@ -78,16 +78,17 @@ bubble behind the active tab; "All" chips on the recipe filters; the sync
 banner replaced by the Settings sync section; all 43 recipes including
 index-only stubs ("link only" / "to write").
 
-**v10 - Prices** - a Prices tab, current at v10.6.
+**v10 - Prices** - a Prices tab, current at v10.7.
 
 *Worth watching* ranks the products that have genuinely dropped in the last 6
 months, not merely moved. *Trends* charts one selection over time: one line per
 store, or one per product when the selection spans several. It is steered by
 two filter rows - **Category** (the ingredient card, and its variant) and
-**Product** - plus **Period**, **Group by** and a **Reset**. A selection drills
-past any level that offers only one choice, and the accent marks the deepest
-level naming a real value - the subject of the chart - with the levels above it
-in grey. A level with nothing to offer shows a dash, and a pill you could not
+**Product** - plus **Period** (Last 6 months or All time), **Group by** and a
+**Reset**; a dropdown opens under its own pill and floats over the chart
+without moving it. A selection drills past any level that offers only one
+choice, and the accent marks the deepest level naming a real value - the
+subject of the chart - with the levels above it in grey. A level with nothing to offer shows a dash, and a pill you could not
 have chosen otherwise carries no ✕ and opens no dropdown. Tapping a chart
 point, or *See all*, opens the full-history sheet: day and month, product,
 store, quantity and price, in per-year blocks, one row per shopping trip rather
