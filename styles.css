@@ -11,6 +11,24 @@
 
 :root { --nav-h: 64px; }
 
+/* Store colours (v10 spec): fixed per store, light/dark only - never
+   per-palette, so a colour keeps meaning the same store everywhere it
+   appears (list bubble, chart line, sheet dot). Only Ametller needs a pair;
+   the rest read fine unchanged against every surface. */
+:root { --store-ametller: #5E5945; --store-ametller-on: #fff; }
+@media (prefers-color-scheme: dark) {
+  /* the pair flips to a light olive-cream, so the icon drawn on top of the
+     bubble has to flip from white to dark with it, or it disappears */
+  :root { --store-ametller: #F2EBDF; --store-ametller-on: #2c2c2a; }
+}
+
+/* "this went down" badge, Prices tab - a plain semantic green, not tied to
+   any palette's accent colour, same reasoning as --store-ametller above */
+:root { --good-bg: #dff3ea; --good-tx: #1c6b4d; }
+@media (prefers-color-scheme: dark) {
+  :root { --good-bg: #143f30; --good-tx: #7fd9b6; }
+}
+
 /* ---- 01 Cobalt (default) ---- */
 :root {
   --bg: #f4f7fd;
@@ -1261,3 +1279,131 @@ body.readonly .add-row input { cursor: not-allowed; }
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
+
+/* ============================================================
+   Prices tab
+   ============================================================ */
+
+.prices-section { margin-bottom: 32px; }
+.prices-section:last-child { margin-bottom: 0; }
+.prices-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 2px;
+  margin-bottom: 8px;
+}
+.prices-title { font-weight: 600; font-size: 1.05rem; }
+.prices-sub { color: var(--text-dim); font-size: 0.78rem; }
+
+/* the flat centred text button both "Show all · N" and "See all · N" use -
+   deliberately not a bordered button, so it reads as revealing more of the
+   same card rather than a separate control */
+.reveal-btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 9px 0;
+  min-height: 0;
+  border-radius: 10px;
+}
+
+/* ---- Worth watching ---- */
+.opp-card { background: var(--card); border-radius: 14px; padding: 2px 4px 4px; }
+.opp-list { list-style: none; margin: 0; padding: 0; }
+.opp-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 8px;
+  border-bottom: 1px solid var(--rule);
+  cursor: pointer;
+}
+.opp-list li:last-child { border-bottom: none; }
+/* name left, then (right-aligned, same order as a shopping-list row) the
+   best price of the window, then the price icon - reusing .price-btn/
+   .price-bubble so a coloured bubble means the same thing everywhere */
+.opp-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* same treatment as .list li .qty, so the two rows genuinely read as one row shape */
+.opp-price { flex: none; color: var(--text-dim); font-size: 0.85rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.opp-empty { padding: 14px 8px; color: var(--text-dim); font-size: 0.88rem; }
+
+/* ---- Trends ---- */
+.trends-card { background: var(--card); border-radius: 14px; padding: 14px 12px 4px; }
+.trends-card .rails { margin-top: 0; }
+.trends-card .rail .chip { min-height: 0; padding: 6px 13px; font-size: 0.82rem; }
+
+/* the legend sits between the chart and the KPI cards, same row shape as
+   Period/Product above but plain text since it isn't itself a filter */
+#priceLegend { margin: 4px 0 14px; }
+.legend-item { display: flex; align-items: center; gap: 5px; align-self: center; flex: none; padding: 6px 0; font-size: 0.78rem; color: var(--text-dim); white-space: nowrap; }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+
+.price-chart-wrap { margin-bottom: 4px; }
+.price-svg { width: 100%; height: auto; display: block; }
+.chart-grid { stroke: var(--rule); stroke-width: 1; }
+.chart-axis { font-size: 9px; fill: var(--text-dim); }
+.price-pt { cursor: pointer; }
+.promo-mark { font-size: 8px; fill: #fff; text-anchor: middle; font-weight: 600; }
+
+.price-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 0 4px; }
+.metric-card { background: var(--surface); border-radius: 12px; padding: 10px 12px; }
+.metric-label { color: var(--text-dim); font-size: 0.72rem; margin-bottom: 4px; }
+.metric-value { font-weight: 600; font-size: 1.15rem; }
+.metric-unit { font-size: 0.68rem; color: var(--text-dim); font-weight: 400; }
+.metric-store { display: flex; align-items: center; gap: 5px; margin-top: 4px; font-size: 0.72rem; color: var(--text-dim); }
+
+/* the chart icon + optional store-coloured bubble - shared by a shopping-
+   list row and a Worth watching row, so the same bubble means the same
+   thing wherever it shows up */
+.price-btn {
+  position: relative;
+  width: 32px; height: 32px;
+  flex: none;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent;
+  min-height: 0;
+  padding: 0;
+  color: var(--text-dim);
+}
+.price-btn svg { width: 18px; height: 18px; position: relative; }
+.price-bubble { position: absolute; inset: 0; border-radius: 50%; }
+
+/* ---- price detail sheet: table ---- */
+.price-table-head {
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  column-gap: 10px;
+  padding: 9px 4px;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  border-bottom: 1px solid var(--rule-strong);
+}
+.price-table-head .thnum { text-align: right; }
+.price-row {
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  column-gap: 10px;
+  align-items: center;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--rule);
+  transition: background 0.4s ease;
+}
+.price-row.hi { background: var(--accent-soft); }
+.price-date { font-size: 0.82rem; color: var(--text-dim); }
+.price-store { display: flex; align-items: center; gap: 6px; font-size: 0.88rem; }
+.price-value { font-weight: 600; font-size: 0.9rem; text-align: right; display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
+.promo-chip {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--accent); color: #fff;
+  font-size: 0.55rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* the price sheet's own to-top: same look as the shopping list's, positioned
+   the same - no per-row X in this sheet to dodge, so no offset needed */
+.price-to-top { right: 26px; }

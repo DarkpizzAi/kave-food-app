@@ -99,17 +99,24 @@ const store = {
   /* mutations */
   setView(v) {
     const sheetOpen = detailState != null;
-    // tapping Recipes again while its sheet is up closes the sheet (animated)
+    const priceSheetOpen = priceDetailState != null;
+    // tapping Recipes/Prices again while its own sheet is up closes that sheet
     if (sheetOpen && v === "recipes" && this.state.view === "recipes") {
       closeRecipe();
       return;
     }
-    // leaving Recipes with a sheet open: stash it, no swoop-down
+    if (priceSheetOpen && v === "prices" && this.state.view === "prices") {
+      closePriceDetail();
+      return;
+    }
+    // leaving a tab with its sheet open: stash it, no swoop-down
     if (sheetOpen && v !== "recipes") parkRecipe();
+    if (priceSheetOpen && v !== "prices") parkPriceDetail();
     this.state.view = v;
     this.notify();
-    // coming back to Recipes: bring the stashed sheet straight back
+    // coming back: bring the stashed sheet straight back
     if (sheetOpen && v === "recipes") unparkRecipe();
+    if (priceSheetOpen && v === "prices") unparkPriceDetail();
   },
   addItem({ name, qty, unit, note, source = "manual", slug = null }) {
     if (this.readOnly()) return null;
@@ -354,10 +361,218 @@ function applyPalette(palette) {
 
 const VIEW_TITLES = {
   list: "Shopping List",
-  recipes: "Recipes",
+  prices: "Price tracking",
+  recipes: "Recipe book",
   planner: "Meal Planner",
   settings: "Settings",
 };
+
+/* ---------- prices (mock data pending build_price_series.py in kave-hub) ---------
+
+   PRICE_MOCK stands in for food/data/price-series.json until the real builder
+   exists. Keyed by stripQty(item name) so a list row can look itself up the
+   same way "add back to the list" already matches names. Each entry is one
+   product-level series (see the v10 spec: keying by product, not slug, is
+   what keeps a series honest) - l1/l2 are display-only breadcrumb labels,
+   not a real drill hierarchy yet, because this mock only carries one product
+   per branch. */
+const PRICE_MOCK = {
+  "fusilli": {
+    l1: "Pasta", l2: "Fusilli", label: "Fusilli",
+    series: [
+      { date: "2024-09-05", store: "Condis", price: 3.40 },
+      { date: "2025-01-12", store: "Keisy", price: 3.50 },
+      { date: "2025-02-20", store: "Keisy", price: 3.48 },
+      { date: "2025-07-14", store: "Condis", price: 3.48 },
+      { date: "2026-02-03", store: "Keisy", price: 3.60 },
+      { date: "2026-05-11", store: "Ametller Origen", price: 7.38 },
+      { date: "2026-07-02", store: "Keisy", price: 3.29, promo: true },
+      { date: "2026-08-26", store: "Keisy", price: 3.48 },
+    ],
+  },
+  "mozzarella": {
+    l1: "Mozzarella", l2: null, label: "Mozzarella",
+    series: [
+      { date: "2025-03-02", store: "Mercadona", price: 9.50 },
+      { date: "2025-09-18", store: "Keisy", price: 10.00 },
+      { date: "2026-01-22", store: "Condis", price: 13.90 },
+      { date: "2026-06-14", store: "Keisy", price: 10.00 },
+      { date: "2026-08-10", store: "Keisy", price: 7.60 },
+    ],
+  },
+  "ous de corral vall de mestral": {
+    l1: "Oeufs", l2: "Plein air", label: "Ous de corral Vall de Mestral",
+    series: [
+      { date: "2024-04-10", store: "Keisy", price: 5.50 },
+      { date: "2024-07-08", store: "Keisy", price: 5.69 },
+      { date: "2025-01-15", store: "Keisy", price: 5.69 },
+      { date: "2025-08-02", store: "Keisy", price: 6.15 },
+      { date: "2026-01-10", store: "Ametller Origen", price: 4.90 },
+      { date: "2026-04-02", store: "Ametller Origen", price: 5.10 },
+      { date: "2026-06-11", store: "Keisy", price: 8.20 },
+      { date: "2026-08-29", store: "Keisy", price: 5.69 },
+    ],
+  },
+  "creme de cuisine": {
+    l1: "Creme fraiche", l2: "Creme de cuisine 18%", label: "Creme de cuisine",
+    series: [
+      { date: "2025-05-01", store: "Carrefour", price: 5.18 },
+      { date: "2025-09-01", store: "Carrefour", price: 5.40 },
+      { date: "2025-11-20", store: "Keisy", price: 7.50 },
+      { date: "2026-04-09", store: "Keisy", price: 9.46 },
+      { date: "2026-08-15", store: "Keisy", price: 6.34 },
+    ],
+  },
+  "pa cristal-li pretallat": {
+    l1: "Pain", l2: "Pan de cristal", label: "Pa cristal-li pretallat",
+    series: [
+      { date: "2025-01-05", store: "Mercadona", price: 6.50 },
+      { date: "2025-06-01", store: "Keisy", price: 9.17 },
+      { date: "2026-02-14", store: "Keisy", price: 9.33 },
+      { date: "2026-07-20", store: "Mercadona", price: 6.50 },
+      { date: "2026-08-22", store: "Ametller Origen", price: 8.63 },
+    ],
+  },
+  "ceba dolca": {
+    l1: "Oignon", l2: "Doux", label: "Ceba dolca",
+    series: [
+      { date: "2025-02-10", store: "Keisy", price: 1.99 },
+      { date: "2025-09-05", store: "Keisy", price: 2.59 },
+      { date: "2026-03-11", store: "Keisy", price: 2.15 },
+      { date: "2026-07-30", store: "Keisy", price: 1.99 },
+    ],
+  },
+};
+
+// fixed roster (v10 spec): a store outside this list renders greyscale, never
+// a made-up colour. Ametller needs a theme-aware pair, so it is read from a
+// CSS custom property instead of a literal hex.
+const STORE_COLORS = {
+  "Keisy": "#F27D16",
+  "Mercadona": "#289148",
+  "Condis": "#2EA684",
+  "Carrefour": "#0E5299",
+  "Alcampo": "#D92929",
+};
+function storeColor(store) {
+  if (store === "Ametller Origen") return "var(--store-ametller)";
+  return STORE_COLORS[store] || "var(--text-dim)";
+}
+// the icon drawn on top of a store-coloured bubble: white everywhere except
+// Ametller, whose pair goes light in dark mode and would vanish under white
+function storeOnColor(store) {
+  return store === "Ametller Origen" ? "var(--store-ametller-on)" : "#fff";
+}
+
+function priceKeyFor(name) {
+  return stripQty(name);
+}
+
+// one point per date across every store, its median - a single overall
+// trend line, deliberately pooling stores rather than one line each (that
+// finer view is what the Trends chart is for). Only for a trend statistic:
+// bestPriceInPeriod does NOT go through this, because a median can hide the
+// one genuinely cheap line among several bought the same day.
+function dailyPoints(series) {
+  const byDate = new Map();
+  series.forEach((p) => {
+    if (!byDate.has(p.date)) byDate.set(p.date, []);
+    byDate.get(p.date).push(p);
+  });
+  return [...byDate.entries()]
+    .map(([date, pts]) => {
+      const nonPromo = pts.filter((p) => !p.promo);
+      const use = nonPromo.length ? nonPromo : pts;
+      const sorted = use.map((p) => p.price).sort((a, b) => a - b);
+      return { date, price: sorted[Math.floor(sorted.length / 2)], promo: pts.every((p) => p.promo) };
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+const PRICE_TODAY = Object.values(PRICE_MOCK)
+  .flatMap((e) => e.series.map((p) => p.date))
+  .sort()
+  .pop();
+
+// pure UTC arithmetic throughout - mixing a local-time Date with the UTC
+// conversion toISOString() does can shift the result by a day depending on
+// the viewer's timezone and DST, which would move the "6 months" cutoff
+// under Isa in Madrid without ever showing up while testing from UTC
+function monthsBefore(dateStr, n) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCMonth(dt.getUTCMonth() - n);
+  return dt.toISOString().slice(0, 10);
+}
+
+function seriesForPeriod(entry, period) {
+  let cutFrom = null, cutTo = null;
+  if (period === "6m") cutFrom = monthsBefore(PRICE_TODAY, 6);
+  else if (/^\d{4}$/.test(period)) { cutFrom = `${period}-01-01`; cutTo = `${period}-12-31`; }
+  return entry.series.filter((p) => (!cutFrom || p.date >= cutFrom) && (!cutTo || p.date <= cutTo));
+}
+
+// v10 spec §1: rank what comes back down, not what only rises. Excludes any
+// product that never dropped in the window, even if it moved a lot.
+function computeOpportunities(period) {
+  const out = [];
+  for (const [key, entry] of Object.entries(PRICE_MOCK)) {
+    const pts = dailyPoints(seriesForPeriod(entry, period).filter((p) => !p.promo));
+    if (pts.length < 2) continue;
+    const prices = pts.map((p) => p.price);
+    let hasDrop = false;
+    for (let i = 1; i < prices.length; i++) if (prices[i] < prices[i - 1] * 0.97) hasDrop = true;
+    if (!hasDrop) continue;
+    const delta = (Math.max(...prices) - Math.min(...prices)) / Math.max(...prices);
+    out.push({ key, label: entry.label, delta });
+  }
+  return out.sort((a, b) => b.delta - a.delta);
+}
+
+// v10 spec §6: a position hint, not a store recommendation - needs >=2
+// observations at each of two stores and >=15% apart before it fires, so it
+// never reacts to a single coincidental cheap trip.
+function computeBubble(key) {
+  const entry = PRICE_MOCK[key];
+  if (!entry) return null;
+  const byStore = new Map();
+  entry.series.forEach((p) => {
+    if (!byStore.has(p.store)) byStore.set(p.store, []);
+    byStore.get(p.store).push(p.price);
+  });
+  const medians = [...byStore.entries()]
+    .filter(([, prices]) => prices.length >= 2)
+    .map(([store, prices]) => {
+      const s = [...prices].sort((a, b) => a - b);
+      return { store, median: s[Math.floor(s.length / 2)] };
+    })
+    .sort((a, b) => a.median - b.median);
+  if (medians.length < 2) return null;
+  const [cheapest, next] = medians;
+  if (cheapest.median <= next.median * 0.85) return cheapest.store;
+  return null;
+}
+
+// the lowest price paid in a period, and which store - promo included,
+// since "best price" means the best you could actually have paid, unlike
+// the Opportunities ranking which deliberately excludes promos (§4).
+// Worth watching always calls this with "6m" (its own window, independent
+// of whatever the Trends period chip is set to); the Trends card calls it
+// with pricesUiState.period so the two can legitimately differ.
+function bestPriceInPeriod(entry, period) {
+  const pts = seriesForPeriod(entry, period);
+  if (!pts.length) return null;
+  const best = pts.reduce((a, b) => (b.price < a.price ? b : a));
+  return { price: best.price, store: best.store };
+}
+
+// the short form used in "Best price · X" - matches the period chip text
+// but compact, since it sits inside a small metric card
+function periodShortLabel(period) {
+  if (period === "6m") return "6mo";
+  if (period === "all") return "all time";
+  return period; // a year, e.g. "2025"
+}
 
 const MAIN_LABELS = {
   meat: "Meat", fish: "Fish", rice: "Rice", pasta: "Pasta", soup: "Soup",
@@ -407,10 +622,32 @@ function roundQty(n, isCount) {
 
 let checkedOpen = false;
 
+// the chart icon (trending line + arrowhead), same mark on the list row,
+// the sheet's promo dots and the Prices nav tab - one icon, one meaning
+const PRICE_ICON_PATH = '<path d="M4 17l5-6 4 3 7-7"/><path d="M15 7h5v5"/>';
+// same mark, flipped: a downward trend for an Opportunities row
+const PRICE_ICON_DOWN_PATH = '<path d="M4 7l5 6 4-3 7 7"/><path d="M15 17h5v-5"/>';
+
+// price hint for one list row: only unticked, only when the product has a
+// history at all - a row with no data gets no icon (v10 spec §6)
+function priceHintFor(it) {
+  if (it.checked) return null;
+  const key = priceKeyFor(it.name);
+  const entry = PRICE_MOCK[key];
+  if (!entry) return null;
+  return { key, bubbleStore: computeBubble(key) };
+}
+
 function itemRow(it) {
   const li = document.createElement("li");
   li.className = it.checked ? "checked" : "";
   const qtyStr = it.qty != null ? `${it.qty}${it.unit ? " " + it.unit : ""}` : "";
+  const hint = priceHintFor(it);
+  const priceBtn = hint ? `
+    <button class="price-btn" aria-label="Price history" data-price-key="${escapeHtml(hint.key)}">
+      ${hint.bubbleStore ? `<span class="price-bubble" style="background:${storeColor(hint.bubbleStore)}"></span>` : ""}
+      <svg viewBox="0 0 24 24" fill="none" stroke="${hint.bubbleStore ? storeOnColor(hint.bubbleStore) : "currentColor"}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${PRICE_ICON_PATH}</svg>
+    </button>` : "";
   li.innerHTML = `
     <button class="tick" aria-label="Toggle">${it.checked ? "✓" : ""}</button>
     <span class="main">
@@ -418,9 +655,13 @@ function itemRow(it) {
       ${it.note ? `<span class="sub">${escapeHtml(it.note)}</span>` : ""}
       ${qtyStr ? `<span class="qty">${escapeHtml(qtyStr)}</span>` : ""}
     </span>
+    ${priceBtn}
     <button class="del" aria-label="Remove">✕</button>`;
   $(".tick", li).addEventListener("click", () => store.toggleItem(it.id));
   $(".del", li).addEventListener("click", () => store.deleteItem(it.id));
+  if (hint) {
+    $(".price-btn", li).addEventListener("click", () => goToPriceChart(hint.key));
+  }
   return li;
 }
 
@@ -1123,27 +1364,119 @@ function closeRecipe() {
   }
 }
 
+/* ---------- price detail sheet (same swoop-up as a recipe) ---------- */
+
+// { key, highlightDate, highlightStore } - the two identify one row to
+// scroll to and highlight when a chart point (not a whole product) opens it
+let priceDetailState = null;
+let priceSheetClosing = false;
+let priceCloseRequested = false;
+let priceSheetHasHistory = false;
+
+function openPriceDetail(key, highlight = null) {
+  if (!PRICE_MOCK[key]) return;
+  priceDetailState = { key, highlight };
+  const el = $("#priceDetail");
+  priceSheetClosing = false;
+  priceCloseRequested = false;
+  el.hidden = false;
+  el.classList.remove("shown");
+  el.style.transition = "";
+  el.style.transform = "";
+  renderPriceDetail();
+  el.scrollTop = 0;
+  void el.offsetHeight;
+  el.classList.add("shown");
+  try {
+    history.pushState({ priceSheet: true }, "");
+    priceSheetHasHistory = true;
+  } catch (e) {
+    priceSheetHasHistory = false;
+  }
+  if (highlight) scrollToHighlightedRow();
+}
+
+function slidePriceSheetDown() {
+  const el = $("#priceDetail");
+  if (el.hidden || priceSheetClosing) return;
+  priceSheetClosing = true;
+  el.style.transition = "";
+  el.style.transform = "";
+  el.classList.remove("shown");
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    el.removeEventListener("transitionend", onEnd);
+    el.hidden = true;
+    priceDetailState = null;
+    priceSheetClosing = false;
+    priceCloseRequested = false;
+  };
+  const onEnd = (e) => {
+    if (e.target === el && e.propertyName === "transform") finish();
+  };
+  el.addEventListener("transitionend", onEnd);
+  setTimeout(finish, 450);
+}
+
+function parkPriceDetail() {
+  const el = $("#priceDetail");
+  if (el.hidden || priceDetailState == null) return;
+  el.style.transition = "none";
+  el.classList.remove("shown");
+  el.hidden = true;
+  el.style.transform = "";
+}
+
+function unparkPriceDetail() {
+  const el = $("#priceDetail");
+  if (priceDetailState == null) return;
+  el.hidden = false;
+  el.style.transition = "none";
+  el.classList.add("shown");
+  el.style.transform = "translate(-50%, 0)";
+  el.scrollTop = 0;
+  void el.offsetHeight;
+  el.style.transition = "";
+}
+
+function closePriceDetail() {
+  if ($("#priceDetail").hidden || priceSheetClosing || priceCloseRequested) return;
+  priceCloseRequested = true;
+  if (priceSheetHasHistory) {
+    priceSheetHasHistory = false;
+    history.back();
+  } else {
+    slidePriceSheetDown();
+  }
+}
+
 window.addEventListener("popstate", () => {
   sheetHasHistory = false;
-  if (detailState == null) return;
-  if ($("#recipeDetail").hidden) {
-    detailState = null; // parked on another tab: back gesture just discards it
-  } else {
-    slideSheetDown();
+  priceSheetHasHistory = false;
+  if (detailState != null) {
+    if ($("#recipeDetail").hidden) detailState = null; // parked elsewhere: back just discards it
+    else slideSheetDown();
+  }
+  if (priceDetailState != null) {
+    if ($("#priceDetail").hidden) priceDetailState = null;
+    else slidePriceSheetDown();
   }
 });
 
-// tap or swipe-down on the tinted name bar closes the sheet
-function initSheetDrag() {
-  const bar = $("#detailBar");
-  const el = $("#recipeDetail");
+// tap or swipe-down on the tinted name bar closes the sheet - shared by the
+// recipe sheet and the price sheet, same physics, different close callback
+function bindSheetDrag(barSel, elSel, onClose) {
+  const bar = $(barSel);
+  const el = $(elSel);
   let startY = 0;
   let dy = 0;
   let dragging = false;
   let moved = false;
 
   bar.addEventListener("touchstart", (e) => {
-    if (e.touches.length !== 1 || sheetClosing) return;
+    if (e.touches.length !== 1) return;
     startY = e.touches[0].clientY;
     dy = 0;
     dragging = true;
@@ -1170,12 +1503,19 @@ function initSheetDrag() {
     el.style.transition = "";
     el.style.transform = "";
     if (!moved || dy < 6 || dy > 90) {
-      closeRecipe(); // tap, or dragged far enough -> close (CSS finishes the slide)
+      onClose(); // tap, or dragged far enough -> close (CSS finishes the slide)
     }
     // otherwise: transform cleared -> springs back to translate(-50%, 0)
   }, { passive: false });
 
-  bar.addEventListener("click", () => closeRecipe());
+  bar.addEventListener("click", () => onClose());
+}
+
+function initSheetDrag() {
+  bindSheetDrag("#detailBar", "#recipeDetail", closeRecipe);
+}
+function initPriceSheetDrag() {
+  bindSheetDrag("#priceDetailBar", "#priceDetail", closePriceDetail);
 }
 
 function isCountUnit(unit) {
@@ -1459,6 +1799,228 @@ async function checkToken() {
     if (e.gh === "unauthorized") syncState = { kind: "unauthorized", resetAt: null };
   }
   render(store.state);
+}
+
+/* ---------- rendering: prices ---------- */
+
+let pricesUiState = {
+  period: "6m",           // "6m" | "all" | a "YYYY" year
+  selectedKey: "fusilli",  // which PRICE_MOCK product the Trends chart shows
+  oppOpen: false,
+};
+
+// the one entry point both a shopping-list tap and a Worth watching tap
+// go through, so the two never drift into two different behaviours: show
+// this product's chart, and (v10 spec) scroll to it rather than silently
+// updating off-screen.
+//
+// Default period is 6 months, but a bubble is a claim ("Carrefour is
+// cheaper") backed by specific observations, and if those sit outside 6
+// months the chart would show the bubble's colour on the list row with no
+// way to check it. So: if there is a bubble and its store has no point in
+// the 6-month window, open on "all time" instead, where the evidence is.
+function selectPriceProduct(key, opts = {}) {
+  const entry = PRICE_MOCK[key];
+  if (!entry) return;
+  pricesUiState.selectedKey = key;
+  const bubbleStore = computeBubble(key);
+  const bubbleInWindow = !bubbleStore ||
+    seriesForPeriod(entry, "6m").some((p) => p.store === bubbleStore);
+  pricesUiState.period = bubbleInWindow ? "6m" : "all";
+  renderTrends();
+  if (opts.scroll) {
+    const card = document.querySelector(".trends-card");
+    if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+function goToPriceChart(key) {
+  store.setView("prices");
+  selectPriceProduct(key, { scroll: true });
+}
+
+const OPP_COLLAPSED = 5;
+
+function renderOpportunities() {
+  const opps = computeOpportunities("6m");
+  const list = $("#oppList");
+  if (!opps.length) {
+    list.innerHTML = `<li class="opp-empty">Nothing worth watching yet.</li>`;
+    $("#oppToggle").hidden = true;
+    return;
+  }
+  const shown = pricesUiState.oppOpen ? opps : opps.slice(0, OPP_COLLAPSED);
+  // same shape as a shopping-list row: name left, then right-aligned a
+  // qty-styled number and the price icon - and the same bubble rule
+  // (v10 spec §6), so a coloured bubble means "clear cheapest store"
+  // everywhere it shows up, not just on the list
+  list.innerHTML = shown.map((o) => {
+    const bubbleStore = computeBubble(o.key);
+    const best6 = bestPriceInPeriod(PRICE_MOCK[o.key], "6m");
+    return `
+    <li class="opp-row" data-price-key="${escapeHtml(o.key)}">
+      <span class="opp-name">${escapeHtml(o.label)}</span>
+      <span class="opp-price">${best6 ? `€${best6.price.toFixed(2)}/kg` : ""}</span>
+      <span class="price-btn" aria-hidden="true">
+        ${bubbleStore ? `<span class="price-bubble" style="background:${storeColor(bubbleStore)}"></span>` : ""}
+        <svg viewBox="0 0 24 24" fill="none" stroke="${bubbleStore ? storeOnColor(bubbleStore) : "currentColor"}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${PRICE_ICON_DOWN_PATH}</svg>
+      </span>
+    </li>`;
+  }).join("");
+  $$(".opp-row", list).forEach((row) => {
+    row.addEventListener("click", () => selectPriceProduct(row.dataset.priceKey, { scroll: true }));
+  });
+  const toggle = $("#oppToggle");
+  if (opps.length <= OPP_COLLAPSED) {
+    toggle.hidden = true;
+  } else {
+    toggle.hidden = false;
+    toggle.textContent = pricesUiState.oppOpen ? "Show less" : `Show all · ${opps.length}`;
+  }
+}
+
+// dynamic per-item y-axis (v10 spec §5): a fixed scale would flatten a
+// EUR 3/kg product to a hairline next to a EUR 60/kg one
+function buildPriceChartSvg(points) {
+  const stores = [...new Set(points.map((p) => p.store))];
+  const dates = [...points.map((p) => p.date)].sort();
+  const t0 = new Date(dates[0]).getTime();
+  const t1 = new Date(dates[dates.length - 1]).getTime();
+  const prices = points.map((p) => p.price);
+  const lo = Math.min(...prices), hi = Math.max(...prices);
+  const pad = Math.max((hi - lo) * 0.15, hi * 0.05, 0.1);
+  const yLo = Math.max(0, lo - pad), yHi = hi + pad;
+  const X0 = 30, X1 = 310, Y0 = 14, Y1 = 126;
+  const xOf = (d) => (t1 === t0 ? (X0 + X1) / 2 : X0 + (X1 - X0) * ((new Date(d).getTime() - t0) / (t1 - t0)));
+  const yOf = (p) => Y1 - (Y1 - Y0) * ((p - yLo) / ((yHi - yLo) || 1));
+
+  let svg = `<svg viewBox="0 0 320 148" class="price-svg">`;
+  [yHi, (yHi + yLo) / 2, yLo].forEach((v) => {
+    const y = yOf(v);
+    svg += `<line x1="28" y1="${y.toFixed(1)}" x2="${X1}" y2="${y.toFixed(1)}" class="chart-grid"/>`;
+    svg += `<text x="0" y="${(y + 3).toFixed(1)}" class="chart-axis">${v.toFixed(v < 10 ? 1 : 0)}</text>`;
+  });
+
+  stores.forEach((s) => {
+    const pts = points.filter((p) => p.store === s).sort((a, b) => a.date.localeCompare(b.date));
+    const color = storeColor(s);
+    if (pts.length > 1) {
+      const poly = pts.map((p) => `${xOf(p.date).toFixed(1)},${yOf(p.price).toFixed(1)}`).join(" ");
+      svg += `<polyline points="${poly}" fill="none" stroke="${color}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`;
+    }
+    pts.forEach((p) => {
+      const cx = xOf(p.date).toFixed(1), cy = yOf(p.price).toFixed(1);
+      const d = `data-date="${p.date}" data-store="${escapeHtml(s)}"`;
+      svg += p.promo
+        ? `<g class="price-pt" ${d}><circle cx="${cx}" cy="${cy}" r="8" fill="${color}"/><text x="${cx}" y="${(+cy + 3).toFixed(1)}" class="promo-mark" fill="${storeOnColor(s)}">€</text></g>`
+        : `<circle class="price-pt" ${d} cx="${cx}" cy="${cy}" r="4" fill="${color}"/>`;
+    });
+  });
+  return svg + `</svg>`;
+}
+
+function renderTrends() {
+  const key = pricesUiState.selectedKey;
+  const entry = PRICE_MOCK[key];
+  if (!entry) return;
+
+  const years = [...new Set(entry.series.map((p) => p.date.slice(0, 4)))].sort();
+  const periods = [["6m", "6 months"], ...years.map((y) => [y, y]), ["all", "All time"]];
+  $("#pricePeriod").innerHTML = `<span class="rail-label">Period</span>` +
+    periods.map(([id, label]) =>
+      `<button type="button" class="chip${pricesUiState.period === id ? " on" : ""}" data-period="${id}">${escapeHtml(label)}</button>`
+    ).join("");
+  $$("#pricePeriod .chip").forEach((b) => {
+    b.addEventListener("click", () => { pricesUiState.period = b.dataset.period; renderTrends(); });
+  });
+
+  // read-only for now: the mock only carries one product per L1/L2 branch,
+  // so there is nothing yet for these chips to drill into (see PRICE_MOCK note)
+  $("#priceBreadcrumb").innerHTML = `<span class="rail-label">Product</span>` +
+    `<span class="chip on">${escapeHtml(entry.l1)}</span>` +
+    (entry.l2 ? `<span class="chip on">${escapeHtml(entry.l2)}</span>` : "") +
+    `<span class="chip">All products</span>`;
+
+  const filtered = seriesForPeriod(entry, pricesUiState.period);
+  const stores = [...new Set(filtered.map((p) => p.store))];
+  $("#priceLegend").innerHTML = `<span class="rail-label">Legend</span>` + stores.map((s) =>
+    `<span class="legend-item"><span class="legend-dot" style="background:${storeColor(s)}"></span>${escapeHtml(s)}</span>`
+  ).join("");
+
+  const wrap = $("#priceChartWrap");
+  if (filtered.length < 2) {
+    wrap.hidden = true;
+    wrap.innerHTML = "";
+    $("#priceEmpty").hidden = false;
+  } else {
+    wrap.hidden = false;
+    $("#priceEmpty").hidden = true;
+    wrap.innerHTML = buildPriceChartSvg(filtered);
+    $$(".price-pt", wrap).forEach((el) => {
+      el.addEventListener("click", () => openPriceDetail(key, { date: el.dataset.date, store: el.dataset.store }));
+    });
+  }
+
+  // "Latest price" is always the most recent purchase, whatever the period
+  // chip is set to - it answers "what did I pay", not "what did the chart
+  // just draw". "Best price" is the opposite: it follows the period chip
+  // and relabels itself, because "best" only means something within a
+  // stated window.
+  const allSorted = [...entry.series].sort((a, b) => a.date.localeCompare(b.date));
+  const last = allSorted[allSorted.length - 1];
+  $("#priceLastValue").innerHTML = `€${last.price.toFixed(2)}<span class="metric-unit">/kg</span>`;
+  $("#priceLastStore").innerHTML = `<span class="legend-dot" style="background:${storeColor(last.store)}"></span>${escapeHtml(last.store)}`;
+
+  const bestInPeriod = bestPriceInPeriod(entry, pricesUiState.period);
+  $("#priceBestLabel").textContent = `Best price · ${periodShortLabel(pricesUiState.period)}`;
+  if (bestInPeriod) {
+    $("#priceBestValue").innerHTML = `€${bestInPeriod.price.toFixed(2)}<span class="metric-unit">/kg</span>`;
+    $("#priceBestStore").innerHTML = `<span class="legend-dot" style="background:${storeColor(bestInPeriod.store)}"></span>${escapeHtml(bestInPeriod.store)}`;
+    $("#priceMetrics").hidden = false;
+  } else {
+    $("#priceMetrics").hidden = true;
+  }
+
+  $("#priceSeeAll").textContent = `See all · ${entry.series.length}`;
+}
+
+function renderPrices(state) {
+  renderOpportunities();
+  renderTrends();
+}
+
+function formatMonthYear(dateStr) {
+  return new Date(dateStr + "T00:00:00").toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+}
+
+function renderPriceDetail() {
+  if (!priceDetailState) return;
+  const { key, highlight } = priceDetailState;
+  const entry = PRICE_MOCK[key];
+  if (!entry) return;
+  $("#priceDetailTitle").textContent = entry.label;
+  const tags = [entry.l1, entry.l2].filter(Boolean);
+  $("#priceDetailTags").innerHTML = tags.map((t) =>
+    `<span class="detail-tag">${escapeHtml(t)}</span>`
+  ).join("");
+
+  $("#priceTableHead").innerHTML = `<span>Date</span><span>Store</span><span class="thnum">€/kg</span>`;
+  const rows = [...entry.series].sort((a, b) => b.date.localeCompare(a.date));
+  $("#priceTableBody").innerHTML = rows.map((p) => {
+    const isHi = highlight && highlight.date === p.date && highlight.store === p.store;
+    return `<div class="price-row${isHi ? " hi" : ""}" data-date="${p.date}" data-store="${escapeHtml(p.store)}">
+      <span class="price-date">${formatMonthYear(p.date)}</span>
+      <span class="price-store"><span class="legend-dot" style="background:${storeColor(p.store)}"></span>${escapeHtml(p.store)}</span>
+      <span class="price-value">${p.promo ? `<span class="promo-chip">€</span>` : ""}€${p.price.toFixed(2)}</span>
+    </div>`;
+  }).join("");
+}
+
+function scrollToHighlightedRow() {
+  requestAnimationFrame(() => {
+    const el = document.querySelector("#priceDetail .price-row.hi");
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
 }
 
 function renderSettings(state) {
@@ -1777,6 +2339,7 @@ function render(state) {
 
   renderListBadge(state);
   if (state.view === "list") renderList(state);
+  if (state.view === "prices") renderPrices(state);
   if (state.view === "recipes") renderRecipes(state);
   if (state.view === "settings") renderSettings(state);
   updateToTop();
@@ -1818,6 +2381,21 @@ function wire() {
     render(store.state);
   });
   $("#tidyChecked").addEventListener("click", tidyChecked);
+
+  $("#oppToggle").addEventListener("click", () => {
+    pricesUiState.oppOpen = !pricesUiState.oppOpen;
+    renderOpportunities();
+  });
+  $("#priceSeeAll").addEventListener("click", () => openPriceDetail(pricesUiState.selectedKey));
+
+  // the price sheet's own to-top: its scroll never reaches window scroll,
+  // since .detail is its own overflow-y:auto container
+  $("#priceDetail").addEventListener("scroll", () => {
+    $("#priceToTop").classList.toggle("show", $("#priceDetail").scrollTop > 200);
+  }, { passive: true });
+  $("#priceToTop").addEventListener("click", () => {
+    $("#priceDetail").scrollTo({ top: 0, behavior: "smooth" });
+  });
 
   $$("#setWho button").forEach((b) => {
     b.addEventListener("click", () => store.setWho(b.dataset.who));
@@ -2269,6 +2847,7 @@ store.subscribe(render);
 wire();
 initPullToSync();
 initSheetDrag();
+initPriceSheetDrag();
 render(store.state);                 // paint the cache immediately, before any network
 if (store.state.settings.token) {
   checkToken();                      // "Connected as ..."; on success it kicks fullSync

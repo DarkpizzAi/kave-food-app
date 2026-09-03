@@ -76,6 +76,18 @@ bubble behind the active tab; "All" chips on the recipe filters; the sync
 banner replaced by the Settings sync section; all 43 recipes including
 index-only stubs ("link only" / "to write").
 
+**v10 - Prices** - a Prices tab: Worth watching (products that have
+genuinely dropped in the last 6 months, not just moved) and Trends (a
+per-product chart, one line per store, period and product filters, a
+full-history sheet). Shopping-list rows get a price-history icon and a
+store-coloured bubble when one store is clearly cheapest. Series are keyed
+by product, not by ingredient - see the spec in `V10-PRICE-TRACKING-SPEC.md`
+for why. **The price data is a hand-written mock in `app.js`
+(`PRICE_MOCK`)**, standing in for `food/data/price-series.json` until
+`build_price_series.py` exists in kave-hub - the tab is fully wired and
+working, just against six placeholder products rather than the real
+receipt history.
+
 **Phase 4** - the meal planner. Not started; the Plan tab is a placeholder.
 
 Design notes and plans are in the private hub repo.

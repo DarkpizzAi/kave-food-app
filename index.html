@@ -75,6 +75,46 @@
       </div>
     </section>
 
+    <!-- PRICES -->
+    <section id="view-prices" class="view" hidden>
+      <div class="prices-section">
+        <div class="prices-head">
+          <span class="prices-title">Worth watching</span>
+          <span class="prices-sub">last 6 months</span>
+        </div>
+        <div class="opp-card">
+          <ul id="oppList" class="opp-list"></ul>
+          <button id="oppToggle" type="button" class="reveal-btn"></button>
+        </div>
+      </div>
+
+      <div class="prices-section">
+        <div class="prices-head"><span class="prices-title">Trends</span></div>
+        <div class="trends-card">
+          <div class="rails">
+            <div class="rail" id="pricePeriod"><span class="rail-label">Period</span></div>
+            <div class="rail" id="priceBreadcrumb"><span class="rail-label">Product</span></div>
+          </div>
+          <div id="priceChartWrap" class="price-chart-wrap"></div>
+          <p id="priceEmpty" class="empty" hidden>No price history yet.</p>
+          <div class="rail" id="priceLegend"><span class="rail-label">Legend</span></div>
+          <div id="priceMetrics" class="price-metrics">
+            <div class="metric-card">
+              <div class="metric-label">Latest price</div>
+              <div id="priceLastValue" class="metric-value"></div>
+              <div id="priceLastStore" class="metric-store"></div>
+            </div>
+            <div class="metric-card">
+              <div id="priceBestLabel" class="metric-label">Best price · 6mo</div>
+              <div id="priceBestValue" class="metric-value"></div>
+              <div id="priceBestStore" class="metric-store"></div>
+            </div>
+          </div>
+          <button id="priceSeeAll" type="button" class="reveal-btn"></button>
+        </div>
+      </div>
+    </section>
+
     <!-- RECIPES -->
     <section id="view-recipes" class="view" hidden>
       <div class="filterbar">
@@ -195,6 +235,22 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7-7 7 7"/></svg>
   </button>
 
+  <!-- PRICE DETAIL: same swoop-up sheet as a recipe, always all points, most recent first -->
+  <div id="priceDetail" class="detail" hidden>
+    <div class="detail-bar" id="priceDetailBar">
+      <div id="priceDetailTitle" class="rname"></div>
+      <div id="priceDetailTags" class="detail-tags"></div>
+    </div>
+    <div class="detail-inner">
+      <div id="priceTableHead" class="price-table-head"></div>
+      <div id="priceTableBody"></div>
+    </div>
+  </div>
+
+  <button id="priceToTop" class="to-top price-to-top" type="button" aria-label="Back to top">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7-7 7 7"/></svg>
+  </button>
+
   <nav class="bottom-nav">
     <button data-view="list" class="active" aria-label="List">
       <span class="nav-icon">
@@ -202,6 +258,13 @@
         <span id="listBadge" class="nav-badge" hidden></span>
       </span>
       <span class="nav-label">List</span>
+    </button>
+    <button data-view="prices" aria-label="Prices">
+      <span class="nav-icon">
+        <!-- kept in sync by hand with PRICE_ICON_PATH in app.js: static markup can't read a JS constant -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l5-6 4 3 7-7"/><path d="M15 7h5v5"/></svg>
+      </span>
+      <span class="nav-label">Prices</span>
     </button>
     <button data-view="recipes" aria-label="Recipes">
       <span class="nav-icon">
