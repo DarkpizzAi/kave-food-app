@@ -534,12 +534,12 @@ function tidyChecked() {
   }
 
   if (!drop.size) {
-    showTidyResult("Nothing to clean up.");
+    showTidyResult("Nothing to clean up");
     return;
   }
   const stillChecked = store.state.list.some((x) => x.checked && !drop.has(x.id));
   store.removeMany([...drop]);
-  const msg = `${drop.size} line${drop.size === 1 ? "" : "s"} cleaned up.`;
+  const msg = `${drop.size} line${drop.size === 1 ? "" : "s"} cleaned up`;
   // the result briefly replaces the Clean up button; if the whole ticked block
   // just emptied there is no button, so fall back to the page banner
   if (stillChecked) showTidyResult(msg);

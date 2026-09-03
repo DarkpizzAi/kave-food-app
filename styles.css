@@ -309,6 +309,9 @@
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
+/* the mobile tap flash is a sharp rectangle that ignores border-radius; the
+   :active nudge is feedback enough */
+* { -webkit-tap-highlight-color: transparent; }
 html, body { overscroll-behavior-y: contain; }
 /* always reserve the scrollbar gutter so switching between a short view
    (list) and a tall one (recipes) does not re-centre the fixed bars */
