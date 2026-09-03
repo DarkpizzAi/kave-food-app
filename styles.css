@@ -1322,10 +1322,14 @@ body.readonly .add-row input { cursor: not-allowed; }
 }
 
 /* ---- Trends: the three Product pills + their dropdowns ---- */
-/* a fixed "Product" label, then a row that scrolls horizontally and is
-   clipped to the card's inner edge (not the phone) */
+/* Category (L1 + L2) and Product (L3): a fixed label, then a row that scrolls
+   horizontally and is clipped to the card's inner edge (not the phone) */
 .price-pills-row { display: flex; align-items: center; gap: 7px; }
-/* opaque so pills scrolling under it tuck away cleanly, not bleed through */
+.price-pills-row + .price-pills-row { margin-top: 7px; }
+/* opaque so pills scrolling under it tuck away cleanly, not bleed through;
+   fixed width so both rows' pills start at the same x */
+.price-pills-row .rail-label,
+#priceLegend .rail-label { min-width: 62px; }
 .price-pills-row .rail-label {
   flex: none; position: relative; z-index: 1;
   background: var(--card); padding-right: 7px;
@@ -1471,34 +1475,74 @@ body.readonly .add-row input { cursor: not-allowed; }
 .price-bubble { position: absolute; inset: 0; border-radius: 50%; }
 
 /* ---- price detail sheet: table ---- */
-.price-table-head {
+/* one CSS grid for the header and every row (rows are display:contents), so a
+   column is a single shared track - the header and the values can never drift.
+   date / qty / price are max-content: exactly as wide as their widest value.
+   product and store share the rest and ellipsis. Columns have no gap so the
+   per-cell bottom borders join into one uninterrupted rule; spacing between
+   columns is right-padding inside the cells instead. */
+.price-table {
   display: grid;
-  grid-template-columns: 52px 1fr auto;
-  column-gap: 10px;
-  padding: 9px 4px;
-  color: var(--text-dim);
-  font-size: 0.72rem;
-  border-bottom: 1px solid var(--rule-strong);
-}
-.price-table-head .thnum { text-align: right; }
-.price-row {
-  display: grid;
-  grid-template-columns: 52px 1fr auto;
-  column-gap: 10px;
+  grid-template-columns:
+    max-content
+    minmax(64px, 1.25fr)
+    minmax(46px, 0.7fr)
+    max-content
+    max-content;
   align-items: center;
-  padding: 10px 4px;
+}
+.price-row { display: contents; }
+.pt-cell {
+  padding: 10px 10px 10px 0;
   border-bottom: 1px solid var(--rule);
+  min-width: 0;
   transition: background 0.4s ease;
 }
-.price-row.hi { background: var(--accent-soft); }
-.price-date { font-size: 0.82rem; color: var(--text-dim); }
-.price-store { display: flex; align-items: center; gap: 6px; font-size: 0.88rem; }
-.price-value { font-weight: 600; font-size: 0.9rem; text-align: right; display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
-.promo-chip {
-  width: 14px; height: 14px; border-radius: 50%;
-  background: var(--accent); color: #fff;
-  font-size: 0.55rem; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
+.price-row .pt-cell:last-child { padding-right: 0; }
+.pt-head {
+  padding-top: 9px; padding-bottom: 9px;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--rule-strong);
+}
+/* full-width bar naming the year that the rows below it belong to */
+.pt-year {
+  grid-column: 1 / -1;
+  padding: 14px 0 6px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--rule-strong);
+}
+.price-row.hi .pt-cell { background: var(--accent-soft); }
+
+.price-date { white-space: nowrap; font-size: 0.8rem; color: var(--text-dim); }
+.price-qty { white-space: nowrap; font-size: 0.8rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.price-value {
+  white-space: nowrap; font-weight: 600; font-size: 0.84rem;
+  font-variant-numeric: tabular-nums;
+}
+/* a promo price sits in an accent pill - no separate marker */
+.promo-price {
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+
+.price-item {
+  font-size: 0.84rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.price-store { display: flex; align-items: center; gap: 5px; font-size: 0.82rem; }
+.price-store-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* tapped-open row: the clipped names wrap and the row grows around them */
+.price-row.expanded .pt-cell { align-self: start; }
+.price-row.expanded .price-item,
+.price-row.expanded .price-store-name {
+  overflow: visible; white-space: normal; overflow-wrap: anywhere;
 }
 
 /* the price sheet's own to-top: same look as the shopping list's, positioned

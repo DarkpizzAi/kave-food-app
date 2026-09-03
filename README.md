@@ -91,6 +91,13 @@ resolves to a product, a variant or a card via that file's `resolve` index,
 built server-side against the ingredients dictionary - never guessed
 client-side.
 
+**v10.4** - the Trends filters split into a Category row (card + variant) and a
+Product row, each level drilling past any step that offers only one choice, so
+a pill is coloured in only when it truly describes the scope. The full-history
+sheet is one CSS grid (header and rows share every column track): day + month,
+product, store, quantity and price, in per-year blocks, one row per shopping
+trip rather than per observation, tap a row to unclip long names.
+
 **Phase 4** - the meal planner. Not started; the Plan tab is a placeholder.
 
 Design notes and plans are in the private hub repo.

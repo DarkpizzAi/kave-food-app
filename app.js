@@ -535,6 +535,37 @@ function l3Options(l1, l2) {
   return out.sort((a, b) => a.label.localeCompare(b.label));
 }
 
+// the L1's one variant, when that variant IS the whole card - null if the card
+// has several variants, none, or any product sitting outside a variant (then
+// the card is genuinely wider than the variant and pooling them differs).
+// The single predicate behind both narrowing and the Variant pill, so the pill
+// can never claim a variant the chart is not actually filtered to.
+function soleVariant(l1) {
+  const variants = l2Options(l1);
+  if (variants.length !== 1) return null;
+  const bare = Object.values(store.state.prices.products)
+    .some((e) => e.l1 === l1 && !e.l2);
+  return bare ? null : variants[0];
+}
+
+// drill a target down past any level that offers only one choice: picking an
+// L1 with a single product lands straight on that product, so its Variant and
+// Product pills show the forced value (coloured in) with no dropdown.
+function narrowPriceTarget(target) {
+  if (!target || target.level === "l3") return target;
+  const products = l3Options(target.l1, target.level === "l2" ? target.l2 : null);
+  if (products.length === 1) return { level: "l3", key: products[0].key };
+  if (target.level === "l1") {
+    const only = soleVariant(target.l1);
+    if (only) {
+      return narrowPriceTarget({
+        level: "l2", l1: target.l1, l1_label: target.l1_label, l2: only,
+      });
+    }
+  }
+  return target;
+}
+
 // the series array for whatever pricesUiState currently points at - the one
 // place that knows how to turn {level, l1, l2, key} into actual points, so
 // nothing else has to branch on level.
@@ -1946,26 +1977,37 @@ function defaultPriceTarget() {
   return { level: "l3", key: entries[0][0] };
 }
 
+// which period a newly selected target should open on. 6 months by default,
+// but: a bubble is a claim ("Carrefour is cheaper") backed by specific
+// observations, and if those sit outside 6 months the chart would show the
+// bubble's colour on the list row with no way to check it; and a target with
+// fewer than two points in the window draws no line at all. Either way the
+// evidence is in "all time", so open there instead.
+//
+// Only ever consulted when the target changes. A period the user picked by
+// hand is left exactly as picked, even when it draws an empty chart - the
+// dropdown offers no year the target has no data in, so an empty year chart
+// is a true answer ("one purchase, no trend"), not a dead end.
+function defaultPeriodFor(series) {
+  const bubbleStore = computeBubble(series);
+  const in6m = seriesInPeriod(series, "6m");
+  if (bubbleStore && !in6m.some((p) => p.store === bubbleStore)) return "all";
+  if (in6m.length < 2 && seriesInPeriod(series, "all").length >= 2) return "all";
+  return "6m";
+}
+
 // the one entry point every tap goes through, so a shopping-list tap and a
 // Worth watching tap can never drift into two different behaviours: show
 // this target's chart, and (v10 spec) scroll to it rather than silently
 // updating off-screen.
-//
-// Default period is 6 months, but a bubble is a claim ("Carrefour is
-// cheaper") backed by specific observations, and if those sit outside 6
-// months the chart would show the bubble's colour on the list row with no
-// way to check it. So: if there is a bubble and its store has no point in
-// the 6-month window, open on "all time" instead, where the evidence is.
 function selectPriceTarget(target, opts = {}) {
   if (!target) return;
+  target = narrowPriceTarget(target);
   const series = seriesForTarget(target);
   if (!series.length) return;
   pricesUiState.target = target;
   pricesUiState.openPill = null;
-  const bubbleStore = computeBubble(series);
-  const bubbleInWindow = !bubbleStore ||
-    seriesInPeriod(series, "6m").some((p) => p.store === bubbleStore);
-  pricesUiState.period = bubbleInWindow ? "6m" : "all";
+  pricesUiState.period = defaultPeriodFor(series);
   renderTrends();
   if (opts.scroll) {
     const card = document.querySelector(".trends-card");
@@ -2115,7 +2157,7 @@ function buildPriceChartSvg(lines) {
     }
     pts.forEach((p) => {
       const cx = xOf(p.date).toFixed(1), cy = yOf(p.price).toFixed(1);
-      const d = `data-date="${p.date}" data-store="${escapeHtml(p.store)}"`;
+      const d = `data-date="${p.date}" data-store="${escapeHtml(p.store)}" data-prod="${escapeHtml(p.prodKey || "")}"`;
       svg += p.promo
         ? `<g class="price-pt" ${d}><circle cx="${cx}" cy="${cy}" r="8" fill="${color}"/><text x="${cx}" y="${(+cy + 3).toFixed(1)}" class="promo-mark" fill="${storeOnColor(p.store)}">€</text></g>`
         : `<circle class="price-pt" ${d} cx="${cx}" cy="${cy}" r="4" fill="${color}"/>`;
@@ -2130,62 +2172,89 @@ function priceOptRows(rows, currentId) {
   ).join("");
 }
 
-// the three always-present Product pills, in a horizontally scrollable row
-// clipped to the card. A pill is accent when it holds a specific pick (and
-// then carries an x to clear it), greyed with a placeholder otherwise; L1
-// always holds a value. The open dropdown renders in a full-width host below
-// the row, not anchored to the pill - the scroll container would clip it.
-// Dropdowns cascade: L2 lists variants under L1, L3 lists products under L1
-// (and L2, if one is picked). L1 has a search box; L2/L3 never exceed ~15 rows.
+// the Category row (L1 + L2) and the Product row (L3). Each pill is described
+// by three facts and nothing else: `text`, `filled` (accent, because it names
+// the scope - as opposed to a grey placeholder), and `opens` (tapping drops a
+// dropdown). A pill that is filled but does not open is one there was no
+// choice about; only a pill the user could undo carries an x. The open
+// dropdown renders in a full-width host below both rows. Dropdowns cascade: L2
+// lists variants under L1, L3 lists products under L1 (and L2). L1 has a search
+// box; L2/L3 never exceed ~15 rows.
 function renderPricePills(target, info) {
-  const host = $("#pricePills");
-  const pill = (which, sel, placeholder) => {
-    const x = (sel && which !== "l1") ? `<span class="pill-x" data-clear="${which}" aria-hidden="true">✕</span>` : "";
-    const open = pricesUiState.openPill === which;
-    return `<button type="button" class="pill${sel ? " sel" : ""}${open ? " open" : ""}" data-pill="${which}">
-      <span class="pill-text">${escapeHtml(sel || placeholder)}</span>${x}
-    </button>`;
-  };
-  host.innerHTML =
-    pill("l1", info.l1_label, info.l1_label) +
-    pill("l2", info.l2 ? titleCaseVariant(info.l2) : "", "Variant") +
-    pill("l3", target.level === "l3" ? info.label : "", "Product");
+  const catHost = $("#priceCatPills");
+  const prodHost = $("#priceProdPills");
+  const l1s = l1Options();
+  const variants = l2Options(info.l1);
+  const l3scope = l3Options(info.l1, info.l2 || null);
 
-  $$(".pill", host).forEach((b) => {
-    b.addEventListener("click", (e) => {
-      e.stopPropagation();
-      if (e.target.closest(".pill-x")) return;
-      togglePricePill(b.dataset.pill);
+  // a variant is only shown as the forced scope when it really is the whole
+  // card (soleVariant) - a card with one variant plus products outside it is
+  // wider than that variant, and saying otherwise would misdescribe the chart
+  const forcedVariant = soleVariant(info.l1);
+  const pills = {
+    l1: { text: info.l1_label, filled: true, opens: l1s.length > 1 },
+    l2: forcedVariant ? { text: titleCaseVariant(forcedVariant), filled: true, opens: false }
+      : !variants.length ? { text: "Variant", filled: false, opens: false }
+      : info.l2 ? { text: titleCaseVariant(info.l2), filled: true, opens: true }
+      : { text: "Variant", filled: false, opens: true },
+    l3: l3scope.length === 1 ? { text: l3scope[0].label, filled: true, opens: false }
+      : !l3scope.length ? { text: "Product", filled: false, opens: false }
+      : target.level === "l3" ? { text: info.label, filled: true, opens: true }
+      : { text: "Product", filled: false, opens: true },
+  };
+
+  const pill = (which) => {
+    const p = pills[which];
+    // clearable exactly when the pill holds a pick that can be undone
+    const x = (p.filled && p.opens && which !== "l1")
+      ? `<span class="pill-x" data-clear="${which}" aria-hidden="true">✕</span>` : "";
+    const open = pricesUiState.openPill === which;
+    return `<button type="button" class="pill${p.filled ? " sel" : ""}${open ? " open" : ""}${p.opens ? "" : " dd-static"}"` +
+      `${p.opens ? ` data-pill="${which}"` : ` aria-disabled="true"`}>` +
+      `<span class="pill-text">${escapeHtml(p.text)}</span>${x}</button>`;
+  };
+  catHost.innerHTML = pill("l1") + pill("l2");
+  prodHost.innerHTML = pill("l3");
+
+  [catHost, prodHost].forEach((h) => {
+    $$(".pill[data-pill]", h).forEach((b) => {
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (e.target.closest(".pill-x")) return;
+        togglePricePill(b.dataset.pill);
+      });
     });
-  });
-  $$(".pill-x", host).forEach((x) => {
-    x.addEventListener("click", (e) => {
-      e.stopPropagation();
-      if (x.dataset.clear === "l2") clearPriceL2(info);
-      else clearPriceL3(info);
+    $$(".pill-x", h).forEach((el) => {
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (el.dataset.clear === "l2") clearPriceL2(info);
+        else clearPriceL3(info);
+      });
     });
   });
 
   // the open Product dropdown, in its own host below the pills row
   const panelHost = $("#pricePillPanel");
   const which = pricesUiState.openPill;
-  if (which !== "l1" && which !== "l2" && which !== "l3") {
+  if (!(pills[which] && pills[which].opens)) {
+    // a pill that used to open can lose its choices under a new target
+    if (pills[which]) pricesUiState.openPill = null;
     panelHost.hidden = true;
     panelHost.innerHTML = "";
     return;
   }
   let rows, currentId, withSearch = false;
   if (which === "l1") {
-    rows = l1Options().map((o) => ({ id: o.l1, label: o.label }));
+    rows = l1s.map((o) => ({ id: o.l1, label: o.label }));
     currentId = info.l1;
     withSearch = true;
   } else if (which === "l2") {
     rows = [{ id: "", label: "All variants" }].concat(
-      l2Options(info.l1).map((v) => ({ id: v, label: titleCaseVariant(v) })));
+      variants.map((v) => ({ id: v, label: titleCaseVariant(v) })));
     currentId = info.l2 || "";
   } else {
     rows = [{ id: "", label: "All products" }].concat(
-      l3Options(info.l1, info.l2 || null).map((p) => ({ id: p.key, label: p.label })));
+      l3scope.map((p) => ({ id: p.key, label: p.label })));
     currentId = target.level === "l3" ? target.key : "";
   }
   panelHost.hidden = false;
@@ -2197,14 +2266,13 @@ function renderPricePills(target, info) {
     o.addEventListener("click", (e) => {
       e.stopPropagation();
       const id = o.dataset.opt;
-      if (which === "l1") { if (id !== info.l1) pickPriceL1(id, l1Options().find((x) => x.l1 === id).label); else togglePricePill("l1"); }
+      if (which === "l1") { if (id !== info.l1) pickPriceL1(id, l1s.find((x) => x.l1 === id).label); else togglePricePill("l1"); }
       else if (which === "l2") { id ? pickPriceL2(info.l1, info.l1_label, id) : clearPriceL2(info); }
       else { id ? pickPriceL3(id) : (info.l2 ? pickPriceL2(info.l1, info.l1_label, info.l2) : clearPriceL2(info)); }
     });
   });
   const search = $(".pill-search", panelHost);
   if (search) {
-    search.focus();
     search.addEventListener("input", () => {
       const q = deburr(search.value).toLowerCase().trim();
       $$(".pill-opt", panelHost).forEach((o) => {
@@ -2256,7 +2324,15 @@ function renderPriceSubfilters(info, canGroup) {
 }
 
 function renderTrends() {
-  if (!pricesUiState.target) pricesUiState.target = defaultPriceTarget();
+  // first paint after data arrives: nothing has been tapped, so pick both the
+  // target and its period the same way a tap would
+  if (!pricesUiState.target) {
+    const first = narrowPriceTarget(defaultPriceTarget());
+    if (first) {
+      pricesUiState.target = first;
+      pricesUiState.period = defaultPeriodFor(seriesForTarget(first));
+    }
+  }
   const target = pricesUiState.target;
   const info = target && resolveTargetInfo(target);
   if (!info) {
@@ -2277,16 +2353,18 @@ function renderTrends() {
     pricesUiState.period = "6m";
   }
 
-  // "by product" is only a real choice when the selection spans more than one
-  // product/variant; otherwise force supermarket and drop the dropdown affordance
+  // "by product" is only a real choice when it would draw more than one line -
+  // judged on what the chosen period actually shows, not on the whole history,
+  // or the dropdown offers a switch that changes nothing. Otherwise force
+  // supermarket and drop the dropdown affordance.
+  const filtered = seriesInPeriod(info.series, pricesUiState.period);
   const productGranularity = target.level === "l1" ? "variant" : "product";
-  const canGroupByProduct = chartLines(info.series, productGranularity).length >= 2;
+  const canGroupByProduct = chartLines(filtered, productGranularity).length >= 2;
   if (!canGroupByProduct) pricesUiState.groupBy = "supermarket";
 
   renderPricePills(target, info);
   renderPriceSubfilters(info, canGroupByProduct);
 
-  const filtered = seriesInPeriod(info.series, pricesUiState.period);
   const granularity = lineGranularity(target);
   const lines = chartLines(filtered, granularity);
   $("#priceLegend").innerHTML = `<span class="rail-label">Legend</span>` + lines.map((ln) =>
@@ -2297,13 +2375,21 @@ function renderTrends() {
   if (filtered.length < 2) {
     wrap.hidden = true;
     wrap.innerHTML = "";
+    // a hand-picked year is allowed to draw nothing, so say which nothing it
+    // is: no purchases at all, or one purchase and therefore no line. "No
+    // price history" would contradict the metrics still showing below.
+    $("#priceEmpty").textContent = !filtered.length
+      ? "Nothing bought in this period."
+      : "Just one purchase here - no line to draw.";
     $("#priceEmpty").hidden = false;
   } else {
     wrap.hidden = false;
     $("#priceEmpty").hidden = true;
     wrap.innerHTML = buildPriceChartSvg(lines);
     $$(".price-pt", wrap).forEach((el) => {
-      el.addEventListener("click", () => openPriceDetail({ date: el.dataset.date, store: el.dataset.store }));
+      el.addEventListener("click", () => openPriceDetail({
+        date: el.dataset.date, store: el.dataset.store, prodKey: el.dataset.prod,
+      }));
     });
   }
 
@@ -2337,7 +2423,7 @@ function renderTrends() {
     $("#priceMetrics").hidden = true;
   }
 
-  $("#priceSeeAll").textContent = `See all · ${info.series.length}`;
+  $("#priceSeeAll").textContent = `See all · ${purchaseRows(info.series).length}`;
 }
 
 function renderPrices(state) {
@@ -2345,8 +2431,33 @@ function renderPrices(state) {
   renderTrends();
 }
 
-function formatMonthYear(dateStr) {
-  return new Date(dateStr + "T00:00:00").toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+// See-all rows show only day + month - the year is a full-width bar above each
+// year's block. Own month list because en-GB's "short" gives a 4-letter "Sept".
+const MONTHS_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function formatDayMonth(dateStr) {
+  const [, m, d] = dateStr.split("-");
+  return `${Number(d)} ${MONTHS_ABBR[Number(m) - 1]}`;
+}
+
+// the "See all" list: one row per (date, product, store), so buying two of the
+// same thing at the same shop on one trip is a single line with a quantity, not
+// two identical rows. Newest first, then by product name, then store.
+function purchaseRows(series) {
+  const groups = new Map();
+  for (const p of series) {
+    const k = p.date + "|" + (p.prodKey || "") + "|" + p.store;
+    if (!groups.has(k)) {
+      groups.set(k, {
+        date: p.date, prodKey: p.prodKey, prodLabel: p.prodLabel,
+        variant: p.variant, store: p.store, pts: [],
+      });
+    }
+    groups.get(k).pts.push(p);
+  }
+  return [...groups.values()].sort((a, b) =>
+    b.date.localeCompare(a.date) ||
+    (a.prodLabel || "").localeCompare(b.prodLabel || "") ||
+    a.store.localeCompare(b.store));
 }
 
 function renderPriceDetail() {
@@ -2365,21 +2476,58 @@ function renderPriceDetail() {
     `<span class="detail-tag">${escapeHtml(t)}</span>`
   ).join("");
 
-  $("#priceTableHead").innerHTML = `<span>Date</span><span>Store</span><span class="thnum">€/kg</span>`;
-  const rows = [...info.series].sort((a, b) => b.date.localeCompare(a.date));
-  $("#priceTableBody").innerHTML = rows.map((p) => {
-    const isHi = highlight && highlight.date === p.date && highlight.store === p.store;
-    return `<div class="price-row${isHi ? " hi" : ""}" data-date="${p.date}" data-store="${escapeHtml(p.store)}">
-      <span class="price-date">${formatMonthYear(p.date)}</span>
-      <span class="price-store"><span class="legend-dot" style="background:${storeColor(p.store)}"></span>${escapeHtml(p.store)}</span>
-      <span class="price-value">${p.promo ? `<span class="promo-chip">€</span>` : ""}€${p.price.toFixed(2)}</span>
-    </div>`;
+  // same columns at every level: date (day + month only), the most-granular
+  // name, store, qty, price. One CSS grid holds the header and every row, so a
+  // column is one track shared by all of them - guaranteed alignment. Date,
+  // qty and price are max-content; product and store split what's left and
+  // clip with an ellipsis until the row is tapped open. `.price-row` is
+  // display:contents so it can still carry the row's hi / expanded state.
+  // Rows run newest first, split into per-year blocks under a full-width bar.
+  const cell = (cls, inner) => `<div class="pt-cell ${cls}">${inner}</div>`;
+  const head =
+    `<div class="price-row pt-headrow">` +
+    ["Date", "Product", "Store", "Qty", "€/kg"].map((h) => cell("pt-head", h)).join("") +
+    `</div>`;
+
+  let lastYear = null;
+  const rows = purchaseRows(info.series).map((g) => {
+    // the cheapest point in the group is the one shown, so the promo pill is
+    // that point's own flag - never a sibling's
+    const shown = g.pts.reduce((a, b) => (b.price < a.price ? b : a));
+    const priceText = `€${shown.price.toFixed(2)}`;
+    const item = g.prodLabel || titleCaseVariant(g.variant) || info.l1_label;
+    // a pooled L1/L2 view can hold several products bought at one store on one
+    // day, so the product is part of what identifies the tapped dot's row
+    const isHi = highlight && highlight.date === g.date && highlight.store === g.store &&
+      (!highlight.prodKey || highlight.prodKey === g.prodKey);
+    const year = g.date.slice(0, 4);
+    const bar = year === lastYear ? "" : `<div class="pt-year">${year}</div>`;
+    lastYear = year;
+    return bar +
+      `<div class="price-row${isHi ? " hi" : ""}">` +
+      cell("price-date", escapeHtml(formatDayMonth(g.date))) +
+      cell("price-item", escapeHtml(item)) +
+      cell("price-store", `<span class="legend-dot" style="background:${storeColor(g.store)}"></span><span class="price-store-name">${escapeHtml(g.store)}</span>`) +
+      cell("price-qty", g.pts.length) +
+      // a promo price sits in an accent pill instead of carrying a marker
+      cell("price-value", shown.promo ? `<span class="promo-price">${priceText}</span>` : priceText) +
+      `</div>`;
   }).join("");
+
+  const table = $("#priceTable");
+  table.innerHTML = head + rows;
+
+  // a long product or store name is clipped to one line; tapping the row
+  // unclips both and the row grows to fit
+  $$(".price-row:not(.pt-headrow)", table).forEach((r) => {
+    r.addEventListener("click", () => r.classList.toggle("expanded"));
+  });
 }
 
 function scrollToHighlightedRow() {
   requestAnimationFrame(() => {
-    const el = document.querySelector("#priceDetail .price-row.hi");
+    // .price-row is display:contents (no box of its own) - scroll its first cell
+    const el = document.querySelector("#priceDetail .price-row.hi .pt-cell");
     if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
   });
 }
@@ -2753,7 +2901,7 @@ function wire() {
   // tapping anywhere outside an open Trends dropdown closes it
   document.addEventListener("click", (e) => {
     if (pricesUiState.openPill &&
-        !e.target.closest("#pricePills, #pricePillPanel, .price-subfilters")) {
+        !e.target.closest("#priceCatPills, #priceProdPills, #pricePillPanel, .price-subfilters")) {
       pricesUiState.openPill = null;
       renderTrends();
     }

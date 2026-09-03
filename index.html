@@ -97,12 +97,16 @@
           <p id="priceNoData" class="empty" hidden>Nothing synced yet.</p>
           <div id="priceTrendsBody">
             <div class="price-pills-row">
+              <span class="rail-label">Category</span>
+              <div class="price-pills" id="priceCatPills"></div>
+            </div>
+            <div class="price-pills-row">
               <span class="rail-label">Product</span>
-              <div class="price-pills" id="pricePills"></div>
+              <div class="price-pills" id="priceProdPills"></div>
             </div>
             <div class="pill-panel-host" id="pricePillPanel" hidden></div>
             <div id="priceChartWrap" class="price-chart-wrap"></div>
-            <p id="priceEmpty" class="empty" hidden>No price history yet.</p>
+            <p id="priceEmpty" class="empty" hidden></p>
             <div class="price-subfilters">
               <div class="pill-wrap" id="pricePeriod"></div>
               <div class="pill-wrap" id="priceGroupBy"></div>
@@ -253,8 +257,7 @@
       <div id="priceDetailTags" class="detail-tags"></div>
     </div>
     <div class="detail-inner">
-      <div id="priceTableHead" class="price-table-head"></div>
-      <div id="priceTableBody"></div>
+      <div id="priceTable" class="price-table"></div>
     </div>
   </div>
 
