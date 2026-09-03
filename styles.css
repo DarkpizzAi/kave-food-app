@@ -7,7 +7,6 @@
    in-app override any more, so data-theme is never set and the
    prefers-color-scheme blocks below always decide.
    data-palette on <html> selects the theme; absent = Cobalt.
-   A verbatim snapshot of all six lives in themes-legacy.css.
    ============================================================ */
 
 :root { --nav-h: 64px; }
@@ -685,8 +684,9 @@ input, .search {
   border-radius: 999px;
   font-size: 0.85rem;
   white-space: nowrap;
+  background: var(--surface-2);
+  color: var(--text-dim);
 }
-.rail .chip { background: var(--surface-2); color: var(--text-dim); }
 .rail .chip.on { background: var(--accent); color: var(--accent-text); font-weight: 600; }
 
 .sort-btn {
@@ -910,10 +910,6 @@ input, .search {
   padding: 8px 16px;
   font-size: 0.85rem;
   text-align: center;
-}
-.banner-warn {
-  background: var(--accent-soft);
-  color: var(--text);
 }
 .banner-tap {
   background: var(--accent);

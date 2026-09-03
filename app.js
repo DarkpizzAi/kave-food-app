@@ -209,7 +209,20 @@ let syncState = { kind: "idle", resetAt: null };
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-const deburr = (s) => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+/* Memoised: renderSuggestions deburrs every item name on every keystroke, and
+   the recipe sort deburrs every card on every render. NFD-normalising 400+
+   strings per keypress was measurable on a phone. Bounded, because search
+   typing feeds it a fresh string each time. */
+const deburrCache = new Map();
+const deburr = (s) => {
+  if (!s) return "";
+  let v = deburrCache.get(s);
+  if (v === undefined) {
+    v = s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+    if (deburrCache.size < 4000) deburrCache.set(s, v);
+  }
+  return v;
+};
 
 const uid = () =>
   (crypto.randomUUID && crypto.randomUUID()) || String(Date.now() + Math.random());
@@ -403,15 +416,24 @@ function itemRow(it) {
   return li;
 }
 
+/* The nav badge is visible from every tab, so it updates on every render even
+   when the list itself is not on screen. */
+function renderListBadge(state) {
+  const n = state.list.reduce((a, x) => a + (x.checked ? 0 : 1), 0);
+  const badge = $("#listBadge");
+  badge.textContent = n > 99 ? "99+" : String(n);
+  badge.hidden = n === 0;
+}
+
+/* Only called when the list view is actually on screen. It rebuilds every row
+   and re-binds two listeners per row; with the ticked block open that is 400+
+   rows, and it used to run on every store change and every background poll
+   while you were sat on Recipes or Settings looking at none of it. */
 function renderList(state) {
   const active = state.list.filter((x) => !x.checked);
   const checked = state.list.filter((x) => x.checked);
 
   $("#addName").disabled = store.readOnly();
-
-  const badge = $("#listBadge");
-  badge.textContent = active.length > 99 ? "99+" : String(active.length);
-  badge.hidden = active.length === 0;
 
   const ul = $("#listItems");
   ul.innerHTML = "";
@@ -493,12 +515,20 @@ function stripQty(name) {
   return s;
 }
 
+/* An amount at the end of a name, but only an unambiguous one: it carries a
+   unit, an x multiplier, or brackets. A bare trailing number is NOT enough -
+   "Omega 3" is a name, not three of something. */
+const TRAILING_AMOUNT =
+  /(?:\s+x\s*\d+(?:[.,]\d+)?|\s+\d+(?:[.,]\d+)?\s*(?:kg|g|mg|l|ml|cl|pcs?|pc)|[([][^()[\]]*\d[^()[\]]*[)\]])$/i;
+
 /* a ticked item is "recipe-specific" if it carries an amount: a real qty
-   field, or a quantity left in the name (hand-typed items don't parse one) */
+   field, or a quantity left in the name (hand-typed items don't parse one).
+   Deliberately stricter than stripQty(), which is only a grouping key: this
+   one decides what Clean up DELETES, so a false positive loses a real row. */
 function isQuantified(it) {
   const q = Number(it.qty);
   if (Number.isFinite(q) && q !== 0) return true;
-  return stripQty(it.name) !== deburr(it.name || "").replace(/\s+/g, " ").trim();
+  return TRAILING_AMOUNT.test(deburr(it.name || "").replace(/\s+/g, " ").trim());
 }
 
 /* the group key: same concept (slug, or the de-quantified name) and same
@@ -822,6 +852,24 @@ function updateRailFade(rail) {
   rail.classList.toggle("rail-fade", moreToTheRight);
 }
 
+/* One canvas pair per recipe, rasterised once and reused. renderRecipes runs
+   on every render while the tab is visible - including a background poll - and
+   foodPixelIcon builds two canvases per card, so 43 recipes meant re-drawing
+   86 canvases for a repaint that changed nothing. Re-appending a cached
+   element moves it, which is exactly what we want. Cleared when recipes
+   resync, in case a name or category changed. */
+const iconCache = new Map();
+
+function recipeIcon(r) {
+  if (typeof foodPixelIcon !== "function") return null;
+  let el = iconCache.get(r.slug);
+  if (!el) {
+    el = foodPixelIcon(r.name, r.category, 38);
+    iconCache.set(r.slug, el);
+  }
+  return el;
+}
+
 function renderRecipes(state) {
   renderRecipeControlRow(state);
   renderRecipeFilters(state);
@@ -850,9 +898,8 @@ function renderRecipes(state) {
     li.innerHTML = `
       <span class="main">${escapeHtml(r.name)}</span>
       <span class="card-meta">${meta}</span>`;
-    if (typeof foodPixelIcon === "function") {
-      li.appendChild(foodPixelIcon(r.name, r.category, 38));
-    }
+    const icon = recipeIcon(r);
+    if (icon) li.appendChild(icon);
     li.addEventListener("click", () => openRecipe(r.slug));
     ul.appendChild(li);
   });
@@ -1300,7 +1347,11 @@ async function checkToken() {
   renderSettings(store.state);
   try {
     const { login } = await github.getUser();
-    await github.getFile(github.config.recipesPath); // proves repo access
+    // Proves repo access AND keeps what it downloads. This used to be a bare
+    // getFile() whose 86 KB body was parsed and thrown away, and then fetched
+    // again by the fullSync below - two full recipe downloads per app open.
+    // Going through syncRecipes stores the etag, so that second read is a 304.
+    await syncRecipes();
     tokenStatus = { state: "ok", login, text: `Connected as ${login}` };
     if (syncState.kind === "unauthorized") syncState = { kind: "idle", resetAt: null };
     fullSync().then(() => render(store.state)); // a fresh token: pull everything
@@ -1339,9 +1390,15 @@ function renderSettings(state) {
   st.className = "token-status " + tokenStatus.state;
 
   renderSyncStatus();
-  renderUpdateStatus();
-  renderDisplayDiag();
   renderAdvanced();
+  // Both live inside the Advanced disclosure. renderDisplayDiag in particular
+  // appends a probe element and forces a synchronous layout to read the safe
+  // -area insets; doing that on every store change, collapsed and unseen, was
+  // pure waste.
+  if (advancedOpen) {
+    renderUpdateStatus();
+    renderDisplayDiag();
+  }
 
   const rb = $("#refreshBtn");
   if (rb.textContent !== "Syncing...") {
@@ -1626,7 +1683,8 @@ function render(state) {
     : ""
   );
 
-  renderList(state);
+  renderListBadge(state);
+  if (state.view === "list") renderList(state);
   if (state.view === "recipes") renderRecipes(state);
   if (state.view === "settings") renderSettings(state);
   updateToTop();
@@ -1691,9 +1749,11 @@ function wire() {
     if ((store.state.settings.theme || "system") === "system") applyTheme("system");
     });
 
+  // one resize listener for the lot: rail fades, header height, card heights
   let resizeTimer;
   window.addEventListener("resize", () => {
     $$("#cuisineFilters, #mainFilters").forEach(updateRailFade);
+    syncHeaderHeight();
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
       if (store.state.view === "recipes") equaliseCards();
@@ -1716,7 +1776,9 @@ function wire() {
 
   $("#advancedToggle").addEventListener("click", () => {
     advancedOpen = !advancedOpen;
-    renderAdvanced();
+    // full settings render, not just the disclosure: Update and Display are
+    // only rendered while the block is open, so opening it has to fill them
+    renderSettings(store.state);
   });
 
   $("#updateBtn").addEventListener("click", () => {
@@ -1807,15 +1869,24 @@ function scheduleFlush() {
 
 // push pending list changes to GitHub: GET -> replay -> PUT, retry on 409
 async function flushQueue() {
+  // An attempt that lands mid-flush is not dropped: the finally below
+  // reschedules whenever the queue is still non-empty after a good push.
   if (flushing || !store.state.settings.token || store.queue.length === 0) return;
   flushing = true;
+  let pushed = false;
+  let contended = false;
   render(store.state); // spinner on
   try {
     for (let attempt = 0; attempt < 3; attempt++) {
       const ops = store.queue.slice();
       const flushedIds = new Set(ops.map((o) => o.opId));
       const remote = await github.getFile(github.config.listPath);
-      const base = remote.notModified ? [] : (remote.json.items || []);
+      // This GET is deliberately unconditional, so a 304 is impossible. Fail
+      // loudly rather than treating "unchanged" as "empty": the line below
+      // used to fall back to [], which would have committed an empty list
+      // over the real one the moment anyone passed an etag in here.
+      if (remote.notModified) throw new Error("unconditional list GET returned 304");
+      const base = remote.json.items || [];
       const merged = replayOps(base, ops);
       const doc = {
         version: 1,
@@ -1833,6 +1904,7 @@ async function flushQueue() {
         store.state.list = replayOps(merged, store.queue); // + any ops that landed mid-flush
         store.saveList();
         store.saveSync();
+        pushed = true;
         syncOk();
         store.notify();
         return;
@@ -1841,11 +1913,21 @@ async function flushQueue() {
         throw e;
       }
     }
+    // three 409s running: the other phone is writing at the same moment. Keep
+    // the queue and back off, rather than spinning through another three.
+    contended = true;
+    console.warn("flushQueue: gave up after 3 conflicts, will retry");
   } catch (e) {
     syncFailed(e, "flushQueue"); // offline / rateLimited / unauthorized: keep the queue
   } finally {
     flushing = false;
     render(store.state); // repaint with the flag cleared
+    // Ops enqueued while this flush was in flight were skipped by the guard at
+    // the top - pick them up now. Only after a good push: a failed flush leaves
+    // the queue for the online / rate-limit / next-edit paths, so that an
+    // offline phone does not spin.
+    if (pushed && store.queue.length) scheduleFlush();
+    else if (contended) setTimeout(flushQueue, 8000);
   }
 }
 
@@ -1853,6 +1935,7 @@ async function syncRecipes() {
   const r = await github.getFile(github.config.recipesPath, { etag: store.sync.recipesEtag });
   if (r.notModified) return;
   store.state.recipes = r.json.recipes || [];
+  iconCache.clear(); // names / categories may have moved under the cached art
   store.sync.recipesSha = r.sha;
   store.sync.recipesEtag = r.etag;
   store.saveRecipes();
@@ -1899,6 +1982,7 @@ async function fullSync() {
 /* ---------- background poll (Task 6d) ---------- */
 
 let pollTimer = null;
+let pollSecs = 0;
 
 // one conditional GET of the list; cheap when nothing changed (304)
 function pollTick() {
@@ -1909,12 +1993,21 @@ function pollTick() {
   syncing = true;
   syncList()
     .catch((e) => syncFailed(e, "poll"))
-    .finally(() => { syncing = false; render(store.state); });
+    .finally(() => {
+      syncing = false;
+      render(store.state);
+      startPolling(); // GitHub may have asked for a slower cadence just now
+    });
 }
 
+// Idempotent, and re-runnable: github.pollInterval moves whenever GitHub sends
+// an X-Poll-Interval header, so re-arm the timer when the rate has changed.
+// Reading it once at boot meant the header was recorded and then ignored.
 function startPolling() {
-  if (pollTimer) return;
   const secs = Math.max(60, Number(github.pollInterval) || 60);
+  if (pollTimer && secs === pollSecs) return;
+  clearInterval(pollTimer);
+  pollSecs = secs;
   pollTimer = setInterval(pollTick, secs * 1000);
 }
 
@@ -1936,10 +2029,23 @@ function timeAgo(iso) {
   return Math.round(s / 86400) + " days ago";
 }
 
+/* Always clears the tap affordance. The update banner installs an onclick that
+   reloads the app; without this reset the next plain message ("3 lines cleaned
+   up") inherited it, and tapping it reloaded the app. */
 function showBanner(msg) {
   const b = $("#banner");
   b.textContent = msg;
+  b.classList.remove("banner-tap");
+  b.onclick = null;
   b.hidden = false;
+}
+
+// a banner that is meant to be tapped
+function showTapBanner(msg, onTap) {
+  showBanner(msg);
+  const b = $("#banner");
+  b.classList.add("banner-tap");
+  b.onclick = onTap;
 }
 
 let flashTimer;
@@ -1979,8 +2085,7 @@ function syncHeaderHeight() {
 function initPullToSync() {
   const main = $("main");
   const ptr = $("#ptr");
-  syncHeaderHeight();
-  window.addEventListener("resize", syncHeaderHeight);
+  syncHeaderHeight(); // on resize too, from the one listener in wire()
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(syncHeaderHeight);
   const arrowText = $(".ptr-text", ptr);
   const scroller = document.scrollingElement || document.documentElement;
@@ -2068,8 +2173,7 @@ startPolling();                      // no-ops each tick until there is a token
 
 // dev-only: on the local server with no token, load a bundled recipes snapshot
 // so the Recipes tab is browsable without GitHub. Never runs on the real site.
-if (["localhost", "127.0.0.1"].includes(location.hostname) &&
-    !store.state.settings.token && store.state.recipes.length === 0) {
+if (IS_LOCAL_DEV && !store.state.settings.token && store.state.recipes.length === 0) {
   fetch("recipes.dev.json")
     .then((r) => (r.ok ? r.json() : null))
     .then((arr) => {
@@ -2112,10 +2216,6 @@ if ("serviceWorker" in navigator && !IS_LOCAL_DEV) {
   let firstControl = !navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (firstControl) { firstControl = false; return; }
-    const b = $("#banner");
-    b.textContent = "New version. Tap to reload.";
-    b.hidden = false;
-    b.classList.add("banner-tap");
-    b.onclick = () => location.reload();
+    showTapBanner("New version. Tap to reload.", () => location.reload());
   });
 }
