@@ -132,20 +132,20 @@ read as broken.
 Since **v10.4** the three sit on two labelled rows: **Category** (L1 + L2) and
 **Product** (L3).
 
-- **Exactly one pill wears the accent** (v10.4): the deepest one naming a real
+- **Exactly one pill wears the accent** (v10.5): the deepest one naming a real
   value, because that is the subject of the chart. A card pooled across its
   variants keeps it on L1; picking a variant moves it to L2, picking a product
   to L3. The levels above stay legible in grey — they still say where you are,
   they are just not the subject.
 - A pill holding a pick the user made carries an inline **✕** to clear it and
   opens a dropdown; a value there was no choice about carries neither.
-  Clearing drops the chart one pooling level up. Since the ✕ can now sit on a
-  grey pill rather than an accent one, it is drawn in `--rule-strong` — the one
-  token that contrasts with `--surface-2` in both schemes.
+  Clearing drops the chart one pooling level up. Since v10.5 the ✕ can sit on a
+  grey pill rather than an accent one, so it is drawn in `--rule-strong` — the
+  one token that contrasts with `--surface-2` in both schemes.
 - A level with **nothing to offer** — a card with no variants, a variant with no
-  products of its own — shows an **em dash** in a short capsule (floored at 40px
-  so it never rounds into a circle) rather than a placeholder naming a choice
-  that does not exist.
+  products of its own — shows an **em dash** in a short capsule (v10.5; floored
+  at 40px so it never rounds into a circle) rather than a placeholder naming a
+  choice that does not exist.
 - A selection **drills past any level that offers only one choice** (v10.4):
   picking a card with a single product lands straight on that product. The
   levels it skipped then show that forced value rather than a placeholder. A
@@ -159,6 +159,11 @@ Since **v10.4** the three sit on two labelled rows: **Category** (L1 + L2) and
 - The dropdowns **cascade**: L2 lists the variants under the chosen L1, L3 the
   products under the chosen L1 *and* L2. Choosing L1 resets L2 and L3; choosing
   L2 resets L3.
+- Every pill on the card — the three filters and the Period / Group by
+  dropdowns — is emitted by one `pillButton()` (v10.5), so “opens” is a single
+  switch: an opening pill carries the `data-pill` the handlers bind to, and an
+  inert one is `aria-disabled` rather than `disabled`, keeping the pill colours
+  instead of the browser's greyed-out ones.
 - **Group by** = **Supermarket** (default) draws one line per store, pooling
   everything in pill scope — the original behaviour. **Group by = Product**
   draws one line per variant (when only L1 is set) or per product (L2/L3 set),
@@ -174,9 +179,10 @@ Since **v10.4** the three sit on two labelled rows: **Category** (L1 + L2) and
   more to show, or when 6 months would hide the evidence behind a
   shopping-list bubble. The first test compares against the window rather than
   a fixed count, so a card bought once, long ago (Bouillon, February 2025)
-  opens on all time and shows that purchase instead of reporting nothing. A period picked **by hand**
-  always stands, even when it draws nothing — a year with one purchase is a
-  true answer, and the chart says which nothing it is.
+  opens on all time and shows that purchase instead of reporting nothing.
+  A period picked **by hand** always stands, even when it draws nothing — a
+  year with one purchase is a true answer, and the chart says which nothing it
+  is.
 
 **C. The full-history sheet** — reached from *See all* or by tapping a chart
 point, which scrolls to and highlights the row it came from. Rebuilt at v10.4

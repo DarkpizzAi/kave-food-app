@@ -1997,7 +1997,7 @@ function defaultPeriodFor(series) {
   const bubbleStore = computeBubble(series);
   const in6m = seriesInPeriod(series, "6m");
   if (bubbleStore && !in6m.some((p) => p.store === bubbleStore)) return "all";
-  if (in6m.length < 2 && seriesInPeriod(series, "all").length > in6m.length) return "all";
+  if (in6m.length < 2 && series.length > in6m.length) return "all";
   return "6m";
 }
 
@@ -2181,6 +2181,25 @@ function priceOptRows(rows, currentId) {
   ).join("");
 }
 
+// every pill in the Trends card is this one button - the Category/Product
+// filters and the Period/Group by dropdowns alike - so they cannot drift into
+// two spellings of the same control. `opens` is the single switch: a pill that
+// opens carries the data-pill the click handlers bind to, and one that does not
+// is marked aria-disabled rather than disabled, so it stays announced and keeps
+// the .pill colours instead of the browser's greyed-out ones.
+// `trailing` is whatever sits after the label - a clear x, or a caret.
+function pillButton({ which, text, extra = [], opens, trailing = "" }) {
+  const cls = ["pill", ...extra.filter(Boolean)];
+  // a pill that cannot open cannot be the open one, whatever openPill still
+  // says - it can name a pill that lost its choices under a new target, and
+  // the render that clears it runs after this
+  if (opens && pricesUiState.openPill === which) cls.push("open");
+  if (!opens) cls.push("dd-static");
+  return `<button type="button" class="${cls.join(" ")}"` +
+    `${opens ? ` data-pill="${which}"` : ` aria-disabled="true"`}>` +
+    `<span class="pill-text">${escapeHtml(text)}</span>${trailing}</button>`;
+}
+
 // the Category row (L1 + L2) and the Product row (L3). Each pill is described
 // by three facts and nothing else: `text`, `filled` (it names something, as
 // opposed to holding a placeholder), and `opens` (tapping drops a dropdown).
@@ -2228,12 +2247,10 @@ function renderPricePills(target, info) {
     // clearable exactly when the pill holds a pick that can be undone
     const x = (p.filled && p.opens && which !== "l1")
       ? `<span class="pill-x" data-clear="${which}" aria-hidden="true">✕</span>` : "";
-    const open = pricesUiState.openPill === which;
-    const empty = !p.filled && !p.opens;
-    return `<button type="button" class="pill${which === accent ? " sel" : ""}` +
-      `${open ? " open" : ""}${p.opens ? "" : " dd-static"}${empty ? " pill-empty" : ""}"` +
-      `${p.opens ? ` data-pill="${which}"` : ` aria-disabled="true"`}>` +
-      `<span class="pill-text">${escapeHtml(p.text)}</span>${x}</button>`;
+    return pillButton({
+      which, text: p.text, opens: p.opens, trailing: x,
+      extra: [which === accent && "sel", !p.filled && !p.opens && "pill-empty"],
+    });
   };
   catHost.innerHTML = pill("l1") + pill("l2");
   prodHost.innerHTML = pill("l3");
@@ -2318,8 +2335,10 @@ function renderPriceSubfilters(info, canGroup) {
     const cur = rows.find((r) => r[0] === currentId) || rows[0];
     const open = interactive && pricesUiState.openPill === which;
     host.innerHTML =
-      `<button type="button" class="pill dd-btn${open ? " open" : ""}${interactive ? "" : " dd-static"}"${interactive ? ` data-pill="${which}"` : " disabled"}>` +
-      `<span class="pill-text">${escapeHtml(cur[1])}</span>${interactive ? `<span class="dd-caret" aria-hidden="true">▾</span>` : ""}</button>` +
+      pillButton({
+        which, text: cur[1], opens: interactive, extra: ["dd-btn"],
+        trailing: interactive ? `<span class="dd-caret" aria-hidden="true">▾</span>` : "",
+      }) +
       (open ? `<div class="pill-panel dd-panel"><div class="pill-opts">` +
         priceOptRows(rows.map(([id, label]) => ({ id, label })), currentId) +
         `</div></div>` : "");

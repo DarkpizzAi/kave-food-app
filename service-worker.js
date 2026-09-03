@@ -12,7 +12,7 @@
    has to live here to be able to break a browser out of a stale shell.
 */
 
-const VERSION = "v10.5";
+const VERSION = "v10.6";
 const CACHE = `kave-food-${VERSION}`;
 
 const IS_LOCAL_DEV = ["localhost", "127.0.0.1"].includes(self.location.hostname);
