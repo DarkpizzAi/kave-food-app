@@ -942,7 +942,7 @@ body.readonly .add-row,
 body.readonly .list li .tick,
 body.readonly .list li .del,
 body.readonly #tidyChecked,
-body.readonly .ing-add-toggle {
+body.readonly #ingAddToggle {
   opacity: 0.4;
   pointer-events: none;
 }
@@ -1097,26 +1097,45 @@ body.readonly .add-row input { cursor: not-allowed; }
   margin: 22px 0 10px;
 }
 .ing-head h3 { margin: 0; }
-.ing-add-toggle {
+/* the Shopping-mode switch in the ingredients header - a real sliding toggle */
+.switch {
   flex: none;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  min-height: 0;
-  padding: 0;
+  gap: 8px;
+  min-height: 36px;
+  padding: 4px 0;
   border: none;
-  border-radius: 999px;
-  background: var(--surface-2);
+  background: transparent;
+  font-size: 0.82rem;
+  font-weight: 500;
   color: var(--text-dim);
 }
-.ing-add-toggle svg { width: 18px; height: 18px; }
-.ing-add-toggle.on {
-  background: var(--accent);
-  color: var(--accent-text);
-  border-color: var(--accent);
+.switch.on { color: var(--text); }
+.switch-icon { display: inline-flex; }
+.switch-icon svg { width: 19px; height: 19px; }
+.switch-track {
+  position: relative;
+  width: 40px;
+  height: 24px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--surface-2);
+  transition: background 0.15s ease;
 }
+.switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s ease;
+}
+.switch.on .switch-track { background: var(--accent); }
+.switch.on .switch-knob { transform: translateX(16px); }
 
 /* ruled-page treatment: rows on lines, a left margin rule */
 .ing-list {
@@ -1303,21 +1322,57 @@ body.readonly .add-row input { cursor: not-allowed; }
 }
 
 /* ---- Trends: the three Product pills + their dropdowns ---- */
-.price-pills { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+/* a fixed "Product" label, then a row that scrolls horizontally and is
+   clipped to the card's inner edge (not the phone) */
+.price-pills-row { display: flex; align-items: center; gap: 7px; }
+/* opaque so pills scrolling under it tuck away cleanly, not bleed through */
+.price-pills-row .rail-label {
+  flex: none; position: relative; z-index: 1;
+  background: var(--card); padding-right: 7px;
+}
+.price-pills {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 7px;
+  flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.price-pills::-webkit-scrollbar { display: none; }
 .pill-wrap { position: relative; flex: none; }
 .pill {
+  flex: none;
   display: inline-flex; align-items: center; gap: 6px;
   padding: 6px 12px; min-height: 0; border: none;
   border-radius: 999px; font-size: 0.82rem; white-space: nowrap;
   background: var(--surface-2); color: var(--text-dim); font-weight: 500;
 }
 .pill.sel { background: var(--accent); color: var(--accent-text); font-weight: 600; }
+.pill.open { box-shadow: inset 0 0 0 1.5px var(--rule-strong); }
 .pill-text { overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
 .pill-x {
   display: inline-flex; align-items: center; justify-content: center;
   width: 15px; height: 15px; flex: none; border-radius: 50%;
   background: rgba(255, 255, 255, 0.22); font-size: 0.62rem;
 }
+
+/* the Product dropdown opens in this full-width host below the pills row -
+   the scroll container above would clip an anchored panel */
+.pill-panel-host { position: relative; z-index: 30; }
+.pill-panel-host .pill-panel {
+  position: static; width: 100%; min-width: 0; max-width: none;
+  margin-top: 6px;
+}
+
+/* Period + Group by: plain grey dropdowns on one line, chart above, legend
+   below. Never accent. */
+.price-subfilters {
+  display: flex; gap: 7px; align-items: flex-start;
+  margin: 10px 0 6px;
+}
+.dd-btn { gap: 5px; }
+.dd-caret { font-size: 0.6rem; opacity: 0.7; }
+/* Group by with nothing to switch to: still a grey chip, but no caret and inert */
+.dd-static { cursor: default; }
+
 .pill-panel {
   position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
   min-width: 190px; max-width: 78vw;
@@ -1378,8 +1433,6 @@ body.readonly .add-row input { cursor: not-allowed; }
 
 /* ---- Trends ---- */
 .trends-card { background: var(--card); border-radius: 14px; padding: 14px 12px 4px; }
-.trends-card .rails { margin-top: 0; }
-.trends-card .rail .chip { min-height: 0; padding: 6px 13px; font-size: 0.82rem; }
 
 /* the legend sits between the chart and the KPI cards, same row shape as
    Period/Product above but plain text since it isn't itself a filter */

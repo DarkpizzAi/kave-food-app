@@ -1726,7 +1726,9 @@ function renderDetail() {
   const scaled = target !== base;
   const presets = servingPresets(recipe);
 
-  const addMode = detailState.addMode;
+  // read-only (no usable token) blocks every list write, so shopping mode
+  // would just show ticks that never land - collapse it instead
+  const addMode = detailState.addMode && !store.readOnly();
   const ingHtml = recipe.ingredients.map((ing, i) => {
     const nameHtml = `<span class="nm">${escapeHtml(ing.name)}` +
       `${ing.note ? ` <span class="note">(${escapeHtml(ing.note)})</span>` : ""}`;
@@ -1786,7 +1788,10 @@ function renderDetail() {
     </div>
     <div class="ing-head">
       <h3>Ingredients</h3>
-      <button type="button" id="ingAddToggle" class="ing-add-toggle${addMode ? " on" : ""}" aria-label="${addMode ? "Stop adding to shopping list" : "Add ingredients to shopping list"}">${ICON.cart}</button>
+      <button type="button" id="ingAddToggle" class="switch${addMode ? " on" : ""}" role="switch" aria-checked="${addMode}" aria-label="Shopping mode">
+        <span class="switch-icon">${ICON.cart}</span>
+        <span class="switch-track"><span class="switch-knob"></span></span>
+      </button>
     </div>
     <ul class="ing-list${addMode ? " adding" : ""}" style="grid-template-columns:${gridCols}">${ingHtml}</ul>
     ${recipe.portionsConfirmed ? "" : `<p class="unconfirmed">Base portions not confirmed in the kitchen.</p>`}
@@ -1856,22 +1861,24 @@ function renderDetail() {
       if (detailState.added.has(i)) {
         if (existing) store.deleteItem(existing.id);
         detailState.added.delete(i);
-      } else {
-        if (!existing) {
-          let qty = null, unit = null;
-          if (ing.qty != null) {
-            qty = scaled ? scaleQty(ing, factor) : ing.qty;
-            unit = ing.unit;
-          }
-          store.addItem({
-            name: ing.conceptName || ing.name,
-            qty, unit,
-            note: [ing.variantHint, ing.note].filter(Boolean).join(", ") || null,
-            source: key,
-            slug: ing.slug || null,
-          });
-        }
+      } else if (existing) {
         detailState.added.add(i);
+      } else {
+        let qty = null, unit = null;
+        if (ing.qty != null) {
+          qty = scaled ? scaleQty(ing, factor) : ing.qty;
+          unit = ing.unit;
+        }
+        // only tick the row if the item actually landed - store.addItem
+        // returns null when the list is read-only
+        const created = store.addItem({
+          name: ing.conceptName || ing.name,
+          qty, unit,
+          note: [ing.variantHint, ing.note].filter(Boolean).join(", ") || null,
+          source: key,
+          slug: ing.slug || null,
+        });
+        if (created) detailState.added.add(i);
       }
       renderDetail();
     });
@@ -2117,44 +2124,32 @@ function buildPriceChartSvg(lines) {
   return svg + `</svg>`;
 }
 
-// the three always-present Product pills. A pill is accent when it holds a
-// specific pick (and then carries an x to clear it), greyed with a placeholder
-// otherwise. L1 always holds a value. Dropdowns cascade: L2 lists variants
-// under L1, L3 lists products under L1 (and L2, if one is picked). L1 has a
-// search box; L2/L3 never exceed ~15 rows so they don't.
-function renderPricePills(target, info) {
-  const host = $("#pricePills");
-  const openable = (which, sel, placeholder, panelHtml) => {
-    const open = pricesUiState.openPill === which;
-    const x = (sel && which !== "l1") ? `<span class="pill-x" data-clear="${which}" aria-hidden="true">✕</span>` : "";
-    return `<div class="pill-wrap">
-      <button type="button" class="pill${sel ? " sel" : ""}" data-pill="${which}">
-        <span class="pill-text">${escapeHtml(sel || placeholder)}</span>${x}
-      </button>
-      ${open ? `<div class="pill-panel" data-panel="${which}">${panelHtml}</div>` : ""}
-    </div>`;
-  };
-  const optRows = (rows, currentId) => rows.map((r) =>
+function priceOptRows(rows, currentId) {
+  return rows.map((r) =>
     `<button type="button" class="pill-opt${r.id === currentId ? " on" : ""}" data-opt="${escapeHtml(r.id)}">${escapeHtml(r.label)}</button>`
   ).join("");
+}
 
-  const l1rows = l1Options().map((o) => ({ id: o.l1, label: o.label }));
-  const l1Panel =
-    `<input type="text" class="pill-search" placeholder="Search" data-pill-search="l1">` +
-    `<div class="pill-opts">${optRows(l1rows, info.l1)}</div>`;
-
-  const l2rows = [{ id: "", label: "All variants" }].concat(
-    l2Options(info.l1).map((v) => ({ id: v, label: titleCaseVariant(v) })));
-  const l2Panel = `<div class="pill-opts">${optRows(l2rows, info.l2 || "")}</div>`;
-
-  const l3rows = [{ id: "", label: "All products" }].concat(
-    l3Options(info.l1, info.l2 || null).map((p) => ({ id: p.key, label: p.label })));
-  const l3Panel = `<div class="pill-opts">${optRows(l3rows, target.level === "l3" ? target.key : "")}</div>`;
-
-  host.innerHTML = `<span class="rail-label">Product</span>` +
-    openable("l1", info.l1_label, info.l1_label, l1Panel) +
-    openable("l2", info.l2 ? titleCaseVariant(info.l2) : "", "Variant", l2Panel) +
-    openable("l3", target.level === "l3" ? info.label : "", "Product", l3Panel);
+// the three always-present Product pills, in a horizontally scrollable row
+// clipped to the card. A pill is accent when it holds a specific pick (and
+// then carries an x to clear it), greyed with a placeholder otherwise; L1
+// always holds a value. The open dropdown renders in a full-width host below
+// the row, not anchored to the pill - the scroll container would clip it.
+// Dropdowns cascade: L2 lists variants under L1, L3 lists products under L1
+// (and L2, if one is picked). L1 has a search box; L2/L3 never exceed ~15 rows.
+function renderPricePills(target, info) {
+  const host = $("#pricePills");
+  const pill = (which, sel, placeholder) => {
+    const x = (sel && which !== "l1") ? `<span class="pill-x" data-clear="${which}" aria-hidden="true">✕</span>` : "";
+    const open = pricesUiState.openPill === which;
+    return `<button type="button" class="pill${sel ? " sel" : ""}${open ? " open" : ""}" data-pill="${which}">
+      <span class="pill-text">${escapeHtml(sel || placeholder)}</span>${x}
+    </button>`;
+  };
+  host.innerHTML =
+    pill("l1", info.l1_label, info.l1_label) +
+    pill("l2", info.l2 ? titleCaseVariant(info.l2) : "", "Variant") +
+    pill("l3", target.level === "l3" ? info.label : "", "Product");
 
   $$(".pill", host).forEach((b) => {
     b.addEventListener("click", (e) => {
@@ -2170,26 +2165,94 @@ function renderPricePills(target, info) {
       else clearPriceL3(info);
     });
   });
-  $$(".pill-opt", host).forEach((o) => {
+
+  // the open Product dropdown, in its own host below the pills row
+  const panelHost = $("#pricePillPanel");
+  const which = pricesUiState.openPill;
+  if (which !== "l1" && which !== "l2" && which !== "l3") {
+    panelHost.hidden = true;
+    panelHost.innerHTML = "";
+    return;
+  }
+  let rows, currentId, withSearch = false;
+  if (which === "l1") {
+    rows = l1Options().map((o) => ({ id: o.l1, label: o.label }));
+    currentId = info.l1;
+    withSearch = true;
+  } else if (which === "l2") {
+    rows = [{ id: "", label: "All variants" }].concat(
+      l2Options(info.l1).map((v) => ({ id: v, label: titleCaseVariant(v) })));
+    currentId = info.l2 || "";
+  } else {
+    rows = [{ id: "", label: "All products" }].concat(
+      l3Options(info.l1, info.l2 || null).map((p) => ({ id: p.key, label: p.label })));
+    currentId = target.level === "l3" ? target.key : "";
+  }
+  panelHost.hidden = false;
+  panelHost.innerHTML = `<div class="pill-panel" data-panel="${which}">` +
+    (withSearch ? `<input type="text" class="pill-search" placeholder="Search">` : "") +
+    `<div class="pill-opts">${priceOptRows(rows, currentId)}</div></div>`;
+
+  $$(".pill-opt", panelHost).forEach((o) => {
     o.addEventListener("click", (e) => {
       e.stopPropagation();
-      const which = o.closest(".pill-panel").dataset.panel;
       const id = o.dataset.opt;
       if (which === "l1") { if (id !== info.l1) pickPriceL1(id, l1Options().find((x) => x.l1 === id).label); else togglePricePill("l1"); }
       else if (which === "l2") { id ? pickPriceL2(info.l1, info.l1_label, id) : clearPriceL2(info); }
       else { id ? pickPriceL3(id) : (info.l2 ? pickPriceL2(info.l1, info.l1_label, info.l2) : clearPriceL2(info)); }
     });
   });
-  const search = $(".pill-search", host);
+  const search = $(".pill-search", panelHost);
   if (search) {
     search.focus();
     search.addEventListener("input", () => {
       const q = deburr(search.value).toLowerCase().trim();
-      $$(".pill-opt", search.closest(".pill-panel")).forEach((o) => {
+      $$(".pill-opt", panelHost).forEach((o) => {
         o.hidden = q && !deburr(o.textContent).toLowerCase().includes(q);
       });
     });
   }
+}
+
+// Period and Group by: plain grey dropdowns (never accent), sitting on one
+// line between the chart and the legend. `canGroup` is false when "by product"
+// would draw a single line (one product/variant in scope) - then Group by is
+// shown as static text with no caret, since there is nothing to switch to.
+function renderPriceSubfilters(info, canGroup) {
+  const years = [...new Set(info.series.map((p) => p.date.slice(0, 4)))].sort();
+  const periods = [["6m", "6 months"], ...years.map((y) => [y, y]), ["all", "All time"]];
+  const groups = [["supermarket", "By supermarket"], ["product", "By product"]];
+
+  const dd = (hostId, which, rows, currentId, onPick, interactive = true) => {
+    const host = $(hostId);
+    const cur = rows.find((r) => r[0] === currentId) || rows[0];
+    const open = interactive && pricesUiState.openPill === which;
+    host.innerHTML =
+      `<button type="button" class="pill dd-btn${open ? " open" : ""}${interactive ? "" : " dd-static"}"${interactive ? ` data-pill="${which}"` : " disabled"}>` +
+      `<span class="pill-text">${escapeHtml(cur[1])}</span>${interactive ? `<span class="dd-caret" aria-hidden="true">▾</span>` : ""}</button>` +
+      (open ? `<div class="pill-panel dd-panel"><div class="pill-opts">` +
+        priceOptRows(rows.map(([id, label]) => ({ id, label })), currentId) +
+        `</div></div>` : "");
+    if (!interactive) return;
+    $(".pill", host).addEventListener("click", (e) => {
+      e.stopPropagation();
+      togglePricePill(which);
+    });
+    $$(".pill-opt", host).forEach((o) => {
+      o.addEventListener("click", (e) => { e.stopPropagation(); onPick(o.dataset.opt); });
+    });
+  };
+
+  dd("#pricePeriod", "period", periods, pricesUiState.period, (id) => {
+    pricesUiState.period = id;
+    pricesUiState.openPill = null;
+    renderTrends();
+  });
+  dd("#priceGroupBy", "group", groups, pricesUiState.groupBy, (id) => {
+    pricesUiState.groupBy = id;
+    pricesUiState.openPill = null;
+    renderTrends();
+  }, canGroup);
 }
 
 function renderTrends() {
@@ -2199,30 +2262,29 @@ function renderTrends() {
   if (!info) {
     $("#priceNoData").hidden = false;
     $("#priceTrendsBody").hidden = true;
+    $("#priceReset").hidden = true;
     return;
   }
   $("#priceNoData").hidden = true;
   $("#priceTrendsBody").hidden = false;
+  $("#priceReset").hidden = false;
 
-  const years = [...new Set(info.series.map((p) => p.date.slice(0, 4)))].sort();
-  const periods = [["6m", "6 months"], ...years.map((y) => [y, y]), ["all", "All time"]];
-  $("#pricePeriod").innerHTML = `<span class="rail-label">Period</span>` +
-    periods.map(([id, label]) =>
-      `<button type="button" class="chip${pricesUiState.period === id ? " on" : ""}" data-period="${id}">${escapeHtml(label)}</button>`
-    ).join("");
-  $$("#pricePeriod .chip").forEach((b) => {
-    b.addEventListener("click", () => { pricesUiState.period = b.dataset.period; renderTrends(); });
-  });
+  // a year option only exists while the current target has data in it; if the
+  // target changed under a selected year, fall back rather than filter the
+  // chart to nothing against a period the dropdown no longer offers
+  if (!["6m", "all"].includes(pricesUiState.period) &&
+      !info.series.some((p) => p.date.slice(0, 4) === pricesUiState.period)) {
+    pricesUiState.period = "6m";
+  }
+
+  // "by product" is only a real choice when the selection spans more than one
+  // product/variant; otherwise force supermarket and drop the dropdown affordance
+  const productGranularity = target.level === "l1" ? "variant" : "product";
+  const canGroupByProduct = chartLines(info.series, productGranularity).length >= 2;
+  if (!canGroupByProduct) pricesUiState.groupBy = "supermarket";
 
   renderPricePills(target, info);
-
-  $("#priceGroupBy").innerHTML = `<span class="rail-label">Group by</span>` +
-    [["supermarket", "Supermarket"], ["product", "Product"]].map(([id, label]) =>
-      `<button type="button" class="chip${pricesUiState.groupBy === id ? " on" : ""}" data-group="${id}">${label}</button>`
-    ).join("");
-  $$("#priceGroupBy .chip").forEach((b) => {
-    b.addEventListener("click", () => { pricesUiState.groupBy = b.dataset.group; pricesUiState.openPill = null; renderTrends(); });
-  });
+  renderPriceSubfilters(info, canGroupByProduct);
 
   const filtered = seriesInPeriod(info.series, pricesUiState.period);
   const granularity = lineGranularity(target);
@@ -2688,9 +2750,10 @@ function wire() {
   $("#priceSeeAll").addEventListener("click", () => openPriceDetail());
   $("#priceReset").addEventListener("click", resetTrends);
 
-  // tapping anywhere outside an open Product-pill dropdown closes it
+  // tapping anywhere outside an open Trends dropdown closes it
   document.addEventListener("click", (e) => {
-    if (pricesUiState.openPill && !e.target.closest("#pricePills")) {
+    if (pricesUiState.openPill &&
+        !e.target.closest("#pricePills, #pricePillPanel, .price-subfilters")) {
       pricesUiState.openPill = null;
       renderTrends();
     }

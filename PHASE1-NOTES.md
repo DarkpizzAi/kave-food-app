@@ -125,11 +125,12 @@
 - **Detail sections**: `Ingredients` (Fraunces h3) and `Preparation`. No
   separate "cooking" section - the cards store one method list; splitting it
   would be a recipe-data change.
-- **Add ingredients to the shopping list from a recipe**: a small cart icon
-  (same SVG as the bottom-nav List tab) sits right-aligned with the
-  "Ingredients" heading. Tapping it enters add-mode: the icon itself turns
-  green (`.ing-add-toggle.on`, no label text) and every ingredient row grows
-  a trailing round `+` button (a fourth `max-content` grid column,
+- **Add ingredients to the shopping list from a recipe**: a "Shopping mode"
+  toggle switch (`role="switch"`, the bottom-nav List cart icon beside the
+  track) sits right-aligned with the "Ingredients" heading. Flipping it on
+  (`.switch.on` - accent track, knob slides right) enters add-mode and every
+  ingredient row grows a trailing round `+` button (a fourth `max-content`
+  grid column,
   added/removed from `.ing-list`'s inline `grid-template-columns` so the
   subgrid rows still line up). Tapping `+` pushes that ingredient onto the
   shopping list, **name first then quantity** ("Spaghettis 150 g", matching
