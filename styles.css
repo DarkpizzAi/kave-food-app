@@ -538,12 +538,12 @@ input, .search {
 /* reserved slot above the row: the Clean up result lands here, and because the
    height is always held nothing shifts when it appears or clears */
 .cleanup-msg {
-  min-height: 24px;
-  display: flex;
-  align-items: center;
+  min-height: 22px;
+  line-height: 22px;
   padding: 0 4px;
   font-size: 0.8rem;
-  color: var(--text-dim);
+  color: var(--accent);
+  background: none;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
