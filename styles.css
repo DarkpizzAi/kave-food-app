@@ -1357,6 +1357,17 @@ body.readonly .add-row input { cursor: not-allowed; }
   width: 15px; height: 15px; flex: none; border-radius: 50%;
   background: rgba(255, 255, 255, 0.22); font-size: 0.62rem;
 }
+/* only the deepest filled pill is accent, so a clearable pill can sit on the
+   grey surface - where a translucent white disc vanishes in the light theme.
+   --rule-strong is the one token that contrasts with --surface-2 in both. */
+.pill:not(.sel) .pill-x { background: var(--rule-strong); }
+
+/* a level with nothing to offer holds a dash: a short capsule, floored well
+   above its own height so it never rounds into a circle */
+.pill-empty {
+  min-width: 40px; padding-left: 10px; padding-right: 10px;
+  justify-content: center;
+}
 
 /* the Product dropdown opens in this full-width host below the pills row -
    the scroll container above would clip an anchored panel */

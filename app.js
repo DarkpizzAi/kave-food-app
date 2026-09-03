@@ -1980,9 +1980,14 @@ function defaultPriceTarget() {
 // which period a newly selected target should open on. 6 months by default,
 // but: a bubble is a claim ("Carrefour is cheaper") backed by specific
 // observations, and if those sit outside 6 months the chart would show the
-// bubble's colour on the list row with no way to check it; and a target with
-// fewer than two points in the window draws no line at all. Either way the
-// evidence is in "all time", so open there instead.
+// bubble's colour on the list row with no way to check it; and a window that
+// cannot draw a line (fewer than two points) is worth leaving for one that
+// shows more. Either way the evidence is in "all time", so open there instead.
+//
+// The second test compares against the window rather than a fixed count, so a
+// card whose only purchase predates the window - Bouillon, bought once in
+// February 2025 - opens on all time and shows it, instead of reporting
+// "nothing bought in this period" about a product that was in fact bought.
 //
 // Only ever consulted when the target changes. A period the user picked by
 // hand is left exactly as picked, even when it draws an empty chart - the
@@ -1992,7 +1997,7 @@ function defaultPeriodFor(series) {
   const bubbleStore = computeBubble(series);
   const in6m = seriesInPeriod(series, "6m");
   if (bubbleStore && !in6m.some((p) => p.store === bubbleStore)) return "all";
-  if (in6m.length < 2 && seriesInPeriod(series, "all").length >= 2) return "all";
+  if (in6m.length < 2 && seriesInPeriod(series, "all").length > in6m.length) return "all";
   return "6m";
 }
 
@@ -2166,6 +2171,10 @@ function buildPriceChartSvg(lines) {
   return svg + `</svg>`;
 }
 
+// what a Category/Product pill shows when that level has nothing to offer -
+// the same em dash the metric cards already use for "no value here"
+const NO_LEVEL = "—";
+
 function priceOptRows(rows, currentId) {
   return rows.map((r) =>
     `<button type="button" class="pill-opt${r.id === currentId ? " on" : ""}" data-opt="${escapeHtml(r.id)}">${escapeHtml(r.label)}</button>`
@@ -2173,13 +2182,22 @@ function priceOptRows(rows, currentId) {
 }
 
 // the Category row (L1 + L2) and the Product row (L3). Each pill is described
-// by three facts and nothing else: `text`, `filled` (accent, because it names
-// the scope - as opposed to a grey placeholder), and `opens` (tapping drops a
-// dropdown). A pill that is filled but does not open is one there was no
-// choice about; only a pill the user could undo carries an x. The open
-// dropdown renders in a full-width host below both rows. Dropdowns cascade: L2
-// lists variants under L1, L3 lists products under L1 (and L2). L1 has a search
-// box; L2/L3 never exceed ~15 rows.
+// by three facts and nothing else: `text`, `filled` (it names something, as
+// opposed to holding a placeholder), and `opens` (tapping drops a dropdown).
+// A pill that is filled but does not open is one there was no choice about;
+// only a pill the user could undo carries an x.
+//
+// Exactly one pill wears the accent: the deepest filled one, because that is
+// the thing on the chart. Picking a product moves the accent off the card and
+// onto the product; a card pooled across its variants keeps it on L1. The
+// levels above stay legible in grey - they still say where you are, they are
+// just not the subject.
+//
+// A level with nothing to offer at all (a card with no variants, a variant
+// with no products of its own) shows a dash rather than a placeholder naming a
+// choice that does not exist. The open dropdown renders in a full-width host
+// below both rows. Dropdowns cascade: L2 lists variants under L1, L3 lists
+// products under L1 (and L2). L1 has a search box; L2/L3 never exceed ~15 rows.
 function renderPricePills(target, info) {
   const catHost = $("#priceCatPills");
   const prodHost = $("#priceProdPills");
@@ -2194,14 +2212,16 @@ function renderPricePills(target, info) {
   const pills = {
     l1: { text: info.l1_label, filled: true, opens: l1s.length > 1 },
     l2: forcedVariant ? { text: titleCaseVariant(forcedVariant), filled: true, opens: false }
-      : !variants.length ? { text: "Variant", filled: false, opens: false }
+      : !variants.length ? { text: NO_LEVEL, filled: false, opens: false }
       : info.l2 ? { text: titleCaseVariant(info.l2), filled: true, opens: true }
       : { text: "Variant", filled: false, opens: true },
     l3: l3scope.length === 1 ? { text: l3scope[0].label, filled: true, opens: false }
-      : !l3scope.length ? { text: "Product", filled: false, opens: false }
+      : !l3scope.length ? { text: NO_LEVEL, filled: false, opens: false }
       : target.level === "l3" ? { text: info.label, filled: true, opens: true }
       : { text: "Product", filled: false, opens: true },
   };
+  // the deepest filled level is the subject of the chart, and the only accent
+  const accent = ["l3", "l2", "l1"].find((k) => pills[k].filled);
 
   const pill = (which) => {
     const p = pills[which];
@@ -2209,7 +2229,9 @@ function renderPricePills(target, info) {
     const x = (p.filled && p.opens && which !== "l1")
       ? `<span class="pill-x" data-clear="${which}" aria-hidden="true">✕</span>` : "";
     const open = pricesUiState.openPill === which;
-    return `<button type="button" class="pill${p.filled ? " sel" : ""}${open ? " open" : ""}${p.opens ? "" : " dd-static"}"` +
+    const empty = !p.filled && !p.opens;
+    return `<button type="button" class="pill${which === accent ? " sel" : ""}` +
+      `${open ? " open" : ""}${p.opens ? "" : " dd-static"}${empty ? " pill-empty" : ""}"` +
       `${p.opens ? ` data-pill="${which}"` : ` aria-disabled="true"`}>` +
       `<span class="pill-text">${escapeHtml(p.text)}</span>${x}</button>`;
   };

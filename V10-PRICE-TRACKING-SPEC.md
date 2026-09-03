@@ -132,11 +132,20 @@ read as broken.
 Since **v10.4** the three sit on two labelled rows: **Category** (L1 + L2) and
 **Product** (L3).
 
-- A pill is **accent** when it names the scope, **greyed** with a placeholder
-  ("Variant" / "Product") when it does not. Two different things are accent,
-  and they behave differently: a pick the user made carries an inline **✕** to
-  clear it and opens a dropdown; a value there was no choice about carries
-  neither. Clearing drops the chart one pooling level up.
+- **Exactly one pill wears the accent** (v10.4): the deepest one naming a real
+  value, because that is the subject of the chart. A card pooled across its
+  variants keeps it on L1; picking a variant moves it to L2, picking a product
+  to L3. The levels above stay legible in grey — they still say where you are,
+  they are just not the subject.
+- A pill holding a pick the user made carries an inline **✕** to clear it and
+  opens a dropdown; a value there was no choice about carries neither.
+  Clearing drops the chart one pooling level up. Since the ✕ can now sit on a
+  grey pill rather than an accent one, it is drawn in `--rule-strong` — the one
+  token that contrasts with `--surface-2` in both schemes.
+- A level with **nothing to offer** — a card with no variants, a variant with no
+  products of its own — shows an **em dash** in a short capsule (floored at 40px
+  so it never rounds into a circle) rather than a placeholder naming a choice
+  that does not exist.
 - A selection **drills past any level that offers only one choice** (v10.4):
   picking a card with a single product lands straight on that product. The
   levels it skipped then show that forced value rather than a placeholder. A
@@ -161,8 +170,11 @@ Since **v10.4** the three sit on two labelled rows: **Category** (L1 + L2) and
 - A **Reset** by the Trends title returns to the top Worth-watching item on the
   default 6-month, per-supermarket view — the same as tapping that row.
 - The default period is 6 months, but a new selection opens on **all time**
-  when 6 months holds fewer than two points (no line to draw) or when it would
-  hide the evidence behind a shopping-list bubble. A period picked **by hand**
+  when 6 months cannot draw a line (fewer than two points) *and* all time has
+  more to show, or when 6 months would hide the evidence behind a
+  shopping-list bubble. The first test compares against the window rather than
+  a fixed count, so a card bought once, long ago (Bouillon, February 2025)
+  opens on all time and shows that purchase instead of reporting nothing. A period picked **by hand**
   always stands, even when it draws nothing — a year with one purchase is a
   true answer, and the chart says which nothing it is.
 
