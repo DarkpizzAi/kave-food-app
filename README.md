@@ -27,9 +27,10 @@ Then open `http://localhost:8777/`. The server sends `no-store`, so a plain
 reload always shows your latest edit (`python -m http.server` caches and
 serves stale JS/CSS). The service worker does not run on `localhost`.
 
-With no token, the local server loads `recipes.dev.json` (a gitignored
-snapshot built from kave-hub) so the Recipes tab is browsable offline of
-GitHub. That file never reaches the public repo.
+With no token, the local server loads `recipes.dev.json` and
+`price-series.dev.json` (gitignored snapshots copied from kave-hub) so the
+Recipes and Prices tabs are browsable offline of GitHub. Neither file ever
+reaches the public repo.
 
 If a reload ever shows you an old version of the app, read the browser-preview
 notes in the private hub repo (`food/data/kave-food-app-browser-preview-on-pc.md`)
@@ -61,8 +62,9 @@ see PHASE3-NOTES.md.
 
 **Phase 2** - GitHub Contents API sync with the private repo: read
 `shopping-list.json` + `recipes.json`, write the list back with an
-id-keyed merge for concurrent edits, pull-to-refresh, 60 s poll,
-read-only mode when no token.
+id-keyed merge for concurrent edits, pull-to-refresh, read-only mode
+when no token, and a background poll on the List and Plan tabs - 60 s, or
+slower whenever GitHub's `X-Poll-Interval` header asks for it.
 
 **Phase 3** - PWA: `manifest.json`, service worker, add-to-home-screen,
 offline open.
@@ -76,27 +78,28 @@ bubble behind the active tab; "All" chips on the recipe filters; the sync
 banner replaced by the Settings sync section; all 43 recipes including
 index-only stubs ("link only" / "to write").
 
-**v10 - Prices** - a Prices tab: Worth watching (products that have
-genuinely dropped in the last 6 months, not just moved) and Trends (a
-per-product chart, one line per store, or a pooled per-store chart zoomed out
-to a card or a variant; period and product filters; a full-history sheet).
+**v10 - Prices** - a Prices tab, current at v10.4.
+
+*Worth watching* ranks the products that have genuinely dropped in the last 6
+months, not merely moved. *Trends* charts one selection over time: one line per
+store, or one per product when the selection spans several. It is steered by
+two filter rows - **Category** (the ingredient card, and its variant) and
+**Product** - plus **Period**, **Group by** and a **Reset**. A selection drills
+past any level that offers only one choice, so a pill is coloured in only when
+it truly names the scope; a pill you could not have chosen otherwise carries no
+✕ and opens no dropdown. Tapping a chart point, or *See all*, opens the
+full-history sheet: day and month, product, store, quantity and price, in
+per-year blocks, one row per shopping trip rather than per observation.
+
 Shopping-list rows get a price-history icon and a store-coloured bubble when
-one store is clearly cheapest. Series are keyed by product, not by
-ingredient - see the spec in `V10-PRICE-TRACKING-SPEC.md` for why. Real data:
-`state.prices` syncs from kave-hub's `food/data/price-series.json`
-(`build_price_series.py`), same GitHub Contents API path as recipes and the
-list, with `price-series.dev.json` (gitignored, copied from kave-hub) as the
+one store is clearly cheapest. Series are keyed by product, not by ingredient -
+see `V10-PRICE-TRACKING-SPEC.md` for why. Real data: `state.prices` syncs from
+kave-hub's `food/data/price-series.json` (`build_price_series.py`), same GitHub
+Contents API path as recipes and the list, with `price-series.dev.json` as the
 localhost stand-in when there is no token. A typed name ("Fusilli", "Pasta")
 resolves to a product, a variant or a card via that file's `resolve` index,
 built server-side against the ingredients dictionary - never guessed
 client-side.
-
-**v10.4** - the Trends filters split into a Category row (card + variant) and a
-Product row, each level drilling past any step that offers only one choice, so
-a pill is coloured in only when it truly describes the scope. The full-history
-sheet is one CSS grid (header and rows share every column track): day + month,
-product, store, quantity and price, in per-year blocks, one row per shopping
-trip rather than per observation, tap a row to unclip long names.
 
 **Phase 4** - the meal planner. Not started; the Plan tab is a placeholder.
 

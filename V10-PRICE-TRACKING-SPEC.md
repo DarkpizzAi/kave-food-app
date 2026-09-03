@@ -96,7 +96,8 @@ The data shows why it matters:
 
 ## 5. What the tab shows
 
-**A. Goes down sometimes** — the landing view. Products ranked by their largest
+**A. Goes down sometimes** — the landing view, shipped under the heading
+**Worth watching**. Products ranked by their largest
 genuine base-price drop. Products that have never fallen are excluded. Run
 against today's data this is 19 products; 3 are excluded as never-fallers.
 The real output:
@@ -128,11 +129,22 @@ walk *up* the hierarchy from whatever was tapped, showed no L2 chip when the
 product had no variant, and its inactive levels rendered greyed in a way that
 read as broken.
 
-- A pill is **accent** when it holds a specific pick (L1 always does), **greyed**
-  with a placeholder ("Variant" / "Product") otherwise. A held L2/L3 pill
-  carries an inline **✕** to clear it — clearing drops the chart one pooling
-  level up.
-- Each pill opens an inline dropdown. **L1 has a search field** (52 options);
+Since **v10.4** the three sit on two labelled rows: **Category** (L1 + L2) and
+**Product** (L3).
+
+- A pill is **accent** when it names the scope, **greyed** with a placeholder
+  ("Variant" / "Product") when it does not. Two different things are accent,
+  and they behave differently: a pick the user made carries an inline **✕** to
+  clear it and opens a dropdown; a value there was no choice about carries
+  neither. Clearing drops the chart one pooling level up.
+- A selection **drills past any level that offers only one choice** (v10.4):
+  picking a card with a single product lands straight on that product. The
+  levels it skipped then show that forced value rather than a placeholder. A
+  card whose one variant does not cover the whole card — some product sits
+  outside it — is *not* narrowed, and its Variant pill stays a real choice,
+  because pooling the card and pooling that variant are different charts.
+- Every pill that still has a choice to offer opens an inline dropdown.
+  **L1 has a search field** (52 options);
   L2 and L3 never exceed ~15 rows so they don't. L2/L3 dropdowns lead with
   **"All variants"** / **"All products"**.
 - The dropdowns **cascade**: L2 lists the variants under the chosen L1, L3 the
@@ -148,6 +160,20 @@ read as broken.
   everything in view, with the store it was bought at.
 - A **Reset** by the Trends title returns to the top Worth-watching item on the
   default 6-month, per-supermarket view — the same as tapping that row.
+- The default period is 6 months, but a new selection opens on **all time**
+  when 6 months holds fewer than two points (no line to draw) or when it would
+  hide the evidence behind a shopping-list bubble. A period picked **by hand**
+  always stands, even when it draws nothing — a year with one purchase is a
+  true answer, and the chart says which nothing it is.
+
+**C. The full-history sheet** — reached from *See all* or by tapping a chart
+point, which scrolls to and highlights the row it came from. Rebuilt at v10.4
+as a single CSS grid, header and rows sharing every column track so they cannot
+drift: day and month, product, store, quantity, price, split into per-year
+blocks. One row per **shopping trip**, not per observation — the same product
+at the same shop on one day is one line carrying a quantity, priced at the
+cheapest of them, and the promo pill follows that price. Tap a row to unclip
+long product and store names.
 
 Deliberately **not** in v10: a browsable catalogue of all 133 ingredients. The
 L1 pill only lists ingredients that already have a product with history.
@@ -282,3 +308,7 @@ Prices sits **alongside** the Plan placeholder, not in place of it.
 
 Steps 2-4 are app-side and independent of further data work. The 52 blocked
 observations improve coverage but block none of it.
+
+**All four shipped**, v10.0 to v10.4 (2026-09-03). §11 still holds: none of the
+out-of-scope items were built. The 52 observations with no usable `pack_size`
+(§9) remain the one open data item.

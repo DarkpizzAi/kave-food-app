@@ -1,16 +1,40 @@
 # Feature parking
 
-Ideas shaped but **not** to be built yet. The theme / status-bar work is in
-flight on `main` in another thread; nothing here gets implemented until that
-lands and Isa says go. Keep this file additive so it never collides with the
-theme work.
+Ideas shaped but **not** to be built yet. Nothing here gets implemented until
+Isa says go. Keep this file additive.
+
+A section that ships is not deleted - the specs and the README cite these
+notes as where the idea came from - it gets a **Status** line saying what it
+became, so the file never reads as a backlog of unbuilt work.
+
+Current: §1 shipped as v10. §2 and §3 are still parked.
 
 ---
 
 ## 1. Receipts data → price intelligence
 
-**Status:** parked, shaping. Depends on nothing in the app yet; the data work
-comes first.
+**Status: shipped as v10** (2026-09-03), specced in
+`V10-PRICE-TRACKING-SPEC.md` and summarised in the README. Kept here because
+that spec opens by citing this note. The rest of this section is the original
+shaping, left as written; what follows is what it actually became.
+
+Both candidate features were built: the Prices tab (a *Worth watching*
+shortlist plus a per-selection chart over time) and the shopping-list store
+hint (a coloured bubble, gated behind the confidence threshold §6 of the spec
+sets - two observations at each of two stores, 15% apart).
+
+The build order held. Step 1 (receipt normalisation) and step 2 (the
+ingredients dictionary, 133 canonical cards) landed in `kave-hub` on
+2026-09-02; the spec is step 3.
+
+The open questions below have answers now: price history lives at
+`food/data/price-series.json` in kave-hub and syncs on the same token and
+Contents API path as the list and recipes; six months proved enough for the
+shortlist, with the guards in §7 of the spec; ingredient identity was
+introduced gradually, by resolving typed names server-side through the
+dictionary rather than retrofitting IDs. Only the last one is still open -
+basket composition is out of scope (§11), so "preferred store" stays
+per-product.
 
 ### The data we have
 
