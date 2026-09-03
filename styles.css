@@ -1295,6 +1295,50 @@ body.readonly .add-row input { cursor: not-allowed; }
 }
 .prices-title { font-weight: 600; font-size: 1.05rem; }
 .prices-sub { color: var(--text-dim); font-size: 0.78rem; }
+/* Reset by the Trends title - same flat, dim treatment as the Servings reset */
+.prices-head .reset {
+  flex: none; border: none; background: transparent;
+  color: var(--text-dim); font-size: 0.82rem;
+  padding: 2px 2px; min-height: 0; align-self: center;
+}
+
+/* ---- Trends: the three Product pills + their dropdowns ---- */
+.price-pills { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.pill-wrap { position: relative; flex: none; }
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; min-height: 0; border: none;
+  border-radius: 999px; font-size: 0.82rem; white-space: nowrap;
+  background: var(--surface-2); color: var(--text-dim); font-weight: 500;
+}
+.pill.sel { background: var(--accent); color: var(--accent-text); font-weight: 600; }
+.pill-text { overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
+.pill-x {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; flex: none; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22); font-size: 0.62rem;
+}
+.pill-panel {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
+  min-width: 190px; max-width: 78vw;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+  padding: 6px;
+}
+.pill-opts { max-height: 240px; overflow-y: auto; }
+.pill-search {
+  width: 100%; box-sizing: border-box; margin-bottom: 4px;
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--text); font-size: 0.85rem;
+}
+.pill-opt {
+  display: block; width: 100%; text-align: left;
+  padding: 9px 10px; min-height: 0; border: none; background: transparent;
+  color: var(--text); font-size: 0.85rem; border-radius: 8px;
+}
+.pill-opt.on { color: var(--accent); font-weight: 600; }
+.pill-opt:active { background: var(--surface-2); }
+.metric-none { color: var(--text-dim); }
 
 /* the flat centred text button both "Show all · N" and "See all · N" use -
    deliberately not a bordered button, so it reads as revealing more of the

@@ -403,6 +403,15 @@ function storeColor(store) {
   if (store === "Ametller Origen") return "var(--store-ametller)";
   return STORE_COLORS[store] || "var(--text-dim)";
 }
+// lines that aren't a supermarket (Group by = Product: one line per variant or
+// product) have no established colour of their own - Isa's store colours must
+// not move, so product lines get their own fixed rotating palette, assigned by
+// the line's sorted position so it's stable across renders.
+const LINE_PALETTE = [
+  "#2563EB", "#16A34A", "#DB2777", "#D97706",
+  "#7C3AED", "#0891B2", "#DC2626", "#4D7C0F",
+];
+function lineColor(i) { return LINE_PALETTE[i % LINE_PALETTE.length]; }
 // the icon drawn on top of a store-coloured bubble: white everywhere except
 // Ametller, whose pair goes light in dark mode and would vanish under white
 function storeOnColor(store) {
@@ -443,7 +452,12 @@ function resolveInIndex(name) {
 // the variant it names, else the card it names, else nothing - never guessed.
 function resolvePriceTarget(name) {
   const exactKey = priceKeyFor(name);
-  if (store.state.prices.products[exactKey]) return { level: "l3", key: exactKey };
+  // product keys are deburred AND lowercased; stripQty only deburrs, so a
+  // list item with any capital ("Plàtano América") never matched a
+  // product and fell back to the L1/L2 index. Match case-insensitively.
+  for (const cand of [exactKey, exactKey.toLowerCase()]) {
+    if (store.state.prices.products[cand]) return { level: "l3", key: cand };
+  }
   const hit = resolveInIndex(name);
   if (!hit) return null;
   return hit.level === "l2"
@@ -466,6 +480,61 @@ function pooledSeries(l1, l2) {
   return out;
 }
 
+// like pooledSeries, but every point is tagged with the product it came from
+// (key, label, variant) so the chart can draw one line per variant or product
+// when Group by = Product, not just one line per store.
+function scopedPoints(target) {
+  if (!target) return [];
+  if (target.level === "l3") {
+    const entry = store.state.prices.products[target.key];
+    if (!entry) return [];
+    return entry.series.map((p) =>
+      ({ ...p, prodKey: target.key, prodLabel: entry.label, variant: entry.l2 }));
+  }
+  const out = [];
+  for (const [key, entry] of Object.entries(store.state.prices.products)) {
+    if (entry.l1 !== target.l1) continue;
+    if (target.level === "l2" && entry.l2 !== target.l2) continue;
+    for (const p of entry.series) {
+      out.push({ ...p, prodKey: key, prodLabel: entry.label, variant: entry.l2 });
+    }
+  }
+  return out;
+}
+
+// display helpers for the three Product pills and the variant legend: the raw
+// l2 strings are lowercased in the data ("platano", "creme de cuisine 18%")
+function titleCaseVariant(s) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+// distinct L1 cards that have any product with a series, sorted by label
+function l1Options() {
+  const seen = new Map();
+  for (const e of Object.values(store.state.prices.products)) {
+    if (!seen.has(e.l1)) seen.set(e.l1, e.l1_label);
+  }
+  return [...seen].map(([l1, label]) => ({ l1, label }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+// distinct variants under one L1 (null variants excluded), sorted
+function l2Options(l1) {
+  const seen = new Set();
+  for (const e of Object.values(store.state.prices.products)) {
+    if (e.l1 === l1 && e.l2) seen.add(e.l2);
+  }
+  return [...seen].sort((a, b) => a.localeCompare(b));
+}
+// products under one L1 (and one variant, if given), sorted by label
+function l3Options(l1, l2) {
+  const out = [];
+  for (const [key, e] of Object.entries(store.state.prices.products)) {
+    if (e.l1 !== l1) continue;
+    if (l2 != null && e.l2 !== l2) continue;
+    out.push({ key, label: e.label });
+  }
+  return out.sort((a, b) => a.label.localeCompare(b.label));
+}
+
 // the series array for whatever pricesUiState currently points at - the one
 // place that knows how to turn {level, l1, l2, key} into actual points, so
 // nothing else has to branch on level.
@@ -484,7 +553,7 @@ function seriesForTarget(target) {
 // so the two renderers can never disagree about it.
 function resolveTargetInfo(target) {
   if (!target) return null;
-  const series = seriesForTarget(target);
+  const series = scopedPoints(target);
   if (target.level === "l3") {
     const entry = store.state.prices.products[target.key];
     if (!entry) return null;
@@ -1852,6 +1921,8 @@ async function checkToken() {
 let pricesUiState = {
   target: null,   // {level:"l3", key} | {level:"l1"|"l2", l1, l1_label, l2?} | null (nothing seen yet)
   period: "6m",   // "6m" | "all" | a "YYYY" year
+  groupBy: "supermarket",  // "supermarket" (one line per store) | "product" (one line per variant/product)
+  openPill: null,  // "l1" | "l2" | "l3" | null - which pill's dropdown is open
   oppOpen: false,
 };
 
@@ -1883,6 +1954,7 @@ function selectPriceTarget(target, opts = {}) {
   const series = seriesForTarget(target);
   if (!series.length) return;
   pricesUiState.target = target;
+  pricesUiState.openPill = null;
   const bubbleStore = computeBubble(series);
   const bubbleInWindow = !bubbleStore ||
     seriesInPeriod(series, "6m").some((p) => p.store === bubbleStore);
@@ -1897,6 +1969,45 @@ function selectPriceTarget(target, opts = {}) {
 function goToPriceChart(target) {
   store.setView("prices");
   selectPriceTarget(target, { scroll: true });
+}
+
+// Reset (by the Trends title): back to the top Worth-watching item on the
+// default 6-month, per-supermarket view - identical to tapping that row.
+function resetTrends() {
+  pricesUiState.groupBy = "supermarket";
+  pricesUiState.openPill = null;
+  const t = defaultPriceTarget();
+  if (t) {
+    selectPriceTarget(t, { scroll: true });
+  } else {
+    pricesUiState.target = null;
+    pricesUiState.period = "6m";
+    renderTrends();
+  }
+}
+
+// the three Product pills, and clearing one. Picking a variant or product
+// resets the pills below it; clearing (the x, or picking "All") drops the
+// chart one pooling level up.
+function pickPriceL1(l1, label) {
+  selectPriceTarget({ level: "l1", l1, l1_label: label });
+}
+function pickPriceL2(l1, label, l2) {
+  selectPriceTarget({ level: "l2", l1, l1_label: label, l2 });
+}
+function pickPriceL3(key) {
+  selectPriceTarget({ level: "l3", key });
+}
+function clearPriceL2(info) {
+  selectPriceTarget({ level: "l1", l1: info.l1, l1_label: info.l1_label });
+}
+function clearPriceL3(info) {
+  if (info.l2) pickPriceL2(info.l1, info.l1_label, info.l2);
+  else clearPriceL2(info);
+}
+function togglePricePill(which) {
+  pricesUiState.openPill = pricesUiState.openPill === which ? null : which;
+  renderTrends();
 }
 
 const OPP_COLLAPSED = 5;
@@ -1941,10 +2052,35 @@ function renderOpportunities() {
   }
 }
 
+// what each line on the chart is: a supermarket (Group by = Supermarket), or a
+// variant / product (Group by = Product). "variant" granularity gives a
+// null-variant product its own line labelled by product, so they don't all
+// collapse into one nameless line.
+function lineGranularity(target) {
+  if (pricesUiState.groupBy === "supermarket") return "store";
+  return target.level === "l1" ? "variant" : "product";
+}
+function chartLines(points, granularity) {
+  const groups = new Map();
+  for (const p of points) {
+    let id, label;
+    if (granularity === "store") { id = p.store; label = p.store; }
+    else if (granularity === "variant" && p.variant) { id = "v:" + p.variant; label = titleCaseVariant(p.variant); }
+    else { id = "p:" + p.prodKey; label = p.prodLabel; }
+    if (!groups.has(id)) groups.set(id, { id, label, points: [] });
+    groups.get(id).points.push(p);
+  }
+  const lines = [...groups.values()].sort((a, b) => a.label.localeCompare(b.label));
+  lines.forEach((ln, i) => {
+    ln.color = granularity === "store" ? storeColor(ln.id) : lineColor(i);
+  });
+  return lines;
+}
+
 // dynamic per-item y-axis (v10 spec §5): a fixed scale would flatten a
 // EUR 3/kg product to a hairline next to a EUR 60/kg one
-function buildPriceChartSvg(points) {
-  const stores = [...new Set(points.map((p) => p.store))];
+function buildPriceChartSvg(lines) {
+  const points = lines.flatMap((l) => l.points);
   const dates = [...points.map((p) => p.date)].sort();
   const t0 = new Date(dates[0]).getTime();
   const t1 = new Date(dates[dates.length - 1]).getTime();
@@ -1963,22 +2099,97 @@ function buildPriceChartSvg(points) {
     svg += `<text x="0" y="${(y + 3).toFixed(1)}" class="chart-axis">${v.toFixed(v < 10 ? 1 : 0)}</text>`;
   });
 
-  stores.forEach((s) => {
-    const pts = points.filter((p) => p.store === s).sort((a, b) => a.date.localeCompare(b.date));
-    const color = storeColor(s);
+  lines.forEach((ln) => {
+    const pts = [...ln.points].sort((a, b) => a.date.localeCompare(b.date));
+    const color = ln.color;
     if (pts.length > 1) {
       const poly = pts.map((p) => `${xOf(p.date).toFixed(1)},${yOf(p.price).toFixed(1)}`).join(" ");
       svg += `<polyline points="${poly}" fill="none" stroke="${color}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`;
     }
     pts.forEach((p) => {
       const cx = xOf(p.date).toFixed(1), cy = yOf(p.price).toFixed(1);
-      const d = `data-date="${p.date}" data-store="${escapeHtml(s)}"`;
+      const d = `data-date="${p.date}" data-store="${escapeHtml(p.store)}"`;
       svg += p.promo
-        ? `<g class="price-pt" ${d}><circle cx="${cx}" cy="${cy}" r="8" fill="${color}"/><text x="${cx}" y="${(+cy + 3).toFixed(1)}" class="promo-mark" fill="${storeOnColor(s)}">€</text></g>`
+        ? `<g class="price-pt" ${d}><circle cx="${cx}" cy="${cy}" r="8" fill="${color}"/><text x="${cx}" y="${(+cy + 3).toFixed(1)}" class="promo-mark" fill="${storeOnColor(p.store)}">€</text></g>`
         : `<circle class="price-pt" ${d} cx="${cx}" cy="${cy}" r="4" fill="${color}"/>`;
     });
   });
   return svg + `</svg>`;
+}
+
+// the three always-present Product pills. A pill is accent when it holds a
+// specific pick (and then carries an x to clear it), greyed with a placeholder
+// otherwise. L1 always holds a value. Dropdowns cascade: L2 lists variants
+// under L1, L3 lists products under L1 (and L2, if one is picked). L1 has a
+// search box; L2/L3 never exceed ~15 rows so they don't.
+function renderPricePills(target, info) {
+  const host = $("#pricePills");
+  const openable = (which, sel, placeholder, panelHtml) => {
+    const open = pricesUiState.openPill === which;
+    const x = (sel && which !== "l1") ? `<span class="pill-x" data-clear="${which}" aria-hidden="true">✕</span>` : "";
+    return `<div class="pill-wrap">
+      <button type="button" class="pill${sel ? " sel" : ""}" data-pill="${which}">
+        <span class="pill-text">${escapeHtml(sel || placeholder)}</span>${x}
+      </button>
+      ${open ? `<div class="pill-panel" data-panel="${which}">${panelHtml}</div>` : ""}
+    </div>`;
+  };
+  const optRows = (rows, currentId) => rows.map((r) =>
+    `<button type="button" class="pill-opt${r.id === currentId ? " on" : ""}" data-opt="${escapeHtml(r.id)}">${escapeHtml(r.label)}</button>`
+  ).join("");
+
+  const l1rows = l1Options().map((o) => ({ id: o.l1, label: o.label }));
+  const l1Panel =
+    `<input type="text" class="pill-search" placeholder="Search" data-pill-search="l1">` +
+    `<div class="pill-opts">${optRows(l1rows, info.l1)}</div>`;
+
+  const l2rows = [{ id: "", label: "All variants" }].concat(
+    l2Options(info.l1).map((v) => ({ id: v, label: titleCaseVariant(v) })));
+  const l2Panel = `<div class="pill-opts">${optRows(l2rows, info.l2 || "")}</div>`;
+
+  const l3rows = [{ id: "", label: "All products" }].concat(
+    l3Options(info.l1, info.l2 || null).map((p) => ({ id: p.key, label: p.label })));
+  const l3Panel = `<div class="pill-opts">${optRows(l3rows, target.level === "l3" ? target.key : "")}</div>`;
+
+  host.innerHTML = `<span class="rail-label">Product</span>` +
+    openable("l1", info.l1_label, info.l1_label, l1Panel) +
+    openable("l2", info.l2 ? titleCaseVariant(info.l2) : "", "Variant", l2Panel) +
+    openable("l3", target.level === "l3" ? info.label : "", "Product", l3Panel);
+
+  $$(".pill", host).forEach((b) => {
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (e.target.closest(".pill-x")) return;
+      togglePricePill(b.dataset.pill);
+    });
+  });
+  $$(".pill-x", host).forEach((x) => {
+    x.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (x.dataset.clear === "l2") clearPriceL2(info);
+      else clearPriceL3(info);
+    });
+  });
+  $$(".pill-opt", host).forEach((o) => {
+    o.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const which = o.closest(".pill-panel").dataset.panel;
+      const id = o.dataset.opt;
+      if (which === "l1") { if (id !== info.l1) pickPriceL1(id, l1Options().find((x) => x.l1 === id).label); else togglePricePill("l1"); }
+      else if (which === "l2") { id ? pickPriceL2(info.l1, info.l1_label, id) : clearPriceL2(info); }
+      else { id ? pickPriceL3(id) : (info.l2 ? pickPriceL2(info.l1, info.l1_label, info.l2) : clearPriceL2(info)); }
+    });
+  });
+  const search = $(".pill-search", host);
+  if (search) {
+    search.focus();
+    search.addEventListener("input", () => {
+      const q = deburr(search.value).toLowerCase().trim();
+      $$(".pill-opt", search.closest(".pill-panel")).forEach((o) => {
+        o.hidden = q && !deburr(o.textContent).toLowerCase().includes(q);
+      });
+    });
+  }
 }
 
 function renderTrends() {
@@ -2003,35 +2214,21 @@ function renderTrends() {
     b.addEventListener("click", () => { pricesUiState.period = b.dataset.period; renderTrends(); });
   });
 
-  // breadcrumb doubles as navigation: tapping card/variant zooms the chart
-  // out to that pooled level (Isa's v10 follow-up). The trailing chip names
-  // whatever is most specific about the current view but never itself opens
-  // anything further - there is no browsable catalogue below a variant yet.
-  const crumbs = [{
-    text: info.l1_label, on: target.level === "l1",
-    target: { level: "l1", l1: info.l1, l1_label: info.l1_label },
-  }];
-  if (info.l2) {
-    crumbs.push({
-      text: info.l2, on: target.level !== "l1",
-      target: { level: "l2", l1: info.l1, l1_label: info.l1_label, l2: info.l2 },
-    });
-  }
-  if (target.level === "l3") crumbs.push({ text: info.label, on: true, target: null });
-  else if (target.level === "l1") crumbs.push({ text: "All products", on: true, target: null });
-  $("#priceBreadcrumb").innerHTML = `<span class="rail-label">Product</span>` +
-    crumbs.map((c, i) =>
-      `<button type="button" class="chip${c.on ? " on" : ""}" data-crumb="${i}">${escapeHtml(c.text)}</button>`
+  renderPricePills(target, info);
+
+  $("#priceGroupBy").innerHTML = `<span class="rail-label">Group by</span>` +
+    [["supermarket", "Supermarket"], ["product", "Product"]].map(([id, label]) =>
+      `<button type="button" class="chip${pricesUiState.groupBy === id ? " on" : ""}" data-group="${id}">${label}</button>`
     ).join("");
-  $$("#priceBreadcrumb .chip").forEach((b, i) => {
-    const t = crumbs[i].target;
-    if (t) b.addEventListener("click", () => selectPriceTarget(t));
+  $$("#priceGroupBy .chip").forEach((b) => {
+    b.addEventListener("click", () => { pricesUiState.groupBy = b.dataset.group; pricesUiState.openPill = null; renderTrends(); });
   });
 
   const filtered = seriesInPeriod(info.series, pricesUiState.period);
-  const stores = [...new Set(filtered.map((p) => p.store))];
-  $("#priceLegend").innerHTML = `<span class="rail-label">Legend</span>` + stores.map((s) =>
-    `<span class="legend-item"><span class="legend-dot" style="background:${storeColor(s)}"></span>${escapeHtml(s)}</span>`
+  const granularity = lineGranularity(target);
+  const lines = chartLines(filtered, granularity);
+  $("#priceLegend").innerHTML = `<span class="rail-label">Legend</span>` + lines.map((ln) =>
+    `<span class="legend-item"><span class="legend-dot" style="background:${ln.color}"></span>${escapeHtml(ln.label)}</span>`
   ).join("");
 
   const wrap = $("#priceChartWrap");
@@ -2042,7 +2239,7 @@ function renderTrends() {
   } else {
     wrap.hidden = false;
     $("#priceEmpty").hidden = true;
-    wrap.innerHTML = buildPriceChartSvg(filtered);
+    wrap.innerHTML = buildPriceChartSvg(lines);
     $$(".price-pt", wrap).forEach((el) => {
       el.addEventListener("click", () => openPriceDetail({ date: el.dataset.date, store: el.dataset.store }));
     });
@@ -2050,13 +2247,23 @@ function renderTrends() {
 
   // "Latest price" is always the most recent purchase, whatever the period
   // chip is set to - it answers "what did I pay", not "what did the chart
-  // just draw". "Best price" is the opposite: it follows the period chip
-  // and relabels itself, because "best" only means something within a
-  // stated window.
-  const allSorted = [...info.series].sort((a, b) => a.date.localeCompare(b.date));
-  const last = allSorted[allSorted.length - 1];
-  $("#priceLastValue").innerHTML = `€${last.price.toFixed(2)}<span class="metric-unit">/kg</span>`;
-  $("#priceLastStore").innerHTML = `<span class="legend-dot" style="background:${storeColor(last.store)}"></span>${escapeHtml(last.store)}`;
+  // just draw". Under Group by = Product several products can share that
+  // latest date; there is then no single "latest price", so it shows a dash.
+  // "Best price" follows the period chip and relabels itself, and is the
+  // single cheapest point across everything in view + where it was bought.
+  const maxDate = info.series.reduce((m, p) => (p.date > m ? p.date : m), "");
+  const onLatest = info.series.filter((p) => p.date === maxDate);
+  if (!onLatest.length) {
+    $("#priceLastValue").innerHTML = `<span class="metric-none">—</span>`;
+    $("#priceLastStore").innerHTML = "";
+  } else if (granularity !== "store" && onLatest.length > 1) {
+    $("#priceLastValue").innerHTML = `<span class="metric-none">—</span>`;
+    $("#priceLastStore").innerHTML = "";
+  } else {
+    const last = onLatest.reduce((a, b) => (b.price < a.price ? b : a));
+    $("#priceLastValue").innerHTML = `€${last.price.toFixed(2)}<span class="metric-unit">/kg</span>`;
+    $("#priceLastStore").innerHTML = `<span class="legend-dot" style="background:${storeColor(last.store)}"></span>${escapeHtml(last.store)}`;
+  }
 
   const bestInPeriod = bestPriceInPeriod(info.series, pricesUiState.period);
   $("#priceBestLabel").textContent = `Best price · ${periodShortLabel(pricesUiState.period)}`;
@@ -2479,6 +2686,15 @@ function wire() {
     renderOpportunities();
   });
   $("#priceSeeAll").addEventListener("click", () => openPriceDetail());
+  $("#priceReset").addEventListener("click", resetTrends);
+
+  // tapping anywhere outside an open Product-pill dropdown closes it
+  document.addEventListener("click", (e) => {
+    if (pricesUiState.openPill && !e.target.closest("#pricePills")) {
+      pricesUiState.openPill = null;
+      renderTrends();
+    }
+  });
 
   // the price sheet's own to-top: its scroll never reaches window scroll,
   // since .detail is its own overflow-y:auto container

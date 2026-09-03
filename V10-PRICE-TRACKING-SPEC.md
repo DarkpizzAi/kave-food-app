@@ -117,12 +117,40 @@ Mozzarella Galbani is the shape of thing this tab exists to surface: it drops
 (Ceba dolca, Platan america, Nata President, Cintes de baco) are the timing
 candidates.
 
-**B. Series detail** — price over time for one product, points marked by store
-and by sale, so "cheaper at Condis" and "that was a promo" are both visible
-rather than asserted.
+**B. Series detail** — price over time, points marked by store and by sale, so
+"cheaper at Condis" and "that was a promo" are both visible rather than
+asserted.
 
-Deliberately **not** in v10: a browsable catalogue of all 133 ingredients. Only
-25 products clear four distinct dates; the rest would be empty shelves.
+The view is steered by three always-present **pills — L1 (ingredient) · L2
+(variant) · L3 (product)** — plus a **Group by** control. This replaced the
+original zoom-out-only breadcrumb (Isa's follow-up): the breadcrumb could only
+walk *up* the hierarchy from whatever was tapped, showed no L2 chip when the
+product had no variant, and its inactive levels rendered greyed in a way that
+read as broken.
+
+- A pill is **accent** when it holds a specific pick (L1 always does), **greyed**
+  with a placeholder ("Variant" / "Product") otherwise. A held L2/L3 pill
+  carries an inline **✕** to clear it — clearing drops the chart one pooling
+  level up.
+- Each pill opens an inline dropdown. **L1 has a search field** (52 options);
+  L2 and L3 never exceed ~15 rows so they don't. L2/L3 dropdowns lead with
+  **"All variants"** / **"All products"**.
+- The dropdowns **cascade**: L2 lists the variants under the chosen L1, L3 the
+  products under the chosen L1 *and* L2. Choosing L1 resets L2 and L3; choosing
+  L2 resets L3.
+- **Group by** = **Supermarket** (default) draws one line per store, pooling
+  everything in pill scope — the original behaviour. **Group by = Product**
+  draws one line per variant (when only L1 is set) or per product (L2/L3 set),
+  each from a fixed rotating line palette kept separate from Isa's store
+  colours. Under Group by = Product the "latest price" card shows a dash when
+  several products share the most recent date (there is no single latest
+  price); "best price" stays the single cheapest point in the period across
+  everything in view, with the store it was bought at.
+- A **Reset** by the Trends title returns to the top Worth-watching item on the
+  default 6-month, per-supermarket view — the same as tapping that row.
+
+Deliberately **not** in v10: a browsable catalogue of all 133 ingredients. The
+L1 pill only lists ingredients that already have a product with history.
 
 ## 6. What it lends the shopping list
 
@@ -134,6 +162,10 @@ low, normal, or high against that product's own median.
 This is only trustworthy because §2 made the series clean. Against
 slug-level series it would have been noise — "tomatoes are 12× dearer than
 usual" when the truth is that a tin was bought instead of a punnet.
+
+The name match into the product keys is **case- and accent-insensitive** (the
+keys are stored deburred and lowercased): a hand-typed list item like "Plàtano
+América" resolves straight to its product, not just to the L1 card.
 
 Deliberately **not** a preferred-store recommendation, which the parking note
 proposed. Most series here are single-store (`steak-hache` 1 store,

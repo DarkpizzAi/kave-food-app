@@ -80,7 +80,7 @@
       <div class="prices-section">
         <div class="prices-head">
           <span class="prices-title">Worth watching</span>
-          <span class="prices-sub">last 6 months</span>
+          <span class="prices-sub">Last 6 months</span>
         </div>
         <div class="opp-card">
           <ul id="oppList" class="opp-list"></ul>
@@ -89,13 +89,17 @@
       </div>
 
       <div class="prices-section">
-        <div class="prices-head"><span class="prices-title">Trends</span></div>
+        <div class="prices-head">
+          <span class="prices-title">Trends</span>
+          <button id="priceReset" type="button" class="reset">Reset</button>
+        </div>
         <div class="trends-card">
           <p id="priceNoData" class="empty" hidden>Nothing synced yet.</p>
           <div id="priceTrendsBody">
             <div class="rails">
               <div class="rail" id="pricePeriod"><span class="rail-label">Period</span></div>
-              <div class="rail" id="priceBreadcrumb"><span class="rail-label">Product</span></div>
+              <div class="price-pills" id="pricePills"><span class="rail-label">Product</span></div>
+              <div class="rail" id="priceGroupBy"><span class="rail-label">Group by</span></div>
             </div>
             <div id="priceChartWrap" class="price-chart-wrap"></div>
             <p id="priceEmpty" class="empty" hidden>No price history yet.</p>
