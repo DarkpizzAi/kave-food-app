@@ -534,11 +534,27 @@ function tidyChecked() {
   }
 
   if (!drop.size) {
-    flashBanner("Nothing to clean up.");
+    cleanupMessage("Nothing to clean up.");
     return;
   }
   store.removeMany([...drop]);
-  flashBanner(`${drop.size} line${drop.size === 1 ? "" : "s"} cleaned up.`);
+  const msg = `${drop.size} line${drop.size === 1 ? "" : "s"} cleaned up.`;
+  // the message shows in the reserved slot above the row; if the whole ticked
+  // block just emptied there is no slot, so fall back to the page banner
+  if (store.state.list.some((x) => x.checked)) cleanupMessage(msg);
+  else flashBanner(msg);
+}
+
+let cleanupMsgTimer;
+function cleanupMessage(text) {
+  const el = $("#cleanupMsg");
+  if (!el) return;
+  el.textContent = text;
+  clearTimeout(cleanupMsgTimer);
+  cleanupMsgTimer = setTimeout(() => {
+    const e = $("#cleanupMsg");
+    if (e) e.textContent = "";
+  }, 3500);
 }
 
 const HTML_ENTITIES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
