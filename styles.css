@@ -1169,6 +1169,25 @@ body.readonly .add-row input { cursor: not-allowed; }
 .steps { padding-left: 20px; }
 .steps li { margin-bottom: 10px; }
 
+/* back-to-top (shopping list, when scrolled down) */
+.to-top {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 14px);
+  z-index: 24;
+  width: 40px; height: 40px;
+  border: none; border-radius: 50%;
+  background: var(--accent); color: var(--accent-text);
+  display: grid; place-items: center;
+  box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  opacity: 0; transform: translateY(8px); pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.to-top svg { width: 18px; height: 18px; }
+.to-top.show { opacity: 1; transform: none; pointer-events: auto; }
+@media (prefers-reduced-motion: reduce) { .to-top { transition: none; } }
+
 /* bottom nav */
 .bottom-nav {
   position: fixed;

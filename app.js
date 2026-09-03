@@ -475,45 +475,62 @@ function submitAddName() {
   input.focus();
 }
 
-/* group ticked items that differ only by a trailing quantity / size note,
-   keep the tidiest */
-function tidyKey(name) {
-  let s = deburr(name).replace(/\s+/g, " ").trim();
+/* strip a trailing quantity / size note from a name, e.g. "Parmesan 200 g" ->
+   "parmesan", "Tomatoes (2x400g)" -> "tomatoes". Deburred, so it doubles as a
+   grouping key. A bracketed note is only stripped when it has a digit, so real
+   descriptors ("(spicy)", "(Keisy)") survive. */
+function stripQty(name) {
+  let s = deburr(name || "").replace(/\s+/g, " ").trim();
   let prev;
   do {
     prev = s;
     s = s
       .replace(/[.,;]+$/, "")
-      // trailing bracketed size note, e.g. "(2x400g)", "[500 g]" - only when
-      // it contains a digit, so real descriptors ("(spicy)", "(Keisy)") stay
       .replace(/\s*[([][^()[\]]*\d[^()[\]]*[)\]]$/, "")
-      // trailing loose quantity, e.g. " 400g", " x2", " 1.5 l"
       .replace(/\s+(?:x\s*)?\d+(?:[.,]\d+)?\s*(?:kg|g|mg|l|ml|cl|pcs?|pc|x)?$/i, "")
       .trim();
   } while (s !== prev);
   return s;
 }
 
+/* a ticked item is "recipe-specific" if it carries an amount: a real qty
+   field, or a quantity left in the name (hand-typed items don't parse one) */
+function isQuantified(it) {
+  const q = Number(it.qty);
+  if (Number.isFinite(q) && q !== 0) return true;
+  return stripQty(it.name) !== deburr(it.name || "").replace(/\s+/g, " ").trim();
+}
+
+/* the group key: same concept (slug, or the de-quantified name) and same
+   variant (the note field, where recipe adds put the variant) */
+function cleanupKey(it) {
+  return `${it.slug || stripQty(it.name)}|${deburr((it.note || "").trim())}`;
+}
+
+/* Clean up: nothing happens until this is pressed, and then it deletes real
+   records. Per group of ticked items: keep one (a non-quantified staple by
+   preference, else the shortest name), delete the rest; then delete that
+   survivor too if it is itself quantified. Survivors stay ticked. */
 function tidyChecked() {
   const groups = new Map();
   for (const it of store.state.list) {
     if (!it.checked) continue;
-    const key = tidyKey(it.name);
-    if (!key) continue;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(it);
+    const k = cleanupKey(it);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(it);
   }
 
   const drop = new Set();
   for (const items of groups.values()) {
-    if (items.length < 2) continue;
-    // keep the shortest name (trailing quantities make the others longer)
-    items.sort(
+    const sorted = items.slice().sort(
       (a, b) =>
-        a.name.trim().length - b.name.trim().length ||
+        (isQuantified(a) - isQuantified(b)) ||
+        (a.name.trim().length - b.name.trim().length) ||
         a.name.localeCompare(b.name),
     );
-    for (const it of items.slice(1)) drop.add(it.id);
+    const [keep, ...rest] = sorted;
+    rest.forEach((it) => drop.add(it.id));
+    if (isQuantified(keep)) drop.add(keep.id);
   }
 
   if (!drop.size) {
@@ -521,7 +538,7 @@ function tidyChecked() {
     return;
   }
   store.removeMany([...drop]);
-  flashBanner(`Removed ${drop.size} duplicate ticked item${drop.size === 1 ? "" : "s"}.`);
+  flashBanner(`${drop.size} line${drop.size === 1 ? "" : "s"} cleaned up.`);
 }
 
 const HTML_ENTITIES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
@@ -1545,6 +1562,14 @@ function renderCustomGrid(state) {
 
 /* ---------- top-level render ---------- */
 
+// show the back-to-top button once the shopping list is scrolled past ~200px
+function updateToTop() {
+  const btn = $("#toTop");
+  if (!btn) return;
+  const sc = document.scrollingElement || document.documentElement;
+  btn.classList.toggle("show", store.state.view === "list" && sc.scrollTop > 200);
+}
+
 function render(state) {
   $("#viewTitle").textContent = VIEW_TITLES[state.view];
   $$(".view").forEach((v) => { v.hidden = v.id !== `view-${state.view}`; });
@@ -1566,6 +1591,7 @@ function render(state) {
   renderList(state);
   if (state.view === "recipes") renderRecipes(state);
   if (state.view === "settings") renderSettings(state);
+  updateToTop();
 }
 
 /* ---------- wiring ---------- */
@@ -1577,6 +1603,16 @@ function wire() {
 
   $$("#cuisineFilters, #mainFilters").forEach((rail) => {
     rail.addEventListener("scroll", () => updateRailFade(rail), { passive: true });
+  });
+
+  window.addEventListener("scroll", updateToTop, { passive: true });
+  $("#toTop").addEventListener("click", () => {
+    const sc = document.scrollingElement || document.documentElement;
+    const start = sc.scrollTop;
+    sc.scrollTo({ top: 0, behavior: "smooth" });
+    // if smooth scroll isn't honoured (some webviews), the position hasn't
+    // budged after a beat - jump instead
+    setTimeout(() => { if (sc.scrollTop === start) sc.scrollTop = 0; }, 120);
   });
 
   const addName = $("#addName");
