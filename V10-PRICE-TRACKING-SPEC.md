@@ -123,7 +123,7 @@ candidates.
 asserted.
 
 The view is steered by three always-present **pills — L1 (ingredient) · L2
-(variant) · L3 (product)** — plus a **Group by** control. This replaced the
+(variant) · L3 (product)** — plus **Period** and **Group by** controls. This replaced the
 original zoom-out-only breadcrumb (Isa's follow-up): the breadcrumb could only
 walk *up* the hierarchy from whatever was tapped, showed no L2 chip when the
 product had no variant, and its inactive levels rendered greyed in a way that
@@ -131,6 +131,29 @@ read as broken.
 
 Since **v10.4** the three sit on two labelled rows: **Category** (L1 + L2) and
 **Product** (L3).
+
+- Since **v10.9** a pill's width comes from its row, not from its own label, so
+  a pick no longer reflows the row and "Lait" and "Fromage fondu en tranches"
+  are the same object. The three widths are one geometric progression —
+  card → variant → product, every step the same multiple. The Product pill is
+  alone on its row, so it *is* the row: call it 1. The two Category pills share
+  a row, and the share they take of it is the one free choice, `k`; one common
+  ratio `r` then means the widths are `r² : r : 1` with **`r² + r = k`**, which
+  fixes `r` for any `k`. `k = 1` gives `r = 0.618` (φ) and rows that finish
+  flush; **v10.10** took **`k = 0.88` → `r = 0.563`**, so the Category row stops
+  short of the Product row — 23px on a 375px phone — while the steps stay even
+  at ×1.776. Measured at 375px: **79 / 140 / 250**.
+  Two implementation notes that are easy to get wrong. The shares are
+  **`flex-basis`, not `flex-grow`**: growing from a zero basis splits the space
+  left *after* each pill's 24px of padding is set aside, which puts the ratio on
+  the text boxes and leaves the visible capsules at 41/59. And they are shares
+  rather than pixels, so a 360px phone and a 412px phone each divide their own
+  row. The cost is the card pill, now the tightest thing on the card: 8
+  characters at 375px, 10 at 412px. Median card name is 7; longer ones
+  ellipsise, and the full name is still the row the user just picked from.
+- Because nothing overflows any more, the Category row's **horizontal scroll is
+  gone** (v10.9), and with it the opaque backing on the "Category" label that
+  existed only to mask pills sliding under it.
 
 - **Exactly one pill wears the accent** (v10.5): the deepest one naming a real
   value, because that is the subject of the chart. A card pooled across its
@@ -143,9 +166,10 @@ Since **v10.4** the three sit on two labelled rows: **Category** (L1 + L2) and
   grey pill rather than an accent one, so it is drawn in `--rule-strong` — the
   one token that contrasts with `--surface-2` in both schemes.
 - A level with **nothing to offer** — a card with no variants, a variant with no
-  products of its own — shows an **em dash** in a short capsule (v10.5; floored
-  at 40px so it never rounds into a circle) rather than a placeholder naming a
-  choice that does not exist.
+  products of its own — shows an **em dash** rather than a placeholder naming a
+  choice that does not exist (v10.5). It holds its share of the row like any
+  other pill and centres the dash in it; the old 40px floor now only keeps it
+  from rounding into a circle outside these two rows.
 - A selection **drills past any level that offers only one choice** (v10.4):
   picking a card with a single product lands straight on that product. The
   levels it skipped then show that forced value rather than a placeholder. A
@@ -162,21 +186,44 @@ Since **v10.4** the three sit on two labelled rows: **Category** (L1 + L2) and
 - The dropdowns **cascade**: L2 lists the variants under the chosen L1, L3 the
   products under the chosen L1 *and* L2. Choosing L1 resets L2 and L3; choosing
   L2 resets L3.
-- Every pill on the card — the three filters and the Period / Group by
-  dropdowns — is emitted by one `pillButton()` (v10.5), so “opens” is a single
-  switch: an opening pill carries the `data-pill` the handlers bind to, and an
-  inert one is `aria-disabled` rather than `disabled`, keeping the pill colours
-  instead of the browser's greyed-out ones. A pill that opens shows a **caret**
-  at full strength (v10.7) — the affordance saying it can be changed.
+- All three filter pills are emitted by one `pillButton()` (v10.5), so “opens”
+  is a single switch: an opening pill carries the `data-pill` the handlers bind
+  to, and an inert one is `aria-disabled` rather than `disabled`, keeping the
+  pill colours instead of the browser's greyed-out ones. Every pill also carries
+  `data-lvl`, opening or not, since that is what the width ratio keys off — a
+  pill with no choices still has to hold its share of the row. Period and Group
+  by were emitted by the same helper until v10.11, when they stopped being
+  pills; the caret that marked an openable pill (v10.7) went with them.
 - An open dropdown sits **directly under the pill it belongs to and floats over
-  what is below** (v10.7). It cannot live inside the pills row itself: that row
-  scrolls horizontally and clips, so an anchored panel would be cut off. It
-  renders instead in a host absolutely positioned within the Trends card, which
-  is what keeps the chart still when a dropdown opens — the host is out of the
-  flow, so nothing below it moves. Left is clamped to the card, so a pill near
-  the right edge does not push the panel off it.
-- **Group by** = **Supermarket** (default) draws one line per store, pooling
-  everything in pill scope — the original behaviour. **Group by = Product**
+  what is below** (v10.7). It renders in a host absolutely positioned within the
+  Trends card, which is what keeps the chart still when a dropdown opens — the
+  host is out of the flow, so nothing below it moves. Left is clamped to the
+  card, so a pill near the right edge does not push the panel off it. (Until
+  v10.9 the host was also the answer to a row that scrolled horizontally and
+  would have clipped an anchored panel; fixed widths ended the scrolling, but
+  the floating host is still what holds the chart still.)
+- Since **v10.11** Period and Group by are **two segmented controls sharing one
+  line** between the chart and the legend, each taking half of it. Two options
+  never earned a dropdown: that spent a tap opening it and a tap choosing,
+  between two things that both fit on screen. Both halves are always visible and
+  one tap switches, with a single thumb sliding across rather than two labels
+  swapping colour, so the eye can follow what changed (behind
+  `prefers-reduced-motion`). They are the same capsule as a pill — same radius,
+  same `0.82rem`, same `--surface-2` ground, and the chosen half wears the
+  pill's own `.sel` accent — so the row reads as the same family as the two
+  above it. The labels shed the grammar of the dropdown they no longer are:
+  *Last 6 months* → **6 months**, *By supermarket* / *By product* → **Shops** /
+  **Products**, since two halves side by side already read as a choice between
+  them.
+- When **"by product" would redraw the line already on the chart** — one product
+  or variant in scope — the **Products** half stays named and in place at 38%
+  opacity and the capsule keeps its size, rather than the control collapsing to
+  a single chip and the row changing shape. It is `aria-disabled`, not
+  `disabled`, so it stays announced and keeps these colours: the same call as
+  the dash pill above, which says the level exists and is empty rather than
+  removing it.
+- **Group by** = **Shops** (default) draws one line per store, pooling
+  everything in pill scope — the original behaviour. **Group by = Products**
   draws one line per variant (when only L1 is set) or per product (L2/L3 set),
   each from a fixed rotating line palette kept separate from Isa's store
   colours. Under Group by = Product the "latest price" card shows a dash when
@@ -185,7 +232,7 @@ Since **v10.4** the three sit on two labelled rows: **Category** (L1 + L2) and
   everything in view, with the store it was bought at.
 - A **Reset** by the Trends title returns to the top Worth-watching item on the
   default 6-month, per-supermarket view — the same as tapping that row.
-- **Period** offers two windows and no more (v10.7): **Last 6 months** and
+- **Period** offers two windows and no more (v10.7): **6 months** and
   **All time**. The per-year options that shipped with v10.0 are gone — with
   most products holding a handful of observations, a year was usually one
   point, and the tab is about whether a price is moving rather than about

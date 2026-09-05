@@ -708,12 +708,18 @@ function bestPriceInPeriod(series, period) {
   return { price: best.price, store: best.store };
 }
 
-// the two periods the chart offers, longest label first for the dropdown, and
-// the compact form used in "Best price · X" where it sits in a small metric
-// card. Per-year periods were dropped in v10.7: with six months and all time
-// the only choices, pricesUiState.period is always one of these two keys.
-const PERIODS = [["6m", "Last 6 months"], ["all", "All time"]];
+// the two periods the chart offers, and the compact form used in
+// "Best price · X" where it sits in a small metric card. Per-year periods were
+// dropped in v10.7: with six months and all time the only choices,
+// pricesUiState.period is always one of these two keys. Both labels are half a
+// segmented control now, so they are trimmed to what a half can hold - the
+// "Last" in "Last 6 months" was doing no work the row does not already say.
+const PERIODS = [["6m", "6 months"], ["all", "All time"]];
 const PERIOD_SHORT = { "6m": "6mo", all: "all time" };
+// Group by, same shape. "Shops" and "Products" rather than "By supermarket"
+// and "By product": two halves side by side already read as a choice between
+// them, so the "By" was carrying the grammar of a dropdown it no longer is.
+const GROUPS = [["supermarket", "Shops"], ["product", "Products"]];
 
 const MAIN_LABELS = {
   meat: "Meat", fish: "Fish", rice: "Rice", pasta: "Pasta", soup: "Soup",
@@ -2190,14 +2196,13 @@ function priceOptRows(rows, currentId) {
 // opens carries the data-pill the click handlers bind to, and one that does not
 // is marked aria-disabled rather than disabled, so it stays announced and keeps
 // the .pill colours instead of the browser's greyed-out ones.
-// `trailing` is whatever sits after the label - a clear x, or a caret.
+// `trailing` is whatever sits after the label - today only a clear x.
 function pillButton({ which, text, extra = [], opens, trailing = "" }) {
   const cls = ["pill", ...extra.filter(Boolean)];
   // a pill that cannot open cannot be the open one, whatever openPill still
   // says - it can name a pill that lost its choices under a new target, and
   // the render that clears it runs after this
   if (opens && pricesUiState.openPill === which) cls.push("open");
-  if (!opens) cls.push("dd-static");
   // data-lvl is on every pill, opening or not - it is what the width ratio
   // keys off, and a pill with no choices still has to hold its share of the row
   return `<button type="button" class="${cls.join(" ")}" data-lvl="${which}"` +
@@ -2346,45 +2351,46 @@ function positionPillPanel(host, which) {
   panel.style.left = `${Math.min(Math.max(0, r.left - b.left), maxLeft)}px`;
 }
 
-// Period and Group by: plain grey dropdowns (never accent), sitting on one
-// line between the chart and the legend. `canGroup` is false when "by product"
-// would draw a single line (one product/variant in scope) - then Group by is
-// shown as static text with no caret, since there is nothing to switch to.
+// Period and Group by: two segmented controls sharing one line between the
+// chart and the legend. Two options is not enough to earn a dropdown - that
+// cost a tap to open and a tap to choose, to pick between two things that
+// both fit on screen. Both halves are always shown, and one tap switches.
+//
+// `canGroup` is false when "by product" would draw the line that is already
+// drawn (one product or variant in scope). The Products half is then still
+// named and still in place, just plainly not choosable - the same call as the
+// dash pill above: say the option exists and is empty rather than removing it
+// and letting the row change size under the reader.
 function renderPriceSubfilters(canGroup) {
-  const groups = [["supermarket", "By supermarket"], ["product", "By product"]];
-
-  const dd = (hostId, which, rows, currentId, onPick, interactive = true) => {
+  const control = (hostId, rows, currentId, onPick, liveIndex) => {
     const host = $(hostId);
-    const cur = rows.find((r) => r[0] === currentId) || rows[0];
-    const open = interactive && pricesUiState.openPill === which;
+    const on = Math.max(0, rows.findIndex((r) => r[0] === currentId));
     host.innerHTML =
-      pillButton({
-        which, text: cur[1], opens: interactive, extra: ["dd-btn"],
-        trailing: interactive ? `<span class="dd-caret" aria-hidden="true">▾</span>` : "",
-      }) +
-      (open ? `<div class="pill-panel dd-panel"><div class="pill-opts">` +
-        priceOptRows(rows.map(([id, label]) => ({ id, label })), currentId) +
-        `</div></div>` : "");
-    if (!interactive) return;
-    $(".pill", host).addEventListener("click", (e) => {
-      e.stopPropagation();
-      togglePricePill(which);
-    });
-    $$(".pill-opt", host).forEach((o) => {
-      o.addEventListener("click", (e) => { e.stopPropagation(); onPick(o.dataset.opt); });
+      `<div class="segment${liveIndex == null ? "" : " forced"}" data-on="${on}">` +
+      `<span class="seg-thumb"></span>` +
+      rows.map(([id, label], i) => {
+        const dead = liveIndex != null && i !== liveIndex;
+        return `<button type="button" data-opt="${escapeHtml(id)}"` +
+          `${dead ? ` aria-disabled="true"` : ""}` +
+          ` aria-pressed="${i === on}">${escapeHtml(label)}</button>`;
+      }).join("") + `</div>`;
+    $$("button", host).forEach((b) => {
+      if (b.getAttribute("aria-disabled") === "true") return;
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (b.dataset.opt !== currentId) onPick(b.dataset.opt);
+      });
     });
   };
 
-  dd("#pricePeriod", "period", PERIODS, pricesUiState.period, (id) => {
+  control("#pricePeriod", PERIODS, pricesUiState.period, (id) => {
     pricesUiState.period = id;
-    pricesUiState.openPill = null;
     renderTrends();
   });
-  dd("#priceGroupBy", "group", groups, pricesUiState.groupBy, (id) => {
+  control("#priceGroupBy", GROUPS, pricesUiState.groupBy, (id) => {
     pricesUiState.groupBy = id;
-    pricesUiState.openPill = null;
     renderTrends();
-  }, canGroup);
+  }, canGroup ? null : 0);
 }
 
 function renderTrends() {
@@ -2957,7 +2963,7 @@ function wire() {
   // tapping anywhere outside an open Trends dropdown closes it
   document.addEventListener("click", (e) => {
     if (pricesUiState.openPill &&
-        !e.target.closest("#priceCatPills, #priceProdPills, #pricePillPanel, .price-subfilters")) {
+        !e.target.closest("#priceCatPills, #priceProdPills, #pricePillPanel")) {
       pricesUiState.openPill = null;
       renderTrends();
     }

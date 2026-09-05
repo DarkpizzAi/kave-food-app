@@ -78,23 +78,33 @@ bubble behind the active tab; "All" chips on the recipe filters; the sync
 banner replaced by the Settings sync section; all 43 recipes including
 index-only stubs ("link only" / "to write").
 
-**v10 - Prices** - a Prices tab, current at v10.8.
+**v10 - Prices** - a Prices tab, current at v10.11.
 
 *Worth watching* ranks the products that have genuinely dropped in the last 6
 months, not merely moved. *Trends* charts one selection over time: one line per
 store, or one per product when the selection spans several. It is steered by
 two filter rows - **Category** (the ingredient card, and its variant) and
-**Product** - plus **Period** (Last 6 months or All time), **Group by** and a
-**Reset**; a dropdown opens under its own pill and floats over the chart
-without moving it. A selection drills past any level that offers only one
-choice, and the accent marks the deepest level naming a real value - the
-subject of the chart - with the levels above it in grey. An unset level reads
-*All variants* / *All products*, since that is what the chart is pooling; a
-level with nothing to offer at all shows a dash. A pill you could not have
-chosen otherwise carries no ✕ and opens no dropdown. Tapping a chart
-point, or *See all*, opens the full-history sheet: day and month, product,
-store, quantity and price, in per-year blocks, one row per shopping trip rather
-than per observation.
+**Product** - plus **Period**, **Group by** and a **Reset**. A selection drills
+past any level that offers only one choice, and the accent marks the deepest
+level naming a real value - the subject of the chart - with the levels above it
+in grey. An unset level reads *All variants* / *All products*, since that is
+what the chart is pooling; a level with nothing to offer at all shows a dash. A
+pill you could not have chosen otherwise carries no ✕ and opens no dropdown;
+one that does opens it under itself, floating over the chart without moving it.
+Tapping a chart point, or *See all*, opens the full-history sheet: day and
+month, product, store, quantity and price, in per-year blocks, one row per
+shopping trip rather than per observation.
+
+The three filter pills take their width from their row rather than from their
+own label, so a pick never reflows the row. The widths are one geometric
+progression - card, variant, product, each step x1.776 - and the Category row
+deliberately stops short of the Product row. The ratio is not a taste call:
+`r^2 + r = k` ties the common ratio to how much of its row the Category pills
+take, and k = 0.88 is the value picked. Period (*6 months* / *All time*) and
+Group by (*Shops* / *Products*) are segmented controls sharing one line under
+the chart - two options never earned a dropdown, so both halves are always
+visible and one tap switches. A half with nothing behind it stays named and in
+place, greyed.
 
 Shopping-list rows get a price-history icon and a store-coloured bubble when
 one store is clearly cheapest. Series are keyed by product, not by ingredient -
