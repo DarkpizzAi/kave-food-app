@@ -1322,25 +1322,43 @@ body.readonly .add-row input { cursor: not-allowed; }
 }
 
 /* ---- Trends: the three Product pills + their dropdowns ---- */
-/* Category (L1 + L2) and Product (L3): a fixed label, then a row that scrolls
-   horizontally and is clipped to the card's inner edge (not the phone) */
+/* Category (L1 + L2) and Product (L3): a fixed label, then a row the pills
+   divide between them. Nothing overflows any more, so the row does not
+   scroll and the label has nothing to mask. */
 .price-pills-row { display: flex; align-items: center; gap: 7px; }
 .price-pills-row + .price-pills-row { margin-top: 7px; }
-/* opaque so pills scrolling under it tuck away cleanly, not bleed through;
-   fixed width so both rows' pills start at the same x */
+/* fixed width so both rows' pills start at the same x */
 .price-pills-row .rail-label,
 #priceLegend .rail-label { min-width: 62px; }
-.price-pills-row .rail-label {
-  flex: none; position: relative; z-index: 1;
-  background: var(--card); padding-right: 7px;
-}
+.price-pills-row .rail-label { flex: none; padding-right: 7px; }
 .price-pills {
   flex: 1; min-width: 0;
-  display: flex; align-items: center; gap: 7px;
-  flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
-  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  display: flex; align-items: center; gap: 7px; flex-wrap: nowrap;
 }
-.price-pills::-webkit-scrollbar { display: none; }
+
+/* The three pills are one geometric progression, smallest to largest:
+   card -> variant -> product, each step x1.618. Two facts force the split.
+   The Product pill is alone on its row, so it IS the row: call it 1. The
+   two Category pills share a row, so their shares sum to 1. One common
+   ratio r means the widths are r^2 : r : 1, and r^2 + r = 1 has exactly one
+   positive solution - r = 0.618, phi. Hence 0.382 / 0.618. Any other split
+   makes the two steps different sizes.
+   Shares, not pixels: a 360px phone and a 412px phone each fill their own
+   row, and a pill never depends on the length of its own label again. */
+/* The shares are flex-basis, not flex-grow. Growing from a zero basis splits
+   the free space left AFTER each pill's own 24px of padding is set aside, so
+   the ratio would land on the text boxes and the pills themselves would come
+   out 41/59. A percentage basis is the border-box width, so the capsules you
+   actually see are the things in the ratio. The two bases plus the 7px gap
+   make exactly one row. */
+.price-pills > .pill { flex: 1 1 0; overflow: hidden; }
+#priceCatPills > .pill[data-lvl="l1"] { flex: 0 1 calc((100% - 7px) * 0.382); }
+#priceCatPills > .pill[data-lvl="l2"] { flex: 0 1 calc((100% - 7px) * 0.618); }
+/* the label fills its pill and ellipsises inside it, rather than setting
+   the pill's width as it used to */
+.price-pills .pill-text { flex: 1; min-width: 0; max-width: none; text-align: left; }
+/* a level with nothing to offer holds its dash in the middle of its share */
+.price-pills .pill-empty .pill-text { text-align: center; }
 .pill-wrap { position: relative; flex: none; }
 .pill {
   flex: none;
@@ -1362,8 +1380,9 @@ body.readonly .add-row input { cursor: not-allowed; }
    --rule-strong is the one token that contrasts with --surface-2 in both. */
 .pill:not(.sel) .pill-x { background: var(--rule-strong); }
 
-/* a level with nothing to offer holds a dash: a short capsule, floored well
-   above its own height so it never rounds into a circle */
+/* a level with nothing to offer holds a dash. Inside the Category/Product
+   rows its width comes from the ratio above; the min-width is what keeps it
+   from rounding into a circle anywhere else. */
 .pill-empty {
   min-width: 40px; padding-left: 10px; padding-right: 10px;
   justify-content: center;

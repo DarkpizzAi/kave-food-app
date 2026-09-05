@@ -2198,7 +2198,9 @@ function pillButton({ which, text, extra = [], opens, trailing = "" }) {
   // the render that clears it runs after this
   if (opens && pricesUiState.openPill === which) cls.push("open");
   if (!opens) cls.push("dd-static");
-  return `<button type="button" class="${cls.join(" ")}"` +
+  // data-lvl is on every pill, opening or not - it is what the width ratio
+  // keys off, and a pill with no choices still has to hold its share of the row
+  return `<button type="button" class="${cls.join(" ")}" data-lvl="${which}"` +
     `${opens ? ` data-pill="${which}"` : ` aria-disabled="true"`}>` +
     `<span class="pill-text">${escapeHtml(text)}</span>${trailing}</button>`;
 }
