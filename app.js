@@ -3082,6 +3082,13 @@ function renderUpdateStatus() {
    --bg - the v9.11 header padding then closes the seam for free. Can only be
    read on the phone, so the app reports it. (Previously shipped in v9.9,
    removed in v9.10, restored once v9.11 gave the reading something to drive.) */
+// The inline theme script in index.html sets this before it does anything else.
+// Absent means it never ran, which on a page with a hashed script-src means the
+// hash no longer matches the script - see the CSP comment in index.html.
+function themeBootRan() {
+  return document.documentElement.dataset.themeBoot === "1";
+}
+
 function renderDisplayDiag() {
   const box = $("#displayDiag");
   if (!box) return;
@@ -3109,6 +3116,12 @@ function renderDisplayDiag() {
     [edge ? "ok" : "warn", edge
       ? "Edge to edge - the page reaches under the bars"
       : "Not edge to edge - the bars are their own strip"],
+    // The theme preload is inlined in index.html and cleared by a CSP hash, so
+    // editing it silently stops it running. Say so here rather than leaving a
+    // flash of the wrong colours as the only symptom.
+    [themeBootRan() ? "ok" : "error", themeBootRan()
+      ? "Theme preload ran"
+      : "Theme preload BLOCKED - recompute the CSP hash in index.html"],
   ];
   box.innerHTML = lines
     .map(([k, text]) => `<span class="sync-line ${k}"><i></i>${escapeHtml(text)}</span>`)
@@ -3817,6 +3830,14 @@ function initPullToSync() {
 /* ---------- boot ---------- */
 
 store.load();                       // list + recipes + sync meta from the cache
+if (!themeBootRan()) {
+  console.warn(
+    "Spoon: #theme-preload in index.html did not run. If you just edited it, "
+    + "its CSP hash is stale - recompute script-src's sha256 with the command "
+    + "in the README, under \"The token, and what protects it\"."
+  );
+}
+
 github.setToken(store.state.settings.token);
 applyPalette(store.state.settings.palette || "cobalt");
 applyTheme(store.state.settings.theme || "system");

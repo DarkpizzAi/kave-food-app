@@ -2,20 +2,71 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <!-- Content-Security-Policy. The GitHub token sits in localStorage in plain
+       text - see the README - so anything that can run script on this origin can
+       read it. This is the backstop for that: `script-src 'self'` plus one hash,
+       and no 'unsafe-inline' and no 'unsafe-eval', so injected script does not
+       run even if something one day reaches the DOM unescaped.
+
+       It has to be a meta tag: GitHub Pages serves static files and cannot set
+       headers. That costs three directives a meta CSP ignores outright -
+       frame-ancestors, report-uri and sandbox - so they are deliberately absent
+       rather than written down and silently doing nothing. Clickjacking is
+       consequently NOT covered here.
+
+       THE HASH BELOW COVERS #theme-preload IN THIS FILE, BYTE FOR BYTE.
+       Edit that script - even one character of whitespace or a comment - and
+       it stops matching and is silently blocked. It says so rather than only
+       flashing the wrong colours: the script stamps data-theme-boot on <html>,
+       and app.js warns to the console and flags it red in Settings > Display
+       when that stamp is missing. The recompute command lives in the README,
+       under "The token, and what protects it" - deliberately not here, because
+       a command containing the text <script></script> is itself what a regex
+       hunting for the script would match first.
+
+       .gitattributes pins eol=lf, so the bytes hashed here are the bytes Pages
+       serves; a CRLF working tree would hash to something production rejects.
+
+       style-src keeps 'unsafe-inline' because the app writes style="..."
+       attributes at runtime (store colours on the chart and the list). The
+       narrower style-src-attr/-elem pair below says that precisely where the
+       browser understands it: attributes yes, injected <style> elements no.
+       CSS-based exfiltration needs an external fetch anyway, which img-src and
+       connect-src already refuse. -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    base-uri 'none';
+    object-src 'none';
+    form-action 'none';
+    script-src 'self' 'sha256-3733tRbDWO+QkuW08Hz+mNyD8/YYw1O/+xoac96s3YQ=';
+    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+    style-src-elem 'self' https://fonts.googleapis.com;
+    style-src-attr 'unsafe-inline';
+    font-src https://fonts.gstatic.com;
+    img-src 'self' data:;
+    connect-src 'self' https://api.github.com;
+    manifest-src 'self';
+    worker-src 'self'" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <!-- No theme-color meta on purpose: an installed app ignores it (measured),
        and a hardcoded pair would be wrong for five of the six themes anywhere
        it is honoured. The phone paints its bars white or black from its own
        light/dark setting, and that is the whole story. -->
   <meta name="color-scheme" content="light dark" />
-  <script>
+  <script id="theme-preload">
   /* Apply the saved theme before the first frame. Without this the document
      paints on the default Cobalt tokens until app.js has loaded, so any other
      theme arrives as a visible flash of the wrong colours. */
   (function () {
+    var root = document.documentElement;
+    /* Proof this script ran, read back by renderDisplayDiag() and by app.js.
+       Set first, before anything that can throw, so a blocked localStorage
+       does not read as a stale CSP hash. If the hash above stops matching,
+       this attribute is absent and both places say so out loud - the whole
+       point, since a blocked script is otherwise silent. */
+    root.dataset.themeBoot = "1";
     try {
       var s = JSON.parse(localStorage.getItem("foodapp.settings")) || {};
-      var root = document.documentElement;
       if (s.palette && s.palette !== "cobalt") root.setAttribute("data-palette", s.palette);
       var dark = matchMedia("(prefers-color-scheme: dark)").matches;
       root.style.colorScheme = dark ? "dark" : "light";

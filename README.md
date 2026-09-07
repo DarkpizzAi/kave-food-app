@@ -82,13 +82,49 @@ live link in this origin - reachable through a stub recipe's `sources`, which
 are written in the hub repo. Sources are now required to parse as absolute
 http(s) URLs, and anything else is dropped rather than rendered.
 
-Still open, and a deliberate choice rather than an oversight: **there is no
-Content-Security-Policy**. GitHub Pages cannot set headers, so it would have to
-be a `<meta http-equiv>`, and the anti-flash theme script inlined in
-`index.html` means `script-src` would need a `'sha256-...'` hash of that
-script - which silently stops matching the moment anyone edits it, and the
-symptom is a blocked script, not an error anyone would notice. Worth adding,
-worth doing deliberately.
+There is a **Content-Security-Policy**, as a `<meta http-equiv>` in
+`index.html` - GitHub Pages serves static files and cannot set headers. The
+load-bearing part is `script-src 'self'` plus a single hash, with no
+`'unsafe-inline'` and no `'unsafe-eval'`, so injected script does not run even
+if something one day does reach the DOM unescaped. `connect-src` is `'self'`
+and `api.github.com` only, so a script that did run could not post the token
+anywhere. `base-uri`, `object-src` and `form-action` are `'none'`.
+
+`style-src` keeps `'unsafe-inline'`, because the app writes `style="..."`
+attributes at runtime for the store colours. The narrower `style-src-attr` /
+`style-src-elem` pair says that precisely where the browser understands it:
+attributes yes, injected `<style>` elements no. CSS exfiltration would need an
+external fetch anyway, which `img-src` and `connect-src` already refuse.
+
+A meta CSP silently ignores `frame-ancestors`, `report-uri` and `sandbox`, so
+they are absent rather than written down doing nothing. **Clickjacking is not
+covered.**
+
+### Recomputing the script hash
+
+`script-src` carries a `sha256` of `#theme-preload`, the anti-flash theme
+script inlined in `index.html`. Edit that script - one character of whitespace
+or a comment is enough - and the hash stops matching and the script is blocked.
+Recompute it with:
+
+```
+python -c "import re,hashlib,base64;b=re.search(rb'<script id=\"theme-preload\">(.*?)</script>',open('index.html','rb').read(),re.S).group(1);print('sha256-'+base64.b64encode(hashlib.sha256(b).digest()).decode())"
+```
+
+It matches on the `id` rather than on the first `<script>` in the file, and it
+lives here rather than in `index.html` for the reason that cost an iteration
+while it was being written: a command containing the text `<script></script>`
+is itself the first thing a regex hunting for the script finds, so documenting
+it in the file it parses made it hash its own documentation.
+
+A blocked script would otherwise be silent - the symptom is the colour flash it
+exists to prevent, not an error. So it announces itself: the script stamps
+`data-theme-boot` on `<html>` before doing anything else, and app.js warns to
+the console and shows a red *Theme preload BLOCKED* line in
+*Settings > Display* when that stamp is missing.
+
+`.gitattributes` pins `eol=lf`, so the bytes hashed locally are the bytes Pages
+serves - a CRLF working tree would hash to something production rejects.
 
 If a token is ever exposed, revoke it on GitHub; clearing it in Settings only
 removes this device's copy.
