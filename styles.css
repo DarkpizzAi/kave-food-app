@@ -682,8 +682,10 @@ input, .search {
   padding-bottom: 2px;
 }
 .rail::-webkit-scrollbar { display: none; }
-/* only applied while there's more to scroll to (see updateRailFade) */
-.rail.rail-fade {
+/* Only applied while there's more to scroll to (see updateRailFade). Not
+   qualified by .rail: the Plan tab's card strips wear the same class, so
+   "there is more to the right" looks the same everywhere in the app. */
+.rail-fade {
   -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
   mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
 }
@@ -757,25 +759,39 @@ input, .search {
 .sort-opt svg { flex: none; width: 15px; height: 15px; color: var(--accent); }
 
 /* recipe cards */
+/* The two numbers that decide how wide a recipe card is, named once. The grid
+   feeds them to auto-fill; the Plan tab's strips have no grid to do that for
+   them, so sizePlanStrips() reads these and runs the same arithmetic. Change
+   either here and both tabs follow. */
+:root { --card-min: 150px; --card-gap: 10px; }
 #recipeList {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(var(--card-min), 1fr));
+  gap: var(--card-gap);
   margin-top: 14px;
 }
-#recipeList li {
+/* The card is defined by its class, not by the list it happens to sit in: the
+   Plan tab puts the same cards in a horizontal strip. Only the grid below
+   belongs to the Recipes tab.
+   Qualified `li.` on purpose. #recipeList carries class="list" for the list
+   reset, and `.list li` sets its own padding, align-items, gap and hairline;
+   the old `#recipeList li` rule out-specified all of that by its id. A bare
+   `.recipe-card` does not, so it silently lost to `.list li` and the card's
+   insides shifted. `li.recipe-card` ties on specificity and wins on order. */
+li.recipe-card {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  gap: 0;
   text-align: left;
   border: none;
   border-radius: 12px;
   background: var(--card);
   padding: 16px;
   min-height: 168px;
+  cursor: pointer;
 }
-.recipe-card { cursor: pointer; }
 .recipe-card .main {
   font-weight: 500;
   font-size: 0.98rem;
@@ -1303,19 +1319,31 @@ body.readonly .add-row input { cursor: not-allowed; }
    Prices tab
    ============================================================ */
 
-.prices-section { margin-bottom: 32px; }
-.prices-section:last-child { margin-bottom: 0; }
-.prices-head {
+/* The section heading block is not the Prices tab's own: the Plan tab uses
+   the same one, so a section reads the same wherever it is. Renamed off
+   `prices-*` when Plan arrived rather than copied. */
+.tab-section { margin-bottom: 32px; }
+.tab-section:last-child { margin-bottom: 0; }
+.tab-section-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   padding: 0 2px;
   margin-bottom: 8px;
 }
-.prices-title { font-weight: 600; font-size: 1.05rem; }
-.prices-sub { color: var(--text-dim); font-size: 0.78rem; }
+.tab-section-title { font-weight: 600; font-size: 1.05rem; }
+.tab-section-sub { color: var(--text-dim); font-size: 0.78rem; }
+/* A lede under the title, not beside it. "Worth pairing" does not say what is
+   being paired, so its one line is load-bearing rather than decoration - it is
+   always visible, never a tooltip (v11 spec §8). */
+.tab-section-lede {
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  margin: -4px 2px 8px;
+}
 /* Reset by the Trends title - same flat, dim treatment as the Servings reset */
-.prices-head .reset {
+.tab-section-head .reset {
   flex: none; border: none; background: transparent;
   color: var(--text-dim); font-size: 0.82rem;
   padding: 2px 2px; min-height: 0; align-self: center;
@@ -1585,6 +1613,32 @@ body.readonly .add-row input { cursor: not-allowed; }
 }
 .price-row.hi .pt-cell { background: var(--accent-soft); }
 
+/* The receipt lines behind an averaged row: one full-width strip under it,
+   holding just the prices. Full-width because the parent's other four columns
+   are exactly what its children share - rendering them per-column meant three
+   empty cells and a "1", which read as a broken row rather than as detail.
+   An expanded parent drops its own rule so the pair reads as one block. */
+.pt-subs {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  /* right-aligned so the children sit under the price column they belong to,
+     not adrift under the date. The last cell of a row has no right padding, so
+     the table's right edge is the price column's - a plain child carries no
+     horizontal padding either, and lands flush under a plain summary price,
+     while an offer child's pill lines up with the summary's own pill. */
+  justify-content: flex-end;
+  gap: 7px;
+  padding: 0 0 11px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.pt-subs[hidden] { display: none; }
+.pt-subitem { color: var(--text-dim); padding: 2px 0; }
+.price-row.expanded.has-subs .pt-cell { border-bottom: none; }
+.pt-caret { margin-left: 3px; font-size: 0.66rem; color: var(--text-dim); }
+
 .price-date { white-space: nowrap; font-size: 0.8rem; color: var(--text-dim); }
 .price-qty { white-space: nowrap; font-size: 0.8rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
 .price-value {
@@ -1606,13 +1660,87 @@ body.readonly .add-row input { cursor: not-allowed; }
 .price-store { display: flex; align-items: center; gap: 5px; font-size: 0.82rem; }
 .price-store-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* tapped-open row: the clipped names wrap and the row grows around them */
-.price-row.expanded .pt-cell { align-self: start; }
+/* Tapped-open row: the clipped names wrap and the row grows around them.
+   `stretch`, not `start`: every cell carries its own border-bottom, and the
+   grid's `align-items: center` sizes each cell to its own content. While every
+   cell is one line those five borders coincide and read as one rule - but the
+   moment a name wraps they land at five different heights and the row's
+   underline breaks into steps. Stretching the cells to the row's height puts
+   the borders back on one line; content still flows from the top, which is
+   what `start` was there for. */
+.price-row.expanded .pt-cell { align-self: stretch; }
 .price-row.expanded .price-item,
 .price-row.expanded .price-store-name {
   overflow: visible; white-space: normal; overflow-wrap: anywhere;
 }
+/* the store cell centres its dot and name against the cell; once the cell is
+   full-row height that would float them beside a wrapped product name, so
+   they go to the top and the dot is nudged onto the first line's centre */
+.price-row.expanded .price-store { align-items: flex-start; }
+.price-row.expanded .price-store .legend-dot { margin-top: 4px; }
 
 /* the price sheet's own to-top: same look as the shopping list's, positioned
    the same - no per-row X in this sheet to dodge, so no offset needed */
 .price-to-top { right: 26px; }
+
+/* ============================================================
+   Plan tab
+   ============================================================ */
+
+/* A pairing is: what joins the meals, then the meals, then space. No card
+   around it - the recipe cards are the objects on this tab, exactly as they
+   are on Recipes, and wrapping them in a container that is `--card` itself is
+   what stopped them reading as cards. Rows are separated by space, no rule. */
+.plan-list { list-style: none; margin: 0; padding: 0; }
+
+/* A section that has nothing to show yet. Dashed and unfilled on purpose: a
+   solid box would read as a card with its contents missing, which is the
+   thing it is trying not to look like. Same box for both waiting sections, so
+   "nothing here yet" looks the same wherever it appears on the tab. */
+.plan-empty {
+  margin: 0;
+  padding: 20px 16px;
+  border: 1px dashed var(--rule-strong);
+  border-radius: 12px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.88rem;
+}
+.plan-row + .plan-row { margin-top: 22px; }
+
+.plan-share { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 9px; }
+/* The chip carries the risk in its weight, not in a badge or a number: `high`
+   is the reason the row exists, `medium` is a milder version of the same
+   thing. No legend, because two levels do not need explaining. */
+.plan-chip {
+  font-size: 0.72rem;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.plan-chip.high { background: var(--accent); color: var(--accent-text); font-weight: 500; }
+
+/* The strip sits in the same container the Recipes grid sits in, so giving it
+   the grid's own column width makes a card here the same size as a card there
+   at every screen width - two up on a phone, four up on a tablet, without a
+   breakpoint. --plan-card-w is set per strip by sizePlanStrips(); the fallback
+   is the phone case, used only for the frame before that runs. Nothing is
+   squeezed to fit a card in: the rest are reached by scrolling, and the fade
+   on the right says they are there. */
+.plan-strip {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: var(--card-gap);
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.plan-strip::-webkit-scrollbar { display: none; }
+.plan-strip li.recipe-card {
+  flex: 0 0 var(--plan-card-w, calc((100% - var(--card-gap)) / 2));
+  scroll-snap-align: start;
+}

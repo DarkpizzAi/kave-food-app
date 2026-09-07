@@ -113,10 +113,30 @@ const store = {
 
   /* mutations */
   setView(v) {
+    // The List is home. Leaving it pushes one history entry, so the phone's
+    // back gesture comes back here from any other tab instead of closing the
+    // app. Exactly one entry ever exists: hopping between two non-home tabs
+    // does not push another, so back is always a single press from home, and
+    // tapping List does not pop it (that would race an open sheet's own entry
+    // - see the popstate handler).
+    if (v !== "list" && this.state.view === "list" && !tabHasHistory) {
+      try {
+        history.pushState({ tabAway: true }, "");
+        tabHasHistory = true;
+      } catch (e) {
+        tabHasHistory = false;
+      }
+    }
     const sheetOpen = detailState != null;
     const priceSheetOpen = priceDetailState != null;
-    // tapping Recipes/Prices again while its own sheet is up closes that sheet
-    if (sheetOpen && v === "recipes" && this.state.view === "recipes") {
+    // The recipe sheet can be opened from more than one tab (Recipes, and the
+    // Plan tab's recipe-facing sections), so the tab it belongs to is whichever
+    // one it was opened from - detailState.owner, set in openRecipe. Comparing
+    // against a hardcoded "recipes" would strand a sheet opened from Plan: the
+    // Recipes tab would adopt it, and Plan would not park it on the way out.
+    const owner = sheetOpen ? detailState.owner : null;
+    // tapping the owning tab again while its own sheet is up closes that sheet
+    if (sheetOpen && v === owner && this.state.view === owner) {
       closeRecipe();
       return;
     }
@@ -125,12 +145,12 @@ const store = {
       return;
     }
     // leaving a tab with its sheet open: stash it, no swoop-down
-    if (sheetOpen && v !== "recipes") parkRecipe();
+    if (sheetOpen && v !== owner) parkRecipe();
     if (priceSheetOpen && v !== "prices") parkPriceDetail();
     this.state.view = v;
     this.notify();
     // coming back: bring the stashed sheet straight back
-    if (sheetOpen && v === "recipes") unparkRecipe();
+    if (sheetOpen && v === owner) unparkRecipe();
     if (priceSheetOpen && v === "prices") unparkPriceDetail();
   },
   addItem({ name, qty, unit, note, source = "manual", slug = null }) {
@@ -256,6 +276,16 @@ const deburr = (s) => {
 
 const uid = () =>
   (crypto.randomUUID && crypto.randomUUID()) || String(Date.now() + Math.random());
+
+/* Own-property test for the dictionaries below. Every one of them is a plain
+   object keyed by a string that came from outside - a name typed into the
+   list, a key from the synced JSON - and a plain object inherits
+   Object.prototype, so `products["constructor"]` answers with a function
+   rather than undefined. That is not theoretical here: typing "constructor"
+   as a list item resolved to an l3 target whose entry had no `.series`, and
+   the TypeError took renderList down with it - on a row that persists in
+   localStorage, so the list came back broken on every load. */
+const own = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
 
 /* palette id -> display name. The full token sets live in styles.css,
    keyed by [data-palette]; the browser-chrome colour is read from the
@@ -401,7 +431,7 @@ const STORE_COLORS = {
 };
 function storeColor(store) {
   if (store === "Ametller Origen") return "var(--store-ametller)";
-  return STORE_COLORS[store] || "var(--text-dim)";
+  return own(STORE_COLORS, store) ? STORE_COLORS[store] : "var(--text-dim)";
 }
 // lines that aren't a supermarket (Group by = Product: one line per variant or
 // product) have no established colour of their own - Isa's store colours must
@@ -416,6 +446,15 @@ function lineColor(i) { return LINE_PALETTE[i % LINE_PALETTE.length]; }
 // Ametller, whose pair goes light in dark mode and would vanish under white
 function storeOnColor(store) {
   return store === "Ametller Origen" ? "var(--store-ametller-on)" : "#fff";
+}
+
+// The one way into the products map. Guarded, because `key` reaches here from
+// a typed list item and from a data-price-key attribute alike; a missing
+// product is a normal answer (a stale key, a product dropped by the last
+// rebuild), never a crash.
+function productEntry(key) {
+  const products = store.state.prices.products;
+  return own(products, key) ? products[key] : null;
 }
 
 function priceKeyFor(name) {
@@ -442,7 +481,7 @@ function resolveInIndex(name) {
   const n = normaliseForResolve(name);
   if (!n) return null;
   for (const cand of [n, n.replace(/es$/, "a"), n.replace(/s$/, "")]) {
-    if (cand && resolve[cand]) return resolve[cand];
+    if (cand && own(resolve, cand)) return resolve[cand];
   }
   return null;
 }
@@ -456,7 +495,7 @@ function resolvePriceTarget(name) {
   // list item with any capital ("Plàtano América") never matched a
   // product and fell back to the L1/L2 index. Match case-insensitively.
   for (const cand of [exactKey, exactKey.toLowerCase()]) {
-    if (store.state.prices.products[cand]) return { level: "l3", key: cand };
+    if (productEntry(cand)) return { level: "l3", key: cand };
   }
   const hit = resolveInIndex(name);
   if (!hit) return null;
@@ -486,7 +525,7 @@ function pooledSeries(l1, l2) {
 function scopedPoints(target) {
   if (!target) return [];
   if (target.level === "l3") {
-    const entry = store.state.prices.products[target.key];
+    const entry = productEntry(target.key);
     if (!entry) return [];
     return entry.series.map((p) =>
       ({ ...p, prodKey: target.key, prodLabel: entry.label, variant: entry.l2 }));
@@ -572,7 +611,7 @@ function narrowPriceTarget(target) {
 function seriesForTarget(target) {
   if (!target) return [];
   if (target.level === "l3") {
-    const entry = store.state.prices.products[target.key];
+    const entry = productEntry(target.key);
     return entry ? entry.series : [];
   }
   return pooledSeries(target.l1, target.level === "l2" ? target.l2 : null);
@@ -586,7 +625,7 @@ function resolveTargetInfo(target) {
   if (!target) return null;
   const series = scopedPoints(target);
   if (target.level === "l3") {
-    const entry = store.state.prices.products[target.key];
+    const entry = productEntry(target.key);
     if (!entry) return null;
     return { l1: entry.l1, l1_label: entry.l1_label, l2: entry.l2, label: entry.label, series };
   }
@@ -602,6 +641,40 @@ function resolveTargetInfo(target) {
 // finer view is what the Trends chart is for). Only for a trend statistic:
 // bestPriceInPeriod does NOT go through this, because a median can hide the
 // one genuinely cheap line among several bought the same day.
+// One purchase row: everything bought of one product, at one store, on one
+// day. Shared by the detail table and by the chart, so a dot can name exactly
+// the rows it stands for.
+function purchaseKey(p) {
+  return p.date + "|" + (p.prodKey || "") + "|" + p.store;
+}
+
+// Collapse a chart line to one point per day, averaging the prices. Two tins
+// of the same thing in one trip are one price paid, not two readings, and
+// drawing them as two dots stacked on one x put a vertical stripe in the line
+// and made the polyline double back on itself.
+// The mean, not dailyPoints' median: this is what a day cost, and a median
+// silently discards half the receipt. `members` is kept so a tap can open the
+// detail sheet on every row the dot stands for, and the dot carries the promo
+// mark if any member was on offer - the same "at least one" rule the detail
+// table's own averaged row uses, so the chart and the table never disagree.
+function dayAveraged(points) {
+  const byDate = new Map();
+  for (const p of points) {
+    if (!byDate.has(p.date)) byDate.set(p.date, []);
+    byDate.get(p.date).push(p);
+  }
+  return [...byDate.entries()]
+    .map(([date, members]) => ({
+      date,
+      price: members.reduce((sum, m) => sum + m.price, 0) / members.length,
+      promo: members.some((m) => m.promo),
+      store: members[0].store,
+      prodKey: members[0].prodKey,
+      members,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
 function dailyPoints(series) {
   const byDate = new Map();
   series.forEach((p) => {
@@ -621,11 +694,24 @@ function dailyPoints(series) {
 // "today" for the 6-month window: the most recent date this device has
 // actually seen a price for. Live, not a constant - before the first sync
 // there is no data at all, and a background sync can extend it later.
+//
+// Memoised on the identity of the products map, the same bounded-cache trick
+// deburr uses and for the same reason: this is a full scan of every product's
+// every point, and seriesInPeriod calls it on every window it cuts. So
+// computeOpportunities, which cuts one window per product, was scanning the
+// whole dataset once per product - 209 x 517 points on today's file, on every
+// single render of the Prices tab, poll ticks included. The map is only ever
+// replaced wholesale (load, syncPrices, the dev-file fallback), never mutated
+// in place, so its identity is an exact cache key rather than a heuristic.
+let priceTodayCache = { products: null, date: null };
 function priceToday() {
+  const products = store.state.prices.products;
+  if (priceTodayCache.products === products) return priceTodayCache.date;
   let latest = null;
-  for (const entry of Object.values(store.state.prices.products)) {
+  for (const entry of Object.values(products)) {
     for (const p of entry.series) if (!latest || p.date > latest) latest = p.date;
   }
+  priceTodayCache = { products, date: latest };
   return latest;
 }
 
@@ -1317,7 +1403,7 @@ function renderRecipeFilters(state) {
   mbox.querySelectorAll(".chip").forEach((c) => c.remove());
   if (mains.length) {
     filterChip(mbox, "main", "", "All");
-    mains.forEach((m) => filterChip(mbox, "main", m, MAIN_LABELS[m] || m));
+    mains.forEach((m) => filterChip(mbox, "main", m, own(MAIN_LABELS, m) ? MAIN_LABELS[m] : m));
   }
 
   updateRailFade(cbox);
@@ -1352,6 +1438,28 @@ function recipeIcon(r) {
   return el;
 }
 
+// One recipe card. Used by the Recipes grid and by the Plan tab's horizontal
+// strips, so a recipe looks and behaves the same wherever it is shown - same
+// markup, same tap into the same sheet.
+function recipeCard(r) {
+  const li = document.createElement("li");
+  li.className = "recipe-card";
+  const eff = effortFor(r.category);
+  const times = timesText(r);
+  const meta = r.stub
+    ? `<span class="card-stub">${r.stubKind === "link" ? "link only" : "to write"}</span>`
+    : `${times ? `<span class="card-time">${escapeHtml(times)}</span>` : ""}
+       <span class="dots" title="Effort ${eff}/3" aria-label="effort ${eff} of 3">${'<i class="on"></i>'.repeat(eff)}${"<i></i>".repeat(3 - eff)}</span>`;
+  li.classList.toggle("stub", !!r.stub);
+  li.innerHTML = `
+    <span class="main">${escapeHtml(r.name)}</span>
+    <span class="card-meta">${meta}</span>`;
+  const icon = recipeIcon(r);
+  if (icon) li.appendChild(icon);
+  li.addEventListener("click", () => openRecipe(r.slug));
+  return li;
+}
+
 function renderRecipes(state) {
   renderRecipeControlRow(state);
   renderRecipeFilters(state);
@@ -1367,24 +1475,7 @@ function renderRecipes(state) {
     .sort((a, b) => mode.cmp(a, b) || deburr(a.name).localeCompare(deburr(b.name)));
   const ul = $("#recipeList");
   ul.innerHTML = "";
-  rows.forEach((r) => {
-    const li = document.createElement("li");
-    li.className = "recipe-card";
-    const eff = effortFor(r.category);
-    const times = timesText(r);
-    const meta = r.stub
-      ? `<span class="card-stub">${r.stubKind === "link" ? "link only" : "to write"}</span>`
-      : `${times ? `<span class="card-time">${escapeHtml(times)}</span>` : ""}
-         <span class="dots" title="Effort ${eff}/3" aria-label="effort ${eff} of 3">${'<i class="on"></i>'.repeat(eff)}${"<i></i>".repeat(3 - eff)}</span>`;
-    li.classList.toggle("stub", !!r.stub);
-    li.innerHTML = `
-      <span class="main">${escapeHtml(r.name)}</span>
-      <span class="card-meta">${meta}</span>`;
-    const icon = recipeIcon(r);
-    if (icon) li.appendChild(icon);
-    li.addEventListener("click", () => openRecipe(r.slug));
-    ul.appendChild(li);
-  });
+  rows.forEach((r) => ul.appendChild(recipeCard(r)));
   const empty = $("#recipeEmpty");
   empty.hidden = rows.length !== 0;
   empty.textContent = state.recipes.length === 0
@@ -1413,6 +1504,139 @@ function equaliseCards() {
   cards.forEach((c) => { c.style.minHeight = max + "px"; });
 }
 
+/* ---------- Plan tab ---------- */
+/* Spec: V11-MEAL-PLANNING-TAB-SPEC.md. Read-only sections computed from the
+   recipes already in state - no new sync path, nothing written back. */
+
+// Ranked worst-first. `low` is never a reason for a row, so it is absent here.
+const WASTE_RANK = { high: 0, medium: 1 };
+
+/* "Worth pairing": recipes that share something whose pack outlives one
+   recipe. The unit is the PAIR, not the ingredient - cebette and piment both
+   join Ramen to Riz saute, and emitting that twice would read as two findings
+   when it is one. So pairs are keyed by their recipe set and carry every
+   perishable that joins them. Staples are excluded upstream, not here: the
+   dictionary refuses a staple above `low` (build_groceries_dictionary.py), so
+   an ingredient line's wasteRisk is the whole test. */
+function pairings(recipes) {
+  const cooked = recipes.filter((r) => !r.stub && (r.ingredients || []).length);
+  const byCard = new Map();          // slug -> { risk, name, recipes:Set }
+  cooked.forEach((r) => {
+    (r.ingredients || []).forEach((ing) => {
+      if (!ing.slug || ing.slug === "none") return;
+      if (!own(WASTE_RANK, ing.wasteRisk)) return;
+      let e = byCard.get(ing.slug);
+      if (!e) {
+        e = { risk: ing.wasteRisk, name: ing.conceptName || ing.name, recipes: new Set() };
+        byCard.set(ing.slug, e);
+      }
+      e.recipes.add(r.slug);
+    });
+  });
+
+  const byPair = new Map();          // "a|b|c" -> { recipes:[], shared:[] }
+  byCard.forEach((e) => {
+    if (e.recipes.size < 2) return;
+    const key = [...e.recipes].sort().join("|");
+    let p = byPair.get(key);
+    if (!p) {
+      p = { recipes: key.split("|"), shared: [] };
+      byPair.set(key, p);
+    }
+    p.shared.push({ name: e.name, risk: e.risk });
+  });
+
+  const rows = [...byPair.values()];
+  rows.forEach((p) => p.shared.sort(
+    (a, b) => WASTE_RANK[a.risk] - WASTE_RANK[b.risk] || a.name.localeCompare(b.name)));
+  return rows.sort((a, b) =>
+    // worst single ingredient first, then the pair that uses up the most
+    WASTE_RANK[a.shared[0].risk] - WASTE_RANK[b.shared[0].risk]
+    || b.shared.length - a.shared.length
+    // no cooked log yet, so the spec's "least recently cooked" tie-break
+    // cannot be applied - alphabetical keeps the order stable instead of clever
+    || a.recipes.join().localeCompare(b.recipes.join()));
+}
+
+// One row: the perishables that join the recipes, then the recipes themselves,
+// each its own tappable target opening the same sheet the Recipes tab opens.
+function planRow(shared, recipeSlugs, byRecipe) {
+  const li = document.createElement("li");
+  li.className = "plan-row";
+  const top = document.createElement("div");
+  top.className = "plan-share";
+  top.innerHTML = shared
+    .map((sh) => `<span class="plan-chip ${sh.risk}">${escapeHtml(sh.name)}</span>`)
+    .join("");
+  li.appendChild(top);
+  // The real cards, not their names: a pairing is a suggestion about what to
+  // cook, so it should show what the Recipes tab shows. Three cards already
+  // overflow a phone, and a pair can grow, so the strip scrolls sideways
+  // rather than wrapping into a block that pushes the next row off screen.
+  const strip = document.createElement("ul");
+  strip.className = "plan-strip";
+  recipeSlugs.forEach((slug) => {
+    const r = byRecipe.get(slug);
+    if (r) strip.appendChild(recipeCard(r));
+  });
+  // the same "there is more to the right" fade the filter rails use, so a
+  // third card that does not fit is visibly a third card and not an edge
+  strip.addEventListener("scroll", () => updateRailFade(strip), { passive: true });
+  li.appendChild(strip);
+  return li;
+}
+
+/* Give each strip the column width the Recipes grid would have chosen for the
+   same container. This is `repeat(auto-fill, minmax(--card-min, 1fr))` done by
+   hand - fit as many whole columns of at least --card-min as the width allows,
+   then share the width equally between them - because a flex row has no
+   auto-fill of its own. The strip and the grid are both laid out in main's
+   content box, so the strip's own clientWidth is the right input and the two
+   land on the same number at every screen width.
+   Without this the strip was hardcoded two-up, which matched the grid on a
+   phone and diverged the moment the grid went to three columns: 279px against
+   183px at a 600px viewport. */
+function sizePlanStrips() {
+  const strips = $$("#view-planner .plan-strip");
+  if (!strips.length) return;
+  const root = getComputedStyle(document.documentElement);
+  const min = parseFloat(root.getPropertyValue("--card-min")) || 150;
+  const gap = parseFloat(root.getPropertyValue("--card-gap")) || 10;
+  strips.forEach((strip) => {
+    const w = strip.clientWidth;
+    if (!w) return;                       // tab hidden: nothing to measure yet
+    const cols = Math.max(1, Math.floor((w + gap) / (min + gap)));
+    strip.style.setProperty("--plan-card-w", (w - gap * (cols - 1)) / cols + "px");
+    updateRailFade(strip);                // the width decides what overflows
+  });
+}
+
+function renderPlanner(state) {
+  const byRecipe = new Map(state.recipes.map((r) => [r.slug, r]));
+  const ul = $("#pairList");
+  ul.innerHTML = "";
+  const rows = pairings(state.recipes);
+  rows.forEach((p) => ul.appendChild(planRow(p.shared, p.recipes, byRecipe)));
+  // after layout: neither the strip's width nor its overflow means anything
+  // until the cards are in the document
+  sizePlanStrips();
+  const empty = $("#pairEmpty");
+  empty.hidden = rows.length !== 0;
+  empty.textContent = state.recipes.length === 0
+    ? "Recipes sync from your repo once a token is set."
+    : "Nothing pairs up yet. Recipes need their ingredient lists before this can see anything.";
+
+  // The bolognese move stays blank until the recipes carry a `leftovers` block
+  // (spec §7b) - which recipes are a base, how long each keeps, what it is
+  // finished with. That is a kitchen judgement, so it waits on Hugo rather
+  // than on code. Shown as an empty box rather than hidden, so the section
+  // holds its place and says what it is waiting for.
+  $("#batchList").innerHTML = "";
+  const bEmpty = $("#batchEmpty");
+  bEmpty.hidden = false;
+  bEmpty.textContent = "Coming soon";
+}
+
 /* ---------- recipe detail + scaler ---------- */
 
 // { recipe, servings, custom, customEditing, addMode, added:Set<ingredientIndex> }
@@ -1420,6 +1644,8 @@ let detailState = null;
 let sheetClosing = false;
 let closeRequested = false;
 let sheetHasHistory = false;
+// one history entry standing for "somewhere other than the List tab"
+let tabHasHistory = false;
 
 function openRecipe(slug) {
   const recipe = store.state.recipes.find((r) => r.slug === slug);
@@ -1427,6 +1653,7 @@ function openRecipe(slug) {
   detailState = {
     recipe, servings: recipe.portions, custom: null, customEditing: false,
     addMode: false, added: new Set(), // ingredient indices ticked this add-mode session
+    owner: store.state.view,          // the tab that opened it: "recipes" or "planner"
   };
   const el = $("#recipeDetail");
   sheetClosing = false;
@@ -1472,7 +1699,7 @@ function slideSheetDown() {
   setTimeout(finish, 450);
 }
 
-// leaving the Recipes tab: hide the open sheet instantly, keep it "open".
+// leaving the sheet's owning tab: hide it instantly, keep it "open".
 // Shopping mode and its ticks are kept - they only reset on the cart toggle
 // or on closing the recipe. A half-typed custom serving is dropped.
 function parkRecipe() {
@@ -1488,7 +1715,7 @@ function parkRecipe() {
   el.style.transform = "";
 }
 
-// back on the Recipes tab: restore the stashed sheet, no animation
+// back on the owning tab: restore the stashed sheet, no animation
 function unparkRecipe() {
   const el = $("#recipeDetail");
   if (detailState == null) return;
@@ -1606,14 +1833,26 @@ function closePriceDetail() {
 window.addEventListener("popstate", () => {
   sheetHasHistory = false;
   priceSheetHasHistory = false;
+  let consumed = false;
   if (detailState != null) {
     if ($("#recipeDetail").hidden) detailState = null; // parked elsewhere: back just discards it
     else slideSheetDown();
+    consumed = true;
   }
   if (priceDetailState != null) {
     if ($("#priceDetail").hidden) priceDetailState = null;
     else slidePriceSheetDown();
+    consumed = true;
   }
+  // A sheet was on top, so this press closed it and goes no further. Only a
+  // press with no sheet in the way reaches the tab underneath.
+  if (consumed) return;
+  if (!tabHasHistory) return;
+  tabHasHistory = false;
+  // The entry can be stale - tapping List directly leaves it on the stack
+  // rather than racing history.back() against an open sheet's own entry - in
+  // which case this press has already been paid for and does nothing visible.
+  if (store.state.view !== "list") store.setView("list");
 });
 
 // tap or swipe-down on the tinted name bar closes the sheet - shared by the
@@ -1727,7 +1966,8 @@ function detailBarHtml(recipe) {
   const tags = [];
   if (recipe.cuisine) tags.push(cap(recipe.cuisine));
   if (recipe.mainIngredient && recipe.mainIngredient !== "other") {
-    tags.push(MAIN_LABELS[recipe.mainIngredient] || cap(recipe.mainIngredient));
+    tags.push(own(MAIN_LABELS, recipe.mainIngredient)
+      ? MAIN_LABELS[recipe.mainIngredient] : cap(recipe.mainIngredient));
   }
   if (recipe.stub) tags.push(recipe.stubKind === "link" ? "link only" : "to write");
   const pills = tags.slice(0, 3)
@@ -2085,8 +2325,8 @@ function renderOpportunities() {
   // (v10 spec §6), so a coloured bubble means "clear cheapest store"
   // everywhere it shows up, not just on the list
   list.innerHTML = shown.map((o) => {
-    const entry = store.state.prices.products[o.key];
-    const bubbleStore = computeBubble(entry.series);
+    const entry = productEntry(o.key);
+    const bubbleStore = entry ? computeBubble(entry.series) : null;
     const best6 = bestPriceInPeriod(entry.series, "6m");
     return `
     <li class="opp-row" data-price-key="${escapeHtml(o.key)}">
@@ -2132,6 +2372,7 @@ function chartLines(points, granularity) {
   const lines = [...groups.values()].sort((a, b) => a.label.localeCompare(b.label));
   lines.forEach((ln, i) => {
     ln.color = granularity === "store" ? storeColor(ln.id) : lineColor(i);
+    ln.points = dayAveraged(ln.points);
   });
   return lines;
 }
@@ -2167,7 +2408,11 @@ function buildPriceChartSvg(lines) {
     }
     pts.forEach((p) => {
       const cx = xOf(p.date).toFixed(1), cy = yOf(p.price).toFixed(1);
-      const d = `data-date="${p.date}" data-store="${escapeHtml(p.store)}" data-prod="${escapeHtml(p.prodKey || "")}"`;
+      // an averaged dot can stand for several purchase rows - two stores on
+      // one day under Group by = Product, or two of the same thing in one
+      // trip - so it carries all their keys, not one identifying triple
+      const keys = [...new Set(p.members.map(purchaseKey))].join("~");
+      const d = `data-keys="${escapeHtml(keys)}"`;
       svg += p.promo
         ? `<g class="price-pt" ${d}><circle cx="${cx}" cy="${cy}" r="8" fill="${color}"/><text x="${cx}" y="${(+cy + 3).toFixed(1)}" class="promo-mark" fill="${storeOnColor(p.store)}">€</text></g>`
         : `<circle class="price-pt" ${d} cx="${cx}" cy="${cy}" r="4" fill="${color}"/>`;
@@ -2449,9 +2694,8 @@ function renderTrends() {
     $("#priceEmpty").hidden = true;
     wrap.innerHTML = buildPriceChartSvg(lines);
     $$(".price-pt", wrap).forEach((el) => {
-      el.addEventListener("click", () => openPriceDetail({
-        date: el.dataset.date, store: el.dataset.store, prodKey: el.dataset.prod,
-      }));
+      el.addEventListener("click", () =>
+        openPriceDetail({ keys: (el.dataset.keys || "").split("~").filter(Boolean) }));
     });
   }
 
@@ -2507,7 +2751,7 @@ function formatDayMonth(dateStr) {
 function purchaseRows(series) {
   const groups = new Map();
   for (const p of series) {
-    const k = p.date + "|" + (p.prodKey || "") + "|" + p.store;
+    const k = purchaseKey(p);
     if (!groups.has(k)) {
       groups.set(k, {
         date: p.date, prodKey: p.prodKey, prodLabel: p.prodLabel,
@@ -2551,38 +2795,70 @@ function renderPriceDetail() {
     ["Date", "Product", "Store", "Qty", "€/kg"].map((h) => cell("pt-head", h)).join("") +
     `</div>`;
 
+  // A dot can stand for several rows, so the highlight is a set of purchase
+  // keys rather than one date/store/product triple.
+  const hiKeys = highlight && highlight.keys ? new Set(highlight.keys) : null;
+
   let lastYear = null;
   const rows = purchaseRows(info.series).map((g) => {
-    // the cheapest point in the group is the one shown, so the promo pill is
-    // that point's own flag - never a sibling's
-    const shown = g.pts.reduce((a, b) => (b.price < a.price ? b : a));
-    const priceText = `€${shown.price.toFixed(2)}`;
+    // Several of the same thing in one trip is one price paid, so the row
+    // shows the average, not the cheapest - the cheapest quietly flattered
+    // every multi-buy. It reads as a sale if any one of them was on offer:
+    // the offer is the fact worth surfacing, and a row that hid it because a
+    // sibling was full price would be the more misleading of the two.
+    const avg = g.pts.reduce((sum, p) => sum + p.price, 0) / g.pts.length;
+    const anyPromo = g.pts.some((p) => p.promo);
+    const priceText = `€${avg.toFixed(2)}`;
     const item = g.prodLabel || titleCaseVariant(g.variant) || info.l1_label;
-    // a pooled L1/L2 view can hold several products bought at one store on one
-    // day, so the product is part of what identifies the tapped dot's row
-    const isHi = highlight && highlight.date === g.date && highlight.store === g.store &&
-      (!highlight.prodKey || highlight.prodKey === g.prodKey);
+    const isHi = hiKeys ? hiKeys.has(purchaseKey(g)) : false;
     const year = g.date.slice(0, 4);
     const bar = year === lastYear ? "" : `<div class="pt-year">${year}</div>`;
     lastYear = year;
+    const many = g.pts.length > 1;
+    const qty = many
+      ? `${g.pts.length}<span class="pt-caret">▾</span>`
+      : String(g.pts.length);
+    // The individual receipt lines behind an averaged row, revealed on a tap.
+    // One full-width strip of prices, not one five-column row each: date,
+    // product and store are what the row is grouped by, so per-column children
+    // would be three empty columns and a "1" - which read as broken rows, not
+    // as the parent's contents. Only the price differs, so only the price is
+    // shown, in the same offer pill the summary uses.
+    const subs = many
+      ? `<div class="pt-subs" hidden>` +
+        [...g.pts].sort((a, b) => a.price - b.price).map((p) => {
+          const t = `€${p.price.toFixed(2)}`;
+          return p.promo
+            ? `<span class="promo-price">${t}</span>`
+            : `<span class="pt-subitem">${t}</span>`;
+        }).join("") +
+        `</div>`
+      : "";
     return bar +
-      `<div class="price-row${isHi ? " hi" : ""}">` +
+      `<div class="price-row${isHi ? " hi" : ""}${many ? " has-subs" : ""}">` +
       cell("price-date", escapeHtml(formatDayMonth(g.date))) +
       cell("price-item", escapeHtml(item)) +
       cell("price-store", `<span class="legend-dot" style="background:${storeColor(g.store)}"></span><span class="price-store-name">${escapeHtml(g.store)}</span>`) +
-      cell("price-qty", g.pts.length) +
+      cell("price-qty", qty) +
       // a promo price sits in an accent pill instead of carrying a marker
-      cell("price-value", shown.promo ? `<span class="promo-price">${priceText}</span>` : priceText) +
-      `</div>`;
+      cell("price-value", anyPromo ? `<span class="promo-price">${priceText}</span>` : priceText) +
+      `</div>` + subs;
   }).join("");
 
   const table = $("#priceTable");
   table.innerHTML = head + rows;
 
-  // a long product or store name is clipped to one line; tapping the row
-  // unclips both and the row grows to fit
+  // A tap does two things, both "show me the rest of this row": a long product
+  // or store name unclips and the row grows to fit, and a row standing for
+  // several receipt lines reveals them.
   $$(".price-row:not(.pt-headrow)", table).forEach((r) => {
-    r.addEventListener("click", () => r.classList.toggle("expanded"));
+    r.addEventListener("click", () => {
+      const open = r.classList.toggle("expanded");
+      const caret = $(".pt-caret", r);
+      if (caret) caret.textContent = open ? "▴" : "▾";
+      const subs = r.nextElementSibling;
+      if (subs && subs.classList.contains("pt-subs")) subs.hidden = !open;
+    });
   });
 }
 
@@ -2912,6 +3188,7 @@ function render(state) {
   if (state.view === "list") renderList(state);
   if (state.view === "prices") renderPrices(state);
   if (state.view === "recipes") renderRecipes(state);
+  if (state.view === "planner") renderPlanner(state);
   if (state.view === "settings") renderSettings(state);
   updateToTop();
 }
@@ -3008,6 +3285,7 @@ function wire() {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
       if (store.state.view === "recipes") equaliseCards();
+      if (store.state.view === "planner") sizePlanStrips();
     }, 120);
   });
   $("#setToken").addEventListener("blur", (e) => {
@@ -3242,20 +3520,25 @@ async function fullSync() {
   syncing = true;
   render(store.state); // spinner on
   try {
-    await syncRecipes();
-    await syncList();
-  } catch (e) {
-    syncFailed(e, "fullSync");
-  }
-  // its own try/catch: a missing or unreachable price-series.json (a brand
-  // new file, easy to not have landed yet) must never block the list or
-  // recipes sync, or degrade the sync-status dot for something optional
-  try {
-    await syncPrices();
-  } catch (e) {
-    console.warn("syncPrices failed, Prices tab stays on cached/empty data:", e);
+    try {
+      await syncRecipes();
+      await syncList();
+    } catch (e) {
+      syncFailed(e, "fullSync");
+    }
+    // its own try/catch: a missing or unreachable price-series.json (a brand
+    // new file, easy to not have landed yet) must never block the list or
+    // recipes sync, or degrade the sync-status dot for something optional
+    try {
+      await syncPrices();
+    } catch (e) {
+      console.warn("syncPrices failed, Prices tab stays on cached/empty data:", e);
+    }
   } finally {
+    // Whatever happened above, the latch comes off. syncFailed renders, and a
+    // throw out of a render would strand it - see syncCurrentTab.
     syncing = false;
+    lastSlowSync = Date.now(); // it just fetched all three; don't repeat in a minute
     render(store.state);
   }
   flushQueue();
@@ -3266,20 +3549,67 @@ async function fullSync() {
 let pollTimer = null;
 let pollSecs = 0;
 
-// one conditional GET of the list; cheap when nothing changed (304)
-function pollTick() {
+// The poll used to run only on the List and Plan tabs, on the reasoning that
+// fetching data for a tab you cannot see is waste. It is not: every sync is a
+// conditional GET carrying an ETag, and a 304 costs a header exchange and is
+// not charged against GitHub's hourly limit. So the tab condition bought
+// almost nothing and cost real bugs - Prices refreshed on nothing at all, and
+// Plan fetched the list it does not render. The poll is now tab-independent
+// and each tab is at most one interval stale, whichever one you are on.
+//
+// Two lanes, because the three files do not move at the same speed. The
+// shopping list is the only one edited by two people at once - Hugo ticking
+// something off while Isa is in the shop - so it rides every tick. Recipes
+// change when one of us writes one and price-series.json when the weekly
+// rebuild runs, so a minute's freshness there would be over-serving by orders
+// of magnitude, and they are the big payloads when they do change (about 55 KB
+// and 107 KB against the list's few). They ride the slow lane instead.
+const SLOW_SYNC_MS = 10 * 60 * 1000;
+let lastSlowSync = 0;
+
+// Time-based rather than a tick count, because pollTick is also called
+// directly - on becoming visible again, and on coming back online - and those
+// must not shift the slow lane's cadence or skip it after a long sleep.
+async function pollTick() {
   if (document.hidden || !store.state.settings.token) return;
   if (syncing || flushing) return;
-  const v = store.state.view;
-  if (v !== "list" && v !== "planner") return;
+  const slow = Date.now() - lastSlowSync >= SLOW_SYNC_MS;
+  // Set when the slow lane is actually entered, not when it is merely due. If
+  // syncList throws first - offline, rate limited - the slow lane never ran,
+  // and stamping it anyway would push recipes and prices out another ten
+  // minutes over a failure that had nothing to do with them.
+  let slowRan = false;
   syncing = true;
-  syncList()
-    .catch((e) => syncFailed(e, "poll"))
-    .finally(() => {
-      syncing = false;
-      render(store.state);
-      startPolling(); // GitHub may have asked for a slower cadence just now
-    });
+  // The outer try exists for its finally: syncFailed and render both run
+  // arbitrary render code, and a throw out of either would otherwise latch
+  // `syncing` true for the rest of the session - every later sync then returns
+  // at its own guard and the app goes quietly stale with no error to show.
+  try {
+    try {
+      await syncList();
+      if (slow) {
+        slowRan = true;
+        await syncRecipes();
+      }
+    } catch (e) {
+      syncFailed(e, "poll");
+    }
+    // Prices in its own try/catch, for the reason fullSync gives: an absent or
+    // unreachable price-series.json is an ordinary state for an optional file
+    // and must not turn the sync dot red.
+    if (slowRan) {
+      try {
+        await syncPrices();
+      } catch (e) {
+        console.warn("syncPrices failed in poll, Prices stays on cached data:", e);
+      }
+      lastSlowSync = Date.now();
+    }
+  } finally {
+    syncing = false;
+  }
+  render(store.state);
+  startPolling(); // GitHub may have asked for a slower cadence just now
 }
 
 // Idempotent, and re-runnable: github.pollInterval moves whenever GitHub sends
@@ -3346,16 +3676,35 @@ async function syncCurrentTab() {
   }
   syncing = true;
   render(store.state); // spinner on
+  const v = store.state.view;
+  // The outer try is here for its finally, which is the only thing that can be
+  // trusted to clear the latch: syncFailed renders, and a throw out of a render
+  // would otherwise leave `syncing` true for the rest of the session, with
+  // every later sync silently returning at its own guard.
   try {
-    const v = store.state.view;
-    if (v === "recipes") await syncRecipes();
-    if (v === "recipes" || v === "list" || v === "planner") await syncList();
-  } catch (e) {
-    syncFailed(e, "syncCurrentTab");
+    try {
+      // Each tab pulls what it shows. Plan renders recipes and nothing else, so
+      // it does not fetch the list - it will again when the planner starts
+      // writing to it.
+      if (v === "recipes" || v === "planner") await syncRecipes();
+      if (v === "recipes" || v === "list") await syncList();
+    } catch (e) {
+      syncFailed(e, "syncCurrentTab");
+    }
+    // Prices, in its own try/catch for the reason fullSync gives: a missing or
+    // unreachable price-series.json is an ordinary state for an optional file
+    // and must not degrade the sync dot. Until this was added the gesture ran
+    // on the Prices tab, showed the spinner and said "Syncing Prices" while
+    // fetching nothing - prices only refreshed on open or on Sync now.
+    try {
+      if (v === "prices") await syncPrices();
+    } catch (e) {
+      console.warn("syncPrices failed, Prices tab stays on cached data:", e);
+    }
   } finally {
     syncing = false;
-    render(store.state);
   }
+  render(store.state);
   flushQueue();
 }
 
@@ -3378,11 +3727,15 @@ function initPullToSync() {
   let dist = 0;
   let busy = false;
 
-  const atTop = () =>
-    scroller.scrollTop <= 0 && $("#recipeDetail").hidden && $("#suggestions").hidden;
+  // Settings is the one tab the gesture does not arm on. It has no data of its
+  // own, so a pull there could only ever spin and fetch nothing - and "Sync
+  // now", which does sync everything, is already on that tab.
+  const canPull = () =>
+    store.state.view !== "settings"
+    && scroller.scrollTop <= 0 && $("#recipeDetail").hidden && $("#suggestions").hidden;
 
   document.addEventListener("touchstart", (e) => {
-    if (busy || e.touches.length !== 1 || !atTop()) { pulling = false; return; }
+    if (busy || e.touches.length !== 1 || !canPull()) { pulling = false; return; }
     startY = e.touches[0].clientY;
     pulling = true;
     dist = 0;

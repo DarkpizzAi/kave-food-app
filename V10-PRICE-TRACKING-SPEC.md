@@ -393,3 +393,66 @@ observations improve coverage but block none of it.
 **All four shipped**, v10.0 to v10.4 (2026-09-03). §11 still holds: none of the
 out-of-scope items were built. The 52 observations with no usable `pack_size`
 (§9) remain the one open data item.
+
+---
+
+## 13. Amendments after v11.7
+
+Four changes made once the tab had been lived with. The first three are one
+idea: **a day is one reading, not several.**
+
+**A chart dot is a day's average.** Two of the same thing in one trip, or two
+products pooled under an L1/L2 selection, used to draw as separate dots stacked
+on one x - a vertical stripe, and a polyline doubling back on itself. Each
+chart line is now collapsed to one point per date, at the mean of that day's
+prices. The mean rather than `dailyPoints`' median: this is what the day cost,
+and a median silently discards half the receipt. `dailyPoints` keeps its median
+because it feeds *Worth watching*'s drop detection, where robustness to an
+outlier is the point, not fidelity to the total.
+
+**A dot names every row it stands for.** The dot used to carry one
+date/store/product triple. An averaged dot can stand for several purchase rows,
+so it now carries all their keys and tapping it highlights all of them in the
+full-history sheet. `purchaseKey()` is the one definition of a row - date,
+product, store - shared by the sheet's grouping and the dot's data attribute,
+so the two cannot drift into different ideas of what a row is.
+
+**A multi-buy row shows the average, and says it was on offer if any one of
+them was.** It used to show the *cheapest* point in the group, which quietly
+flattered every multi-buy: two bottles of sunflower oil at Condis on 22/06/2024,
+one at EUR 2.45 and one at EUR 2.00 on offer, read as EUR 2.00. It now reads
+EUR 2.22, still in the offer pill - the offer is the fact worth surfacing, and
+a row that hid it because a sibling was full price would be the more misleading
+of the two. Tapping the row reveals the individual receipt lines with their own
+prices and their own offer pills.
+
+The children are **one full-width strip of prices**, not one five-column row
+each. Date, product and store are exactly what the parent groups by, so
+per-column children came out as three empty cells and a "1" - which read as
+broken rows rather than as the parent's contents, and tinting them to look
+nested only turned the empty cells into black bars in dark mode. Only the price
+differs between children, so only the price is shown, right-aligned: the last
+cell of a row carries no right padding, so the table's right edge is the price
+column's, and a child lands directly under the summary price it belongs to
+rather than adrift under the date.
+
+The parent's own rule is dropped while it is open, and the strip carries the
+closing one, so the pair reads as a single block. That exposed a latent bug in
+the table: every cell draws its own `border-bottom`, and the grid's
+`align-items: center` sizes each cell to its own content, so the five borders
+coincide only while every cell is one line. A wrapped product name - which is
+what tapping a row causes - put them at five different heights and broke the
+row's underline into steps. Expanded cells now stretch to the row's height.
+
+Live data at the time: 32 of 209 products have at least one multi-buy day, the
+largest being five bottles of Corona in one trip.
+
+**Worth watching says what its number is.** The corner read "Last 6 months",
+which named the window but not the figure. `bestPriceInPeriod()` reduces the
+series to its minimum, so the number is the lowest price paid, not the latest
+and not an average - the corner now says "Lowest price - 6 mo".
+
+Not changed: the *Best price* metric card still reports the single cheapest
+point rather than the cheapest daily average, which is the right answer for
+"what is the least I have ever paid for this" even now that the chart is
+averaged. Worth revisiting only if the two ever visibly disagree.

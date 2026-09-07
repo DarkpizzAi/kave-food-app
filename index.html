@@ -77,10 +77,14 @@
 
     <!-- PRICES -->
     <section id="view-prices" class="view" hidden>
-      <div class="prices-section">
-        <div class="prices-head">
-          <span class="prices-title">Worth watching</span>
-          <span class="prices-sub">Last 6 months</span>
+      <div class="tab-section">
+        <div class="tab-section-head">
+          <span class="tab-section-title">Worth watching</span>
+          <!-- Says what the number on each row is, not just the window it
+               covers: bestPriceInPeriod() reduces the 6-month series to its
+               minimum, so the figure is the lowest price paid, not the latest
+               or an average. -->
+          <span class="tab-section-sub">Lowest price · 6 mo</span>
         </div>
         <div class="opp-card">
           <ul id="oppList" class="opp-list"></ul>
@@ -88,9 +92,9 @@
         </div>
       </div>
 
-      <div class="prices-section">
-        <div class="prices-head">
-          <span class="prices-title">Trends</span>
+      <div class="tab-section">
+        <div class="tab-section-head">
+          <span class="tab-section-title">Trends</span>
           <button id="priceReset" type="button" class="reset">Reset</button>
         </div>
         <div class="trends-card">
@@ -145,11 +149,37 @@
 
     <!-- PLANNER -->
     <section id="view-planner" class="view" hidden>
-      <div class="coming-soon">
-        <h2>Meal planner</h2>
-        <p>Coming soon: pick meals for a day or a week, scale each recipe,
-        merge the ingredients, get asked "already have this?" per item, and
-        push the rest to the shopping list.</p>
+      <div class="tab-section">
+        <div class="tab-section-head">
+          <span class="tab-section-title">Worth pairing</span>
+        </div>
+        <p class="tab-section-lede">Meals that share a perishable, so the bunch gets used.</p>
+        <ul id="pairList" class="plan-list"></ul>
+        <p id="pairEmpty" class="empty" hidden></p>
+      </div>
+
+      <div class="tab-section">
+        <div class="tab-section-head">
+          <span class="tab-section-title">The bolognese move</span>
+        </div>
+        <p class="tab-section-lede">Cook the base once, then twice more just the fast fresh part.</p>
+        <ul id="batchList" class="plan-list"></ul>
+        <p id="batchEmpty" class="plan-empty" hidden></p>
+      </div>
+
+      <!-- Parked before any build (v11 spec §5). It ships in the position the
+           real section will occupy, so unparking it does not shove the two
+           sections above it around. The lede says what the section is, in the
+           present tense it will keep once it works; the empty box below says
+           it is not here yet. Putting "coming soon" in both would say it
+           twice. -->
+      <div class="tab-section">
+        <div class="tab-section-head">
+          <span class="tab-section-title">New to us</span>
+        </div>
+        <p class="tab-section-lede">Videos and recipes from the people we cook along
+        with, and one tap to write the ones we like into the book.</p>
+        <p class="plan-empty">Coming soon</p>
       </div>
     </section>
 
