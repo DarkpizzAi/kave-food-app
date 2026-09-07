@@ -288,6 +288,13 @@ the list came back broken on every load until the row was gone, which could not
 be done from an app that would not render. The products map is reached through
 one guarded `productEntry()` now.
 
+The same pass found three things left deliberately unfixed - a back gesture
+that can eat two dead presses, day-averaging that would pool stores under
+*Group by = Product*, and an offer marker that picks its colour from an
+arbitrary member. All three are reproduced and written up in
+`FEATURE-PARKING.md` §4, with the trade-off each one turns on, so they are not
+rediscovered from scratch or "fixed" without that trade-off being seen again.
+
 `priceToday()` is memoised on the identity of the products map, the same
 bounded-cache trick `deburr` uses. It is a full scan of every product's every
 point, and `seriesInPeriod` calls it on every window it cuts - so

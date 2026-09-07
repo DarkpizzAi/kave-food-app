@@ -7,7 +7,7 @@ A section that ships is not deleted - the specs and the README cite these
 notes as where the idea came from - it gets a **Status** line saying what it
 became, so the file never reads as a backlog of unbuilt work.
 
-Current: §1 shipped as v10. §2 and §3 are still parked.
+Current: §1 shipped as v10. §2, §3 and §4 are still parked.
 
 ---
 
@@ -236,3 +236,60 @@ Either Isa notices the bars change on the phone, or a scheduled check ~Nov 2026.
 Open the Display readout after any Chrome update. If it still says "Not edge to
 edge" and this matters, the only route is a TWA (Bubblewrap) native shell -
 sideloaded APK, no Play Store, sets the transparent bars itself.
+
+---
+
+## 4. Known-and-left, from the v11 review
+
+**Status:** parked by Isa on 2026-09-07, recorded rather than fixed. Three
+findings from the review pass over v11 (commits v11.10 and v11.11). Each is
+real and reproduced; none is a crash, a data risk or a security hole - those
+were fixed in the same pass. They are here so they are not rediscovered from
+scratch and not "fixed" by accident without the trade-off being seen again.
+
+### 4a. The back gesture can eat two dead presses
+
+Open a recipe or price sheet, then leave that tab **by tapping another tab**
+rather than by closing the sheet. The sheet parks but its history entry stays
+on the stack, and the tab-away entry stays too. Reproduced from the List: two
+back presses produce no visible change before the third exits the app.
+
+Why it is not simply fixed: `setView` deliberately does **not** call
+`history.back()` when List is tapped directly, because that would race an open
+sheet's own entry and pop the wrong one. The comment in the `popstate` handler
+in `app.js` sets out that reasoning. A fix has to reconcile the two entries
+without reintroducing the race - most likely by making the sheet's entry and
+the tab entry one mechanism rather than two independent flags
+(`sheetHasHistory`, `priceSheetHasHistory`, `tabHasHistory`).
+
+Cost of leaving it: two presses that do nothing, only on that one path, and
+only when the user is already home. Nothing is lost or mis-saved.
+
+### 4b. `dayAveraged` pools stores under Group by = Product
+
+A chart line grouped by product spans every store, and `dayAveraged` then
+collapses a date to one point at that day's mean. So the same product bought
+at two shops on one day would draw as a single dot at the average, flattening
+exactly the store difference the Prices tab exists to show. Under Group by =
+Shops the lines are already per store, so it cannot happen there; under an L1
+target the "variant" granularity pools across products as well.
+
+**Latent, not visible: zero occurrences in the current data** - checked across
+every product, every date. It becomes real the first time a shop is done in two
+places on one day, which is not unusual, so it is worth deciding before it
+appears rather than debugging a strange dot afterwards.
+
+The honest options are to key the day bucket by store as well as date (dots
+stop merging across shops, and the line may zig-zag on mixed days), or to leave
+it and accept that the product view is a price-paid view rather than a
+per-shop one. That is a reading-of-the-chart decision, not a code decision.
+
+### 4c. The promo € glyph takes its colour from an arbitrary member
+
+`buildPriceChartSvg` draws the offer marker with `storeOnColor(p.store)`, and
+after day-averaging `p.store` is `members[0].store` - arbitrary when a dot
+spans stores. It is only correct at all under Group by = Shops, where the dot's
+fill *is* the store colour; under Group by = Product the fill is the product
+palette's colour, so the pair was already mismatched before v11. Cosmetic, and
+it shares a root cause with 4b: fix that and this mostly goes away.
+
