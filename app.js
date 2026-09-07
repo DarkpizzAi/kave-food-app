@@ -1589,6 +1589,45 @@ function equaliseCards() {
 // Ranked worst-first. `low` is never a reason for a row, so it is absent here.
 const WASTE_RANK = { high: 0, medium: 1 };
 
+// How many pairings show before the reveal button. Two is enough to read the
+// section as a list without it pushing "Good for leftovers" off the screen;
+// the rest are one tap away, and the count is on the button so a collapsed
+// section never hides how much it found. Same idiom as Worth watching.
+const PAIRS_COLLAPSED = 1;
+let pairsOpen = false;
+
+/* Randomise: both Plan sections have a settled order - worst perishable first,
+   then the card order for the leftovers - which is the right default and the
+   same every time you open the tab. The button trades that for a shuffle, for
+   the evening you are looking at the tab because you cannot think what to
+   cook. Held as a list of keys rather than as a shuffled copy of the rows, so
+   a sync that changes the recipes cannot strand the order: anything the
+   shuffle has not seen keeps its natural place at the end. Not persisted -
+   a new shuffle is a tap away, and a remembered random order is just a
+   worse default. */
+let pairOrder = null;    // array of pair keys, or null for the settled order
+let batchOrder = null;   // array of recipe slugs, ditto
+
+function shuffled(keys) {
+  const a = keys.slice();
+  for (let i = a.length - 1; i > 0; i--) {          // Fisher-Yates
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// order `items` by `keys`, leaving anything the shuffle never saw at the end
+// in the order it already had
+function applyOrder(items, keys, keyOf) {
+  if (!keys) return items;
+  const rank = new Map(keys.map((k, i) => [k, i]));
+  return items
+    .map((it, i) => ({ it, i, r: rank.has(keyOf(it)) ? rank.get(keyOf(it)) : Infinity }))
+    .sort((a, b) => a.r - b.r || a.i - b.i)
+    .map((x) => x.it);
+}
+
 /* "Worth pairing": recipes that share something whose pack outlives one
    recipe. The unit is the PAIR, not the ingredient - cebette and piment both
    join Ramen to Riz saute, and emitting that twice would read as two findings
@@ -1693,26 +1732,53 @@ function renderPlanner(state) {
   const byRecipe = new Map(state.recipes.map((r) => [r.slug, r]));
   const ul = $("#pairList");
   ul.innerHTML = "";
-  const rows = pairings(state.recipes);
-  rows.forEach((p) => ul.appendChild(planRow(p.shared, p.recipes, byRecipe)));
-  // after layout: neither the strip's width nor its overflow means anything
-  // until the cards are in the document
-  sizePlanStrips();
+  const rows = applyOrder(pairings(state.recipes), pairOrder,
+                          (p) => p.recipes.join("|"));
+  const shown = pairsOpen ? rows : rows.slice(0, PAIRS_COLLAPSED);
+  shown.forEach((p) => ul.appendChild(planRow(p.shared, p.recipes, byRecipe)));
+  const toggle = $("#pairToggle");
+  toggle.hidden = rows.length <= PAIRS_COLLAPSED;
+  // nothing to reorder with one row, and an inert button reads as broken
+  $("#pairShuffle").hidden = rows.length < 2;
+  // the count is the pairings found, not the recipes in them
+  toggle.textContent = pairsOpen ? "Show less" : `Show all · ${rows.length}`;
   const empty = $("#pairEmpty");
   empty.hidden = rows.length !== 0;
   empty.textContent = state.recipes.length === 0
     ? "Recipes sync from your repo once a token is set."
     : "Nothing pairs up yet. Recipes need their ingredient lists before this can see anything.";
 
-  // The bolognese move stays blank until the recipes carry a `leftovers` block
-  // (spec §7b) - which recipes are a base, how long each keeps, what it is
-  // finished with. That is a kitchen judgement, so it waits on Hugo rather
-  // than on code. Shown as an empty box rather than hidden, so the section
-  // holds its place and says what it is waiting for.
-  $("#batchList").innerHTML = "";
+  // "Good for leftovers": the recipes marked `Restes: oui` in their card,
+  // shown as the same cards the Recipes tab shows and opening the same sheet.
+  // No schedule and no keeping rules - which dishes are worth cooking big is
+  // a kitchen judgement made in the card; the section just surfaces them.
+  const batch = applyOrder(state.recipes.filter((r) => r.batch), batchOrder,
+                           (r) => r.slug);
+  const bul = $("#batchList");
+  bul.innerHTML = "";
+  if (batch.length) bul.appendChild(batchRow(batch));
+  // after layout: neither a strip's width nor its overflow means anything
+  // until the cards are in the document. Both sections' strips at once.
+  sizePlanStrips();
+  $("#batchShuffle").hidden = batch.length < 2;
   const bEmpty = $("#batchEmpty");
-  bEmpty.hidden = false;
-  bEmpty.textContent = "Coming soon";
+  bEmpty.hidden = batch.length !== 0;
+  bEmpty.textContent = state.recipes.length === 0
+    ? "Recipes sync from your repo once a token is set."
+    : "No recipe is marked as one to cook big yet.";
+}
+
+// One row, no chip: the strip of recipes worth cooking once and eating twice.
+// Same strip as a pairing row, so the two sections read as one tab.
+function batchRow(recipes) {
+  const li = document.createElement("li");
+  li.className = "plan-row";
+  const strip = document.createElement("ul");
+  strip.className = "plan-strip";
+  recipes.forEach((r) => strip.appendChild(recipeCard(r)));
+  strip.addEventListener("scroll", () => updateRailFade(strip), { passive: true });
+  li.appendChild(strip);
+  return li;
 }
 
 /* ---------- recipe detail + scaler ---------- */
@@ -3340,6 +3406,18 @@ function wire() {
     pricesUiState.oppOpen = !pricesUiState.oppOpen;
     renderOpportunities();
   });
+  $("#pairToggle").addEventListener("click", () => {
+    pairsOpen = !pairsOpen;
+    renderPlanner(store.state);
+  });
+  $("#pairShuffle").addEventListener("click", () => {
+    pairOrder = shuffled(pairings(store.state.recipes).map((p) => p.recipes.join("|")));
+    renderPlanner(store.state);
+  });
+  $("#batchShuffle").addEventListener("click", () => {
+    batchOrder = shuffled(store.state.recipes.filter((r) => r.batch).map((r) => r.slug));
+    renderPlanner(store.state);
+  });
   $("#priceSeeAll").addEventListener("click", () => openPriceDetail());
   $("#priceReset").addEventListener("click", resetTrends);
 
@@ -3926,7 +4004,10 @@ startPolling();                      // no-ops each tick until there is a token
 if (IS_LOCAL_DEV && !store.state.settings.token && store.state.recipes.length === 0) {
   fetch("recipes.dev.json")
     .then((r) => (r.ok ? r.json() : null))
-    .then((arr) => {
+    .then((doc) => {
+      // the snapshot is copied straight from kave-hub, where recipes.json is
+      // the built document; older copies were the bare array
+      const arr = Array.isArray(doc) ? doc : (doc && doc.recipes);
       if (Array.isArray(arr) && store.state.recipes.length === 0) {
         store.state.recipes = arr;
         store.notify();

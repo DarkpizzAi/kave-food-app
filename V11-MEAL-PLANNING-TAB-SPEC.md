@@ -18,7 +18,7 @@ Isa, setting the brief: three simple sections.
 - **Worth pairing** - several meals that share ingredients, so nothing gets
   binned. The herb pack is the case that matters: a bunch of coriander is
   always too big for one recipe.
-- **The bolognese move** - cook a big base once (bolognaise) and later in the
+- **Good for leftovers** (originally *The bolognese move*) - cook a big base once (bolognaise) and later in the
   week only cook the fast fresh part (pasta). And the mirror case: recipes that
   *want* leftovers, like riz saute wanting yesterday's rice.
 - **New to us** - a few content creators we like, and links to their videos or
@@ -89,7 +89,7 @@ with no code change.
 **Nothing in the data knows what keeps.** No recipe says "this is a base",
 "this freezes", "this wants leftovers". The only existing hook is riz saute,
 whose first two lines are `slug: "none"` with
-`slugNoneReason: "leftovers, not a purchased item"`. *The bolognese move*
+`slugNoneReason: "leftovers, not a purchased item"`. *Good for leftovers*
 needs new recipe metadata (§7) and a hand pass over roughly ten recipes
 before it says anything.
 
@@ -120,6 +120,24 @@ Row content:
   same sheet;
 - nothing else. No score, no percentage.
 
+**One row, then a reveal button** (Isa, 2026-09-07). The section shows the
+first pairing and a flat `Show all · N` button, the same control Worth
+watching uses on the Prices tab; N is the number of pairings found, not the
+number of recipes in them, so a collapsed section never hides how much it
+found. Without the cap the section grew with the book - four pairings once
+the pesto and sauce tomate cards landed - and pushed *Good for leftovers* off
+the screen.
+
+**Randomise** (Isa, 2026-09-07). Both recipe sections carry a flat
+`Randomise` button by their title, which reshuffles that section's order. The
+settled orders - worst perishable first, card order for the leftovers - are
+right, and identical every time the tab is opened, which is exactly the
+problem on the night you open the tab because you cannot think what to cook.
+With the pairing section collapsed to one row, the button is effectively
+"show me a different pair". The shuffle is held as a list of keys and is not
+persisted: a new one is a tap away, and a remembered random order is just a
+worse default.
+
 A pairing is chips, then the strip, then space, and repeat - no container
 around it and no rule between rows. A card in the strip is the same size as a
 card on Recipes at every screen width, because the strip is given the column
@@ -149,7 +167,7 @@ Empty state: "Nothing pairs up yet. Recipes need their ingredient lists before
 this can see anything." Honest about the cause, since the cause is fixable by
 Isa and Hugo.
 
-## 4. "The bolognese move" - cooking once, eating twice
+## 4. "Good for leftovers" - cooking once, eating twice
 
 Two shapes live here, and pooling them would make both unreadable. They are
 different rows.
@@ -177,13 +195,19 @@ Scope guard: v11 **describes** the pattern, it does not schedule it. No day
 assignment, no "cook this on Sunday" - that is the picker, and the picker is
 parked.
 
-**Status, 2026-09-07: blank, waiting on Hugo.** The section ships built but
-with no rows. Which recipes are a base, how many days each keeps, whether it
-freezes and what it is finished with are kitchen judgements about how these
-dishes actually get cooked, not something to infer from an ingredient list, so
-the `leftovers` block (§7b) waits on Hugo rather than on code. Until then the
-section holds its place with the same empty box *New to us* uses - dashed and
-unfilled, reading "Coming soon".
+**Status, 2026-09-07: shipped, as recipe cards only.** Isa's call: the section
+shows the recipes worth cooking big, as the same cards the Recipes tab shows,
+each opening the same sheet. No schedule, no keeping rules, no vehicles - the
+`leftovers` block below was proposed and dropped, because the reheating detail
+is not what makes the section useful. What is left is one hand-authored line
+in the card header, `Restes: oui`, built into `batch: true` on the recipe
+(§7b). First four: bolognaise, pâtes aux keftas et tomates, pesto, sauce
+tomate.
+
+**Renamed to "Good for leftovers"** the same day (§8), when the fourth entry
+turned out to be a recipe we already had: the boulettes in a spicy sauce Isa
+meant are `pates-kefta-tomates`, not a new dish, so the card written for them
+was removed and the existing one flagged instead.
 
 ## 5. "New to us" - parked, ships as coming soon
 
@@ -298,23 +322,16 @@ section today is:
 Three rows, and the first one is two perishables joining the same pair, which
 is why the guard merges pairs rather than emitting a row per ingredient.
 
-**b. Leftover metadata on the recipe.** A `leftovers` block on the recipes that
-have one, filled by hand and read straight through by `build_recipes.py`:
+**b. The batch flag on the recipe. DONE, 2026-09-07.** One hand-authored line
+in the card header:
 
-    leftovers:
-      base: "the ragu"          # what survives the night
-      keeps_days: 4
-      freezes: true
-      vehicles: [pates, gnocchi, polenta, patate]
-      uses: []                  # slugs this recipe consumes as leftovers
+    Restes: oui
 
-Riz saute is the `uses` case (`uses: [riz, viande]`); bolognaise is the `base`
-case. Ten recipes hand-marked is enough for the section to be worth opening;
-fifteen is all we have.
-
-Per the household rule that hand-authored beats inferred: I propose the ten
-from the 15 real recipes, Isa and Hugo edit them. The proposal is never the
-committed version.
+`build_recipes.py` reads it into `batch: true` on the recipe and the Plan tab
+filters on it. Nothing else: the fuller `leftovers` block first drafted here
+(base, keeps_days, freezes, vehicles, uses) was written and then removed at
+Isa's request - the section shows the recipe, so the recipe is all it needs.
+Which dishes carry the flag stays a kitchen judgement, made in the card.
 
 **c. The radar file - not in v11.** *New to us* is parked (§5), so this is
 recorded for whenever it is unparked, not built now. New
@@ -345,7 +362,7 @@ Chosen by Isa, 2026-09-05.
 | section | name |
 |---|---|
 | §3 pairing on perishables | **Worth pairing** |
-| §4 cooking once, eating twice | **The bolognese move** |
+| §4 cooking once, eating twice | **Good for leftovers** (was *The bolognese move*, renamed 2026-09-07) |
 | §5 the radar | **New to us** (parked, §5) |
 
 Two of the three carry a consequence worth writing down.
@@ -356,13 +373,13 @@ or why. It needs a subtitle - one line, always visible, not a tooltip:
 *"Meals that share a perishable, so the bunch gets used."* The rows then carry
 no explanation of their own.
 
-**The bolognese move** names one recipe for a pattern meant to widen past it -
+**The bolognese move** named one recipe for a pattern meant to widen past it -
 the parked note's Part B explicitly wants new bases (dal, curry base, pulled
-meat, roast-tomato sauce) added to the rotation. That is a real tension and it
-is accepted on purpose: it is the household's own word for the habit, and a
-section named after the thing you already do is more likely to be opened than
-one named after the abstraction. If a second base ever becomes as central as
-the ragu, the name is the thing to revisit, not the design.
+meat, roast-tomato sauce) added to the rotation. The tension was accepted on
+purpose at first, then settled by renaming: **Good for leftovers**, Isa,
+2026-09-07, once the section held four dishes and the ragu was only one of
+them. The name now describes what every row has in common instead of naming
+the flagship.
 
 **New to us** frames the section as repertoire growth rather than browsing,
 which is where Part D of `FEATURE-PARKING.md` §2 eventually goes - the
@@ -397,7 +414,9 @@ was named for the right thing.
    v11.0. Three sections replace the "coming soon" block, computed client-side
    from `state.recipes`; no new sync path. Pulling to sync on Plan now syncs
    recipes as well as the list, since Plan renders recipes.
-4. **Leftover metadata** (§7b), proposed then edited, then section 2.
+4. ~~**The batch flag** (§7b) and "Good for leftovers".~~ Done 2026-09-07.
+   Four recipes marked, two of them new placeholder cards (pesto, sauce
+   tomate) written to carry the flag.
 5. **"New to us" ships as a "coming soon" block** in the same position the
    real section will occupy - so the tab is three sections from the first
    deploy and the third one does not later shove the other two around.
