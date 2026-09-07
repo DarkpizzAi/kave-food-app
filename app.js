@@ -153,7 +153,7 @@ const store = {
     if (sheetOpen && v === owner) unparkRecipe();
     if (priceSheetOpen && v === "prices") unparkPriceDetail();
   },
-  addItem({ name, qty, unit, note, source = "manual", slug = null }) {
+  addItem({ name, qty, unit, note, source = "manual", slug = null, variant = null }) {
     if (this.readOnly()) return null;
     const item = {
       id: uid(),
@@ -162,6 +162,10 @@ const store = {
       unit: (unit || "").trim() || null,
       note: (note || "").trim() || null,
       slug: slug || null,     // ingredients-dictionary concept, when added from a recipe
+      // the variant that concept was asked for, from the shared vocabulary -
+      // set only when the row came from a recipe that names one, so the price
+      // hint can point at the variant instead of the whole card
+      variant: variant || null,
       checked: false,
       source,
       addedBy: this.state.settings.who || "?",
@@ -572,6 +576,14 @@ function titleCaseVariant(s) {
   const words = s.replace(/-/g, " ");
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
+// a card's display label, from any product sitting on it - the price data is
+// the only place the app has one, since it never loads the dictionary itself
+function cardLabel(l1) {
+  for (const e of Object.values(store.state.prices.products)) {
+    if (e.l1 === l1) return e.l1_label;
+  }
+  return null;
+}
 // distinct L1 cards that have any product with a series, sorted by label
 function l1Options() {
   const seen = new Map();
@@ -893,9 +905,24 @@ const PRICE_ICON_DOWN_PATH = '<path d="M4 7l5 6 4-3 7 7"/><path d="M15 17h5v-5"/
 // price hint for one list row: only unticked, only when the name resolves to
 // something with a history at all - a row with no data gets no icon
 // (v10 spec §6)
+//
+// A row added from a recipe carries its card AND its variant, both authored
+// (kave-hub recipe-ingredient-variants.csv, from the same vocabulary the
+// receipts use). That beats resolving the typed name, which only ever sees
+// the concept: "Viande hachée mixte" resolves to the `viande` card, whose
+// pooled series runs pork chops together with mince. Falling back to the
+// name keeps every hand-typed row working exactly as before.
 function priceHintFor(it) {
   if (it.checked) return null;
-  const target = resolvePriceTarget(it.name);
+  let target = null;
+  if (it.slug && it.variant) {
+    target = {
+      level: "l2", l1: it.slug, l2: it.variant,
+      l1_label: cardLabel(it.slug) || it.slug,
+    };
+    if (!seriesForTarget(target).length) target = null;
+  }
+  if (!target) target = resolvePriceTarget(it.name);
   if (!target) return null;
   const series = seriesForTarget(target);
   if (!series.length) return null;
@@ -2203,9 +2230,14 @@ function renderDetail() {
         const created = store.addItem({
           name: ing.conceptName || ing.name,
           qty, unit,
-          note: [ing.variantHint, ing.note].filter(Boolean).join(", ") || null,
+          // the authored variant label when the recipe has one ("Hachée
+          // mixte boeuf-porc"), else the derived hint ("hachée mixte") -
+          // the note is what you read in the aisle, so the fuller name wins
+          note: [ing.variantLabel || ing.variantHint, ing.note]
+            .filter(Boolean).join(", ") || null,
           source: key,
           slug: ing.slug || null,
+          variant: ing.variant || null,
         });
         if (created) detailState.added.add(i);
       }
