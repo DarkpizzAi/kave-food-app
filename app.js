@@ -1171,6 +1171,28 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => HTML_ENTITIES[c]);
 }
 
+/* escapeHtml is no defence inside an href. It escapes characters, and a URL
+   scheme has none for it to touch - `javascript:doSomething()` comes through a
+   template literal completely intact and becomes a live link running in this
+   origin, which is the origin holding the GitHub token in localStorage. A
+   recipe's `sources` are written into recipes.json in the hub repo, so this is
+   not a stranger's input, but it is the one place a synced string is handed
+   straight to the browser as code-capable markup rather than as text.
+   Only http(s) is a recipe link. Anything else returns null and the caller
+   drops the row, so a bad source is visibly absent rather than dead-but-there. */
+function safeUrl(u) {
+  try {
+    // No base argument on purpose. Resolving against location.href would turn
+    // "" and "not a url" into links back to the app itself - harmless, but a
+    // live "Open recipe" going nowhere. A source is an external link or it is
+    // nothing, so an absolute URL is required and a relative one throws here.
+    const parsed = new URL(u);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : null;
+  } catch (e) {
+    return null;                      // not an absolute URL at all
+  }
+}
+
 /* ---------- rendering: recipes ---------- */
 
 /* Order-by options, in menu order. `cmp` is the primary comparator; name
@@ -1983,9 +2005,11 @@ function renderDetail() {
   // from, nothing to scale.
   if (recipe.stub) {
     $("#detailBar").innerHTML = detailBarHtml(recipe);
-    const links = (recipe.sources || []).map((u, i) =>
+    // numbered off the surviving links, not recipe.sources - a dropped source
+    // must not leave a gap in "Open recipe 1 / 3"
+    const links = (recipe.sources || []).map(safeUrl).filter(Boolean).map((u, i, all) =>
       `<a class="stub-link" href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer">
-         Open recipe${recipe.sources.length > 1 ? " " + (i + 1) : ""} &nearr;</a>`).join("");
+         Open recipe${all.length > 1 ? " " + (i + 1) : ""} &nearr;</a>`).join("");
     $("#detailBody").innerHTML = `
       <div class="stub-body">
         ${links || `<p class="hint">Not written up yet. Cook it once and add it

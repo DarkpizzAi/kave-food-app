@@ -56,6 +56,43 @@ Pushed to `main`, served by GitHub Pages at
 subpath is fine. **Bump `VERSION` in `service-worker.js` on every deploy** -
 see PHASE3-NOTES.md.
 
+## The token, and what protects it
+
+The GitHub token lives in `localStorage`, under `foodapp.settings`, in plain
+text. There is nowhere better for it: this is a static page on GitHub Pages
+with no server of its own, so a token that survives a reload has to sit
+somewhere any script on the origin can read. `github.js` never touches storage
+- the app pushes the token in with `setToken()` - but that is layering, not
+protection. The input is `type="password"` with `autocomplete="off"`, and the
+token is never logged, never put in a URL, and never rendered into markup: it
+goes into an `Authorization` header, to `api.github.com` and nowhere else. The
+service worker deliberately does not intercept anything cross-origin, so no
+API response carrying it is ever cached.
+
+That means **XSS is the whole threat model**. Anything that can run script on
+this origin can read the token and write to the hub repo with it. So the rule
+is that no synced string reaches the DOM as markup: every interpolation goes
+through `escapeHtml`, and there is no `eval`, no `new Function`, no
+`document.write`, no `insertAdjacentHTML`.
+
+`escapeHtml` is not enough in an `href`, which is what `safeUrl()` is for. It
+escapes characters, and a URL scheme has none for it to touch, so
+`javascript:...` used to come through a template literal intact and become a
+live link in this origin - reachable through a stub recipe's `sources`, which
+are written in the hub repo. Sources are now required to parse as absolute
+http(s) URLs, and anything else is dropped rather than rendered.
+
+Still open, and a deliberate choice rather than an oversight: **there is no
+Content-Security-Policy**. GitHub Pages cannot set headers, so it would have to
+be a `<meta http-equiv>`, and the anti-flash theme script inlined in
+`index.html` means `script-src` would need a `'sha256-...'` hash of that
+script - which silently stops matching the moment anyone edits it, and the
+symptom is a blocked script, not an error anyone would notice. Worth adding,
+worth doing deliberately.
+
+If a token is ever exposed, revoke it on GitHub; clearing it in Settings only
+removes this device's copy.
+
 ## Status
 
 **Phase 1** - UI and local state (`localStorage`).
