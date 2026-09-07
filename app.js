@@ -541,10 +541,36 @@ function scopedPoints(target) {
   return out;
 }
 
-// display helpers for the three Product pills and the variant legend: the raw
-// l2 strings are lowercased in the data ("platano", "creme de cuisine 18%")
+// display helper for the three Product pills and the variant legend.
+//
+// l2 is a SLUG since the 07/09/2026 clean-up ("chocolate-filling",
+// "creme-de-cuisine-18"), and every product carries the hand-authored
+// `l2_label` next to it ("Chocolate filling", "Crème de cuisine 18%"). The
+// label is the thing to show; the slug is never displayed. Build the lookup
+// once per products map rather than scanning on every pill render - same
+// bounded-cache trick, and the same exact key, as priceToday.
+//
+// The fallback un-kebabs and capitalises the slug, which is what an older
+// price-series.json (or a variant with no row in groceries-variants.csv)
+// still lands on. It is a fallback, not the path: the builder reports any
+// variant with no label rather than letting one quietly reach here.
+let variantLabelCache = { products: null, map: null };
+function variantLabels() {
+  const products = store.state.prices.products;
+  if (variantLabelCache.products === products) return variantLabelCache.map;
+  const map = new Map();
+  for (const e of Object.values(products)) {
+    if (e.l2 && e.l2_label && !map.has(e.l2)) map.set(e.l2, e.l2_label);
+  }
+  variantLabelCache = { products, map };
+  return map;
+}
 function titleCaseVariant(s) {
-  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+  if (!s) return s;
+  const known = variantLabels().get(s);
+  if (known) return known;
+  const words = s.replace(/-/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 // distinct L1 cards that have any product with a series, sorted by label
 function l1Options() {
@@ -555,13 +581,16 @@ function l1Options() {
   return [...seen].map(([l1, label]) => ({ l1, label }))
     .sort((a, b) => a.label.localeCompare(b.label));
 }
-// distinct variants under one L1 (null variants excluded), sorted
+// distinct variant slugs under one L1 (null variants excluded), sorted by the
+// label the dropdown will actually show - sorting the slugs would order the
+// list by a string nobody sees
 function l2Options(l1) {
   const seen = new Set();
   for (const e of Object.values(store.state.prices.products)) {
     if (e.l1 === l1 && e.l2) seen.add(e.l2);
   }
-  return [...seen].sort((a, b) => a.localeCompare(b));
+  return [...seen].sort((a, b) =>
+    titleCaseVariant(a).localeCompare(titleCaseVariant(b)));
 }
 // products under one L1 (and one variant, if given), sorted by label
 function l3Options(l1, l2) {
@@ -2445,9 +2474,16 @@ function buildPriceChartSvg(lines) {
   return svg + `</svg>`;
 }
 
-// what a Category/Product pill shows when that level has nothing to offer -
-// the same em dash the metric cards already use for "no value here"
+// what a Product pill shows when that level has nothing to offer - the same
+// em dash the metric cards already use for "no value here"
 const NO_LEVEL = "—";
+// the Variant pill's answer when there genuinely is no variant to name: the
+// whole card carries no L2 at all, or the single product in view is one of
+// the bare ones under a card that otherwise has variants. Distinct from "All
+// variants" (a real pooling choice across variants that DO exist) and from a
+// dash (a level with nothing to say) - "N/A" states that the variant
+// dimension does not apply here, which is a fact, not a missing pick.
+const NA_VARIANT = "N/A";
 // an unset level is not empty, it pools everything under it - so the pill says
 // exactly what the dropdown's leading option says, and both are the one string
 const ALL_VARIANTS = "All variants";
@@ -2510,7 +2546,8 @@ function renderPricePills(target, info) {
   const pills = {
     l1: { text: info.l1_label, filled: true, opens: l1s.length > 1 },
     l2: forcedVariant ? { text: titleCaseVariant(forcedVariant), filled: true, opens: false }
-      : !variants.length ? { text: NO_LEVEL, filled: false, opens: false }
+      : !variants.length ? { text: NA_VARIANT, filled: true, opens: false, na: true }
+      : target.level === "l3" && !info.l2 ? { text: NA_VARIANT, filled: true, opens: false, na: true }
       : info.l2 ? { text: titleCaseVariant(info.l2), filled: true, opens: true }
       : { text: ALL_VARIANTS, filled: false, opens: true },
     l3: l3scope.length === 1 ? { text: l3scope[0].label, filled: true, opens: false }
@@ -2518,8 +2555,10 @@ function renderPricePills(target, info) {
       : target.level === "l3" ? { text: info.label, filled: true, opens: true }
       : { text: ALL_PRODUCTS, filled: false, opens: true },
   };
-  // the deepest filled level is the subject of the chart, and the only accent
-  const accent = ["l3", "l2", "l1"].find((k) => pills[k].filled);
+  // the deepest filled level is the subject of the chart, and the only accent -
+  // but an "N/A" variant pill names an absence, never the subject, so it is
+  // skipped and the accent falls through to the card it sits under
+  const accent = ["l3", "l2", "l1"].find((k) => pills[k].filled && !pills[k].na);
 
   const pill = (which) => {
     const p = pills[which];
@@ -2703,15 +2742,13 @@ function renderTrends() {
   ).join("");
 
   const wrap = $("#priceChartWrap");
-  if (filtered.length < 2) {
+  if (!filtered.length) {
     wrap.hidden = true;
     wrap.innerHTML = "";
-    // a hand-picked year is allowed to draw nothing, so say which nothing it
-    // is: no purchases at all, or one purchase and therefore no line. "No
-    // price history" would contradict the metrics still showing below.
-    $("#priceEmpty").textContent = !filtered.length
-      ? "Nothing bought in this period."
-      : "Just one purchase here - no line to draw.";
+    // a hand-picked year is allowed to draw nothing - say so rather than let
+    // "No price history" contradict the metrics still showing below. One
+    // purchase is no longer nothing: it draws as a single dot, no polyline.
+    $("#priceEmpty").textContent = "Nothing bought in this period.";
     $("#priceEmpty").hidden = false;
   } else {
     wrap.hidden = false;
