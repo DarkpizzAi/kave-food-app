@@ -1527,8 +1527,24 @@ function renderRecipeFilters(state) {
     box.appendChild(b);
   };
 
+  // A rail with no chips hides itself, label and all. The label lives INSIDE
+  // the rail and is static markup, so a rail that renders no chips used to
+  // leave a bare "Cuisine" sitting over nothing - which reads as chips that
+  // failed to load, not as a book with no recipes in it yet.
+  //
+  // Not a theoretical state: reinstalling clears localStorage, so both phones
+  // land on an empty book every time a manifest change forces one, until the
+  // token is pasted back in.
+  //
+  // These count over state.recipes, never over the filtered rows, so a rail
+  // can only empty when the book itself is empty of that field - picking a
+  // cuisine cannot make the Type rail disappear under the thumb that picked it.
+  //
+  // `hidden` is enough on its own here: the global [hidden] rule is !important,
+  // so it beats .rail's own `display: flex`. Without that it would not.
   const cbox = $("#cuisineFilters");
   cbox.querySelectorAll(".chip").forEach((c) => c.remove());
+  cbox.hidden = !cuisines.length;
   if (cuisines.length) {
     filterChip(cbox, "cuisine", "", "All");
     cuisines.forEach((c) => filterChip(cbox, "cuisine", c, cap(c)));
@@ -1536,6 +1552,7 @@ function renderRecipeFilters(state) {
 
   const mbox = $("#mainFilters");
   mbox.querySelectorAll(".chip").forEach((c) => c.remove());
+  mbox.hidden = !mains.length;
   if (mains.length) {
     filterChip(mbox, "main", "", "All");
     mains.forEach((m) => filterChip(mbox, "main", m, own(MAIN_LABELS, m) ? MAIN_LABELS[m] : m));
