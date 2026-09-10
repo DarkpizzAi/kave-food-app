@@ -958,7 +958,7 @@ body.readonly .add-row,
 body.readonly .list li .tick,
 body.readonly .list li .del,
 body.readonly #tidyChecked,
-body.readonly #ingArm {
+body.readonly .cart-btn {
   opacity: 0.4;
   pointer-events: none;
 }
@@ -1122,6 +1122,7 @@ body.readonly .add-row input { cursor: not-allowed; }
    one more thing happening on a row that already has a quantity and a name. */
 .cart-btn {
   flex: none;
+  position: relative;
   width: 34px;
   height: 34px;
   min-height: 0;
@@ -1136,6 +1137,12 @@ body.readonly .add-row input { cursor: not-allowed; }
   transition: background 0.15s ease, color 0.15s ease;
 }
 .cart-btn svg { width: 17px; height: 17px; display: block; }
+/* The circle is 34px because that is what sits well in a row of pills, and 34
+   is under every thumb-target minimum there is - this is a phone app used
+   one-handed in a supermarket. The tap area is pushed back out to 44px without
+   the circle growing. It reaches 5px into a 7px gap, so it never takes a tap
+   meant for the pill beside it. */
+.cart-btn::after { content: ""; position: absolute; inset: -5px; }
 .cart-btn.added {
   background: var(--accent);
   color: var(--accent-text);
@@ -1357,12 +1364,18 @@ body.readonly .add-row input { cursor: not-allowed; }
 .price-pills > .pill { flex: 0 1 auto; overflow: hidden; min-width: 66px; }
 #priceCatPills > .pill[data-lvl="l1"] { flex-shrink: 0; max-width: 46%; }
 #priceProdPills > .pill { flex: 1 1 auto; }
+/* Label-width pills leave slack on the end of the Category row, and how much
+   changes with every selection. The cart takes it, so the button sits against
+   the right edge under the Product pill's - a fixed place for a thumb that
+   comes back to it, instead of one that slides with the length of a variant
+   name. On a full row the margin collapses to nothing. */
+#priceCart { margin-left: auto; }
 /* the label fills its pill and ellipsises inside it when the pill has had to
    shrink below the width the label asked for */
 .price-pills .pill-text { flex: 1; min-width: 0; max-width: none; text-align: left; }
-/* a level with nothing to offer holds a dash, and needs no more width than
-   that - it is not competing for the row */
-.price-pills .pill-empty { min-width: 40px; flex: 0 0 auto; }
+/* A level with nothing to offer holds a dash in the middle of its pill. Only
+   L3 can be empty - every Category pill either names something or opens - and
+   L3 is alone on its row, so it fills the row and the dash centres in it. */
 .price-pills .pill-empty .pill-text { text-align: center; }
 .pill-wrap { position: relative; flex: none; }
 .pill {

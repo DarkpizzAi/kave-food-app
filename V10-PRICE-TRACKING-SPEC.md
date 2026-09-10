@@ -132,28 +132,64 @@ read as broken.
 Since **v10.4** the three sit on two labelled rows: **Category** (L1 + L2) and
 **Product** (L3).
 
-- Since **v10.9** a pill's width comes from its row, not from its own label, so
-  a pick no longer reflows the row and "Lait" and "Fromage fondu en tranches"
-  are the same object. The three widths are one geometric progression —
-  card → variant → product, every step the same multiple. The Product pill is
-  alone on its row, so it *is* the row: call it 1. The two Category pills share
-  a row, and the share they take of it is the one free choice, `k`; one common
-  ratio `r` then means the widths are `r² : r : 1` with **`r² + r = k`**, which
-  fixes `r` for any `k`. `k = 1` gives `r = 0.618` (φ) and rows that finish
-  flush; **v10.10** took **`k = 0.88` → `r = 0.563`**, so the Category row stops
-  short of the Product row — 23px on a 375px phone — while the steps stay even
-  at ×1.776. Measured at 375px: **79 / 140 / 250**.
-  Two implementation notes that are easy to get wrong. The shares are
-  **`flex-basis`, not `flex-grow`**: growing from a zero basis splits the space
-  left *after* each pill's 24px of padding is set aside, which puts the ratio on
-  the text boxes and leaves the visible capsules at 41/59. And they are shares
-  rather than pixels, so a 360px phone and a 412px phone each divide their own
-  row. The cost is the card pill, now the tightest thing on the card: 8
-  characters at 375px, 10 at 412px. Median card name is 7; longer ones
-  ellipsise, and the full name is still the row the user just picked from.
+- **v10.9 to v11.14: fixed shares.** A pill's width came from its row, not from
+  its own label, so a pick did not reflow the row and "Lait" and "Fromage fondu
+  en tranches" were the same object. The three widths were one geometric
+  progression — card → variant → product, every step the same multiple. The
+  Product pill is alone on its row, so it *is* the row: call it 1. The two
+  Category pills share a row, and the share they take of it is the one free
+  choice, `k`; one common ratio `r` then means the widths are `r² : r : 1` with
+  **`r² + r = k`**, which fixes `r` for any `k`. `k = 1` gives `r = 0.618` (φ)
+  and rows that finish flush; **v10.10** took **`k = 0.88` → `r = 0.563`**, so
+  the Category row stopped short of the Product row — 23px on a 375px phone —
+  while the steps stayed even at ×1.776. Measured at 375px: **79 / 140 / 250**.
+  The shares were **`flex-basis`, not `flex-grow`**, because growing from a zero
+  basis splits the space left *after* each pill's 24px of padding is set aside,
+  which puts the ratio on the text boxes and leaves the visible capsules at
+  41/59 — a trap worth recording even though the rule is gone.
+- Since **v11.15** a Category pill is **as wide as its own label** again, and
+  shrinks — proportionally, from that width — only when the row runs out of
+  room. The fixed shares bought a row that never reflows, and charged the card
+  pill for it: at `k = 0.88` the card pill was the tightest thing on the card, 8
+  characters at 375px against a median card name of 7, so a pill sat half empty
+  next to one that ellipsised. On the worst pair in the data —
+  *Houmous / Pimiento del piquillo asado* — both halves ellipsised under the
+  shares; under label widths the card name reads in full and the variant
+  absorbs what the row is short by.
+  **The card pill does not shrink** (`flex-shrink: 0`): an L1 is the coarsest
+  label that still decides the purchase, so it is a word or two by construction,
+  and "Hou…" helps nobody. Its guard is `max-width: 46%`, which caps how much of
+  the row a pill that cannot shrink may take — measured, *Viennoiserie
+  industrielle* stops at 46% and ellipsises there rather than crowding the
+  variant out. A `min-width: 66px` floor stops any pill being squeezed to a
+  sliver. The row therefore no longer finishes flush, and how much slack it
+  leaves changes with the selection; the cart button below takes that slack, so
+  the one thing on the row a thumb returns to does not move.
 - Because nothing overflows any more, the Category row's **horizontal scroll is
   gone** (v10.9), and with it the opaque backing on the "Category" label that
   existed only to mask pills sliding under it.
+
+- Since **v11.15** the Category row ends in a round **cart button** that puts
+  what the two pills say straight on the shopping list — the card, plus the
+  variant when one is actually named. A **product** selection adds the card and
+  variant that product sits *under*, never the product: a list row names what to
+  buy, not a SKU. What it adds is read once, above the render, and used for both
+  the button's `aria-label` and its handler, so the label and the act cannot
+  describe different things. The variant goes in the **note**, exactly where a
+  recipe add puts it, so a row added here and one added from a recipe are the
+  same kind of row and `Clean up` groups them together. `source` is
+  `trend:<l1>[#<variant>]` — **provenance, not identity**: the same row can be
+  added twice, so nothing looks that key up expecting to find at most one.
+  Read-only greys it, like every other control that needs a token; it is not
+  removed, which would reflow the pills either side of it the moment a token
+  arrived.
+  The confirm cannot live on the button element the way the recipe rows' does:
+  adding re-renders the whole Prices view, which rebuilds the button. So the
+  deadline lives in `priceCartUntil`, `renderPricePills` draws the button from
+  it, and a timer reverts it. The timer reverts **the button**, not the tab — it
+  looks `#priceCart` up rather than capturing it, because the element wearing
+  the tick is not the one that was tapped, and re-rendering Prices to swap a
+  17px icon would repaint the chart.
 
 - **Exactly one pill wears the accent** (v10.5): the deepest one naming a real
   value, because that is the subject of the chart. A card pooled across its
@@ -167,9 +203,11 @@ Since **v10.4** the three sit on two labelled rows: **Category** (L1 + L2) and
   one token that contrasts with `--surface-2` in both schemes.
 - A level with **nothing to offer** — a card with no variants, a variant with no
   products of its own — shows an **em dash** rather than a placeholder naming a
-  choice that does not exist (v10.5). It holds its share of the row like any
-  other pill and centres the dash in it; the old 40px floor now only keeps it
-  from rounding into a circle outside these two rows.
+  choice that does not exist (v10.5). Only L3 can actually be empty — every
+  Category pill either names something or opens a dropdown — and L3 is alone on
+  its row, so it fills the row and centres the dash in it. Its old 40px floor
+  went at v11.15: under label widths it was overridden by the Product row's own
+  rule and did nothing.
 - A selection **drills past any level that offers only one choice** (v10.4):
   picking a card with a single product lands straight on that product. The
   levels it skipped then show that forced value rather than a placeholder. A
@@ -190,10 +228,11 @@ Since **v10.4** the three sit on two labelled rows: **Category** (L1 + L2) and
   is a single switch: an opening pill carries the `data-pill` the handlers bind
   to, and an inert one is `aria-disabled` rather than `disabled`, keeping the
   pill colours instead of the browser's greyed-out ones. Every pill also carries
-  `data-lvl`, opening or not, since that is what the width ratio keys off — a
-  pill with no choices still has to hold its share of the row. Period and Group
-  by were emitted by the same helper until v10.11, when they stopped being
-  pills; the caret that marked an openable pill (v10.7) went with them.
+  `data-lvl`, opening or not — it keyed the width ratio until v11.15 and is now
+  the hook the card pill's own rule matches on, and the way to find one level in
+  the DOM. Period and Group by were emitted by the same helper until v10.11,
+  when they stopped being pills; the caret that marked an openable pill (v10.7)
+  went with them.
 - An open dropdown sits **directly under the pill it belongs to and floats over
   what is below** (v10.7). It renders in a host absolutely positioned within the
   Trends card, which is what keeps the chart still when a dropdown opens — the

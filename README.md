@@ -223,12 +223,16 @@ the cheapest, which flattered every multi-buy - and tapping it reveals the
 individual lines with their own prices and offer pills. *Worth watching*'s
 corner says "Lowest price - 6 mo", since that is what the figure is.
 
-The three filter pills take their width from their row rather than from their
-own label, so a pick never reflows the row. The widths are one geometric
-progression - card, variant, product, each step x1.776 - and the Category row
-deliberately stops short of the Product row. The ratio is not a taste call:
-`r^2 + r = k` ties the common ratio to how much of its row the Category pills
-take, and k = 0.88 is the value picked. Period (*6 months* / *All time*) and
+Since v11.15 a Category pill is as wide as its own label, and shrinks only when
+the row runs out of room. From v10.9 to v11.14 the three pills took fixed shares
+of their rows instead - one geometric progression, card, variant, product, each
+step x1.776 - which bought a row that never reflowed and charged the card pill
+for it: it was the tightest thing on the card at 8 characters, so a short card
+name sat half empty beside a variant that ellipsised. The card pill no longer
+shrinks at all, since an ingredient card is a word or two by construction and
+"Hou..." helps nobody; a 46% cap keeps a rare long one from crowding the variant
+out, and the variant absorbs whatever the row is short by. The Category row ends
+in a cart button - see below. Period (*6 months* / *All time*) and
 Group by (*Shops* / *Products*) are segmented controls sharing one line under
 the chart - two options never earned a dropdown, so both halves are always
 visible and one tap switches. A half with nothing behind it stays named and in
@@ -303,6 +307,46 @@ whole dataset once per product: 213 scans per render of *Worth watching*, on
 every render of the Prices tab, poll ticks included. That section now renders in
 1.9 ms instead of 19.4. The map is only ever replaced wholesale, never mutated,
 so its identity is an exact cache key rather than a heuristic.
+
+**v11.15 - one cart button** - the same round cart in the Trends chart and in
+every recipe, so one gesture means one thing anywhere in the app: put this on
+the list.
+
+In *Trends* it ends the Category row and adds what the two pills say - the card,
+plus the variant when one is named. A product selection adds the card and
+variant that product sits under, never the product: a list row names what to
+buy, not a SKU. In a recipe it replaces both the `+` on the ingredient rows and
+the shopping-mode switch in the Ingredients header. That switch was the only
+sliding toggle in the app, and it asked you to configure a mode before you knew
+you wanted anything. Now one cart arms the rows and then leaves, because there
+is a cart on every row and a twelfth would be noise. There is no way back out
+and none is needed: closing the sheet is the exit, and `openRecipe` starts every
+opening unarmed.
+
+The confirm is shared - colour in, show a tick, stay inert for 1.5s, then revert
+to a cart. A second tap while the tick is up does nothing, so a double tap
+cannot quietly become two rows; a tap after it reverts adds the thing again,
+deliberately. The list is a **tally, not a set**: two packs of mince is a real
+thing to want, and *Clean up* already groups duplicates by concept. So `source`
+is provenance now, not identity - nothing looks it up expecting to find at most
+one - and the old behaviour where tapping an already-listed ingredient just
+ticked it, and tapping the tick removed it, is gone with the mode it belonged
+to. Nothing survives closing a recipe.
+
+The two confirms are not the same mechanism, because the two buttons do not have
+the same lifetime. Nothing re-renders an open recipe sheet, so an ingredient
+row's button survives its own tap and carries its confirm on the element. The
+Prices view re-renders on every change to the store - including the add the
+button just made - so that one keeps its deadline in a variable the render reads,
+and its timer reverts the button by looking it up, rather than re-rendering the
+tab to swap a 17px icon.
+
+The circle is 34px, which is what sits well in a row of pills and is under every
+thumb-target minimum there is. The tap area is pushed back out to 44px without
+the circle growing, reaching 5px into a 7px gap so it never takes a tap meant
+for the pill beside it. Each button's `aria-label` names the thing it would add,
+since eleven identical "Add to the shopping list" buttons down an ingredient
+list tell a screen reader nothing.
 
 **Phase 4 proper** - picking a week, scaling a set, merging into the shopping
 list, and the cooking-rhythm loop. Still parked in `FEATURE-PARKING.md` §2.

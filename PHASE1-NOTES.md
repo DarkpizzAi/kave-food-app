@@ -125,8 +125,12 @@
 - **Detail sections**: `Ingredients` (Fraunces h3) and `Preparation`. No
   separate "cooking" section - the cards store one method list; splitting it
   would be a recipe-data change.
-- **Add ingredients to the shopping list from a recipe**: a "Shopping mode"
-  toggle switch (`role="switch"`, the bottom-nav List cart icon beside the
+- **Add ingredients to the shopping list from a recipe**
+  (**superseded at v11.15** - the switch, the `+`, the tick-to-remove and the
+  de-dupe by `source` are all gone; one cart button arms the rows and each row's
+  cart adds, every tap a new row. What follows is the Phase 1 shape, kept for
+  the record. Current behaviour: `README.md`, "v11.15 - one cart button"): a
+  "Shopping mode" toggle switch (`role="switch"`, the bottom-nav List cart icon beside the
   track) sits right-aligned with the "Ingredients" heading. Flipping it on
   (`.switch.on` - accent track, knob slides right) enters add-mode and every
   ingredient row grows a trailing round `+` button (a fourth `max-content`

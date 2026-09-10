@@ -284,6 +284,10 @@ one sheet with two possible owners, not a third sheet.
 
 Nothing about the sheet's contents changes: the scaler, the portions presets
 and shopping mode all behave on the Plan tab exactly as they do on Recipes.
+(Shopping mode changed shape at **v11.15** - a cart button arms it instead of a
+switch, and there is no way back out of it - but it changed for both tabs at
+once, which is the point of this section: `detailState.owner` is what the sheet
+is scoped to, not the tab name, so nothing here had to be revisited.)
 
 ## 7. What has to change in kave-hub
 

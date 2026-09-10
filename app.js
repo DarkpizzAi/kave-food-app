@@ -885,8 +885,40 @@ const ICON = {
 // How long the round cart button stays coloured in with a tick after a tap.
 const CONFIRM_MS = 1500;
 
-// The confirm both cart buttons share - the one on the Trends category row and
-// the one on every ingredient row in shopping mode.
+const CART_LABEL = "Add to the shopping list";
+const CART_ADDED_LABEL = "Added to the shopping list";
+
+// The one round cart button. Everywhere it appears - the end of the Trends
+// Category row, the Ingredients header, and every ingredient row in shopping
+// mode - it is built here, so the three cannot drift into three spellings of
+// the same control.
+//
+// `label` names what this particular button adds. A screen reader reading
+// eleven identical "Add to the shopping list" buttons down an ingredient list
+// learns nothing from any of them, so each says the thing it would add. It is
+// stashed on the element too: the confirm overwrites aria-label with "Added",
+// and showCartReady has to be able to put the right one back.
+function cartButtonHtml({ id = "", cls = "", attrs = "", label = CART_LABEL, confirming = false }) {
+  const l = escapeHtml(label);
+  return `<button type="button" class="cart-btn${cls ? " " + cls : ""}${confirming ? " added" : ""}"` +
+    `${id ? ` id="${id}"` : ""}${attrs ? " " + attrs : ""} data-label="${l}"` +
+    ` aria-label="${confirming ? CART_ADDED_LABEL : l}">` +
+    `${confirming ? ICON.check : ICON.cart}</button>`;
+}
+
+function showCartAdded(btn) {
+  btn.classList.add("added");
+  btn.innerHTML = ICON.check;
+  btn.setAttribute("aria-label", CART_ADDED_LABEL);
+}
+
+function showCartReady(btn) {
+  btn.classList.remove("added");
+  btn.innerHTML = ICON.cart;
+  btn.setAttribute("aria-label", btn.dataset.label || CART_LABEL);
+}
+
+// The confirm the cart buttons share.
 //
 // A tap adds, and the button says so by colouring in and showing a tick. It is
 // inert for that window: a second tap while the tick is up does nothing, so a
@@ -895,19 +927,17 @@ const CONFIRM_MS = 1500;
 // a set: two packs of mince is a real thing to want, and Clean up already
 // groups duplicates by concept when they are ticked off shopping.
 //
-// The button can be gone before the timer fires - the sheet closes, or the
-// pills re-render under a new target - so the revert checks it is still in the
-// document rather than writing into a detached node.
+// This is the form for a button that survives its own tap - the ingredient
+// rows, which nothing re-renders. The Trends one is replaced by the render its
+// add triggers, so it keeps its deadline in a variable instead; see
+// startPriceCartConfirm.
+//
+// The button can still be gone before the timer fires - the sheet closes, or
+// the servings change and the rows are rebuilt - so the revert checks it is
+// still in the document rather than writing into a detached node.
 function confirmAdd(btn) {
-  btn.classList.add("added");
-  btn.innerHTML = ICON.check;
-  btn.setAttribute("aria-label", "Added to the shopping list");
-  setTimeout(() => {
-    if (!btn.isConnected) return;
-    btn.classList.remove("added");
-    btn.innerHTML = ICON.cart;
-    btn.setAttribute("aria-label", "Add to the shopping list");
-  }, CONFIRM_MS);
+  showCartAdded(btn);
+  setTimeout(() => { if (btn.isConnected) showCartReady(btn); }, CONFIRM_MS);
 }
 
 /* round a scaled quantity sensibly */
@@ -2200,7 +2230,10 @@ function renderDetail() {
       trailing = ing.raw ? ` <span class="note">${escapeHtml(ing.raw)}</span>` : "";
     }
     const addCell = addMode
-      ? `<button type="button" class="cart-btn ing-add" data-i="${i}" aria-label="Add to the shopping list">${ICON.cart}</button>`
+      ? cartButtonHtml({
+          cls: "ing-add", attrs: `data-i="${i}"`,
+          label: `Add ${ing.name} to the shopping list`,
+        })
       : "";
     return `<li>${qtyCell}${scaledCell}${nameHtml}${trailing}</span>${addCell}</li>`;
   }).join("");
@@ -2243,7 +2276,9 @@ function renderDetail() {
     </div>
     <div class="ing-head">
       <h3>Ingredients</h3>
-      ${addMode ? "" : `<button type="button" id="ingArm" class="cart-btn cart-lg" aria-label="Add ingredients to the shopping list">${ICON.cart}</button>`}
+      ${addMode ? "" : cartButtonHtml({
+        id: "ingArm", cls: "cart-lg", label: "Add ingredients to the shopping list",
+      })}
     </div>
     <ul class="ing-list${addMode ? " adding" : ""}" style="grid-template-columns:${gridCols}">${ingHtml}</ul>
     ${recipe.portionsConfirmed ? "" : `<p class="unconfirmed">Base portions not confirmed in the kitchen.</p>`}
@@ -2399,7 +2434,15 @@ function startPriceCartConfirm() {
   clearTimeout(priceCartTimer);
   priceCartTimer = setTimeout(() => {
     priceCartUntil = 0;
-    if (store.state.view === "prices") renderPrices(store.state);
+    // revert the button itself rather than re-render the tab. The add replaced
+    // it once and nothing has re-rendered since, so it is normally still
+    // there; and when it is not - another target picked, another tab - the
+    // deadline above is already clear and whatever draws it next draws a cart.
+    // Re-rendering Prices here would repaint the whole chart to swap a 17px
+    // icon. It is looked up rather than captured because the element that
+    // wears the tick is not the one that was tapped.
+    const el = $("#priceCart");
+    if (el) showCartReady(el);
   }, CONFIRM_MS);
 }
 
@@ -2724,20 +2767,28 @@ function renderPricePills(target, info) {
   // anything you would write on a shopping list, so an L3 target adds the card
   // and variant that product sits under, never the product itself.
   //
-  // Read-only hides it, for the same reason it hides the recipe one: a tick
-  // that never lands is worse than no button.
+  // Read-only greys it out rather than removing it, the way every other
+  // control that needs a token is greyed - including the recipe one it is a
+  // copy of. A button that vanishes would also reflow the pills either side of
+  // it the moment a token arrives.
   //
   // The Prices view re-renders on every change to the store - including the
   // add this very button just made - so unlike the recipe rows, the confirm
   // cannot live on the button element: it would be replaced the instant it
   // appeared. It lives in priceCartUntil, and this renders whatever state that
   // says the button is in.
-  const confirming = Date.now() < priceCartUntil;
-  catHost.innerHTML = pill("l1") + pill("l2") +
-    (store.readOnly() ? "" :
-      `<button type="button" class="cart-btn${confirming ? " added" : ""}" id="priceCart"
-        aria-label="${confirming ? "Added to the shopping list" : "Add to the shopping list"}"
-        >${confirming ? ICON.check : ICON.cart}</button>`);
+  //
+  // What the two pills say, and so what the cart adds: the card, plus the
+  // variant when one is actually named. Read once here, by both the button's
+  // label and its handler, so the two can never describe different things.
+  const listedVariant = info.l2 || forcedVariant || null;
+  const listedName = listedVariant
+    ? `${info.l1_label} ${titleCaseVariant(listedVariant)}` : info.l1_label;
+  catHost.innerHTML = pill("l1") + pill("l2") + cartButtonHtml({
+    id: "priceCart",
+    label: `Add ${listedName} to the shopping list`,
+    confirming: Date.now() < priceCartUntil,
+  });
   prodHost.innerHTML = pill("l3");
 
   const cart = $("#priceCart", catHost);
@@ -2750,11 +2801,6 @@ function renderPricePills(target, info) {
       // and that render has to already know this button is confirming or it
       // draws a fresh cart over the tick
       startPriceCartConfirm();
-      // what the L2 pill is showing: the target's own variant, or - when the
-      // card has exactly one and the pill shows that - the forced one. Reading
-      // both is what guarantees the button adds what the pills say, whatever
-      // level the target happens to sit at.
-      const listedVariant = info.l2 || forcedVariant || null;
       const created = store.addItem({
         name: info.l1_label,
         qty: null, unit: null,
