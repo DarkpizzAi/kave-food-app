@@ -415,7 +415,7 @@ was named for the right thing.
    survives a Recipes re-tap, unparks on returning to Plan, and closes on a
    Plan re-tap. The Recipes tab's own behaviour is unchanged.
 3. ~~**The Plan tab shell and "Worth pairing".**~~ Done 2026-09-05, shipped as
-   v11.0. Three sections replace the "coming soon" block, computed client-side
+   v11.10. Three sections replace the "coming soon" block, computed client-side
    from `state.recipes`; no new sync path. Pulling to sync on Plan now syncs
    recipes as well as the list, since Plan renders recipes.
 4. ~~**The batch flag** (§7b) and "Good for leftovers".~~ Done 2026-09-07.

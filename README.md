@@ -139,7 +139,7 @@ id-keyed merge for concurrent edits, pull-to-refresh, read-only mode
 when no token, and a background poll - 60 s, or slower whenever GitHub's
 `X-Poll-Interval` header asks for it.
 
-The poll is **tab-independent** as of v11.6. It used to run only on the List
+The poll is **tab-independent** as of v11.10. It used to run only on the List
 and Plan tabs, on the reasoning that fetching data for a tab you cannot see is
 waste. It is not: every sync is a conditional GET carrying an ETag, and a 304
 costs a header exchange and is not charged against GitHub's hourly limit. The
@@ -168,10 +168,10 @@ guard. The app would have gone quietly stale with no error to show for it.
 
 Pulling down on a tab syncs what that tab shows, and only that: List pulls the
 list, Recipes pulls recipes and the list, Plan pulls recipes, Prices pulls the
-price series. Prices was missing from that dispatch until v11.4 - the gesture
+price series. Prices was missing from that dispatch until v11.10 - the gesture
 ran and said "Syncing Prices" while fetching nothing - and it is guarded the
 way `fullSync` guards it, so a missing `price-series.json` never degrades the
-sync dot. Plan stops fetching the list at v11.5, since it renders recipes and
+sync dot. Plan stops fetching the list at v11.10, since it renders recipes and
 nothing else; that comes back when the planner starts writing to the list.
 
 The gesture does not arm on Settings at all. That tab has no data of its own,
@@ -219,7 +219,7 @@ Tapping a chart point, or *See all*, opens the full-history sheet: day and
 month, product, store, quantity and price, in per-year blocks, one row per
 shopping trip rather than per observation.
 
-Since v11.8 a day is one reading. A chart line is collapsed to one point per
+Since v11.10 a day is one reading. A chart line is collapsed to one point per
 date at that day's mean, so two of the same thing in one trip no longer stack
 two dots on one x; a dot that stands for several purchase rows highlights all
 of them when tapped. A row covering several receipt lines shows their average

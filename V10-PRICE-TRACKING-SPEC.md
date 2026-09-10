@@ -435,7 +435,7 @@ out-of-scope items were built. The 52 observations with no usable `pack_size`
 
 ---
 
-## 13. Amendments after v11.7
+## 13. Amendments, shipped in v11.10
 
 Four changes made once the tab had been lived with. The first three are one
 idea: **a day is one reading, not several.**
