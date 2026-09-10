@@ -1679,10 +1679,16 @@ body.readonly .add-row input { cursor: not-allowed; }
    what stopped them reading as cards. Rows are separated by space, no rule. */
 .plan-list { list-style: none; margin: 0; padding: 0; }
 
-/* A section that has nothing to show yet. Dashed and unfilled on purpose: a
-   solid box would read as a card with its contents missing, which is the
-   thing it is trying not to look like. Same box for both waiting sections, so
-   "nothing here yet" looks the same wherever it appears on the tab. */
+/* A section that is not BUILT yet. Dashed and unfilled on purpose: a solid box
+   would read as a card with its contents missing, which is the thing it is
+   trying not to look like.
+   It marked both waiting sections until v11.14, when "Good for leftovers"
+   started rendering real cards and only "New to us" was left waiting. Its
+   no-data message moved to the ordinary .empty at v11.16, so the dashed box
+   says one thing again: this section does not exist yet. A section that is
+   built and merely has nothing to show says so the way the rest of the app
+   does - the difference is worth seeing, since one of them is waiting on a
+   token and the other on being written. */
 .plan-empty {
   margin: 0;
   padding: 20px 16px;

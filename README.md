@@ -280,7 +280,12 @@ shows, opening the same sheet. It carries no schedule and no keeping rules:
 which dishes are worth cooking big is a kitchen judgement made in the card, and
 the section only surfaces it. It was called *The bolognese move* until v11.14 -
 renamed because it holds four dishes and the ragu is only one of them, so the
-name says what the rows have in common instead of naming the flagship.
+name says what the rows have in common instead of naming the flagship. Its
+no-data message kept the dashed "Coming soon" box for two versions after it
+stopped being a waiting section, which made a built section look parked; at
+v11.16 it moved to the ordinary empty state, so the dashed box means one thing
+again - the section does not exist yet - and *New to us* is the only one
+wearing it.
 
 *New to us* is still parked and still blank, waiting on data that is Hugo's to
 supply rather than on code: the list of creators. When it is unparked, the point
