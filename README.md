@@ -399,16 +399,24 @@ for the pill beside it. Each button's `aria-label` names the thing it would add,
 since eleven identical "Add to the shopping list" buttons down an ingredient
 list tell a screen reader nothing.
 
-**v11.17 - an empty filter rail hides itself.** The Recipes tab's Cuisine and
-Type rails carry their label inside the rail, as static markup, so a book with
-no recipes in it drew a bare "Cuisine" over nothing - which reads as chips that
-failed to load rather than as a book waiting for a token. Both rails now hide
-when they have no chips. The chip lists count over every recipe rather than the
-filtered rows, so picking a cuisine cannot make the Type rail vanish under the
-thumb that picked it; only an empty book hides them. Worth fixing rather than
-shrugging at, because a reinstall clears `localStorage` and every manifest
-change forces one - so both phones land on that screen and stay there until the
-token is pasted back in.
+**v11.17 / v11.18 - an empty book shows no furniture.** The Recipes tab's
+Cuisine and Type rails carry their label inside the rail, as static markup, so a
+book with no recipes drew a bare "Cuisine" over nothing - which reads as chips
+that failed to load rather than as a book waiting for a token. Both rails hide
+when they have no chips (v11.17), and at v11.18 the whole filter bar goes when
+there are no recipes at all, taking search and *Order by* with it: sorting
+nothing and searching nothing are not choices, and what is left is the one
+sentence that is true of the tab.
+
+Two conditions, deliberately different. A rail hides on **its own** chip list,
+which counts over every recipe rather than the filtered rows, so picking a
+cuisine cannot make the Type rail vanish under the thumb that picked it. The bar
+hides on the **book**, never on the rows on screen - a search that matches
+nothing has to keep its field, since that is the only way back out of it.
+
+Worth fixing rather than shrugging at, because a reinstall clears
+`localStorage` and every manifest change forces one - so both phones land on
+that screen and stay there until the token is pasted back in.
 
 **Phase 4 proper** - picking a week, scaling a set, merging into the shopping
 list, and the cooking-rhythm loop. Still parked in `FEATURE-PARKING.md` §2.

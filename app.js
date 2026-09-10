@@ -1633,6 +1633,14 @@ function renderRecipes(state) {
   empty.textContent = state.recipes.length === 0
     ? "Recipes sync from your repo once a token is set."
     : "No recipe matches.";
+  // No book, no furniture for it: the whole filter bar goes, search and Order
+  // by with the rails, leaving the tab as the one sentence that is actually
+  // true of it. Sorting nothing and searching nothing are not choices.
+  //
+  // The test is the BOOK, not the rows on screen. A search that matches
+  // nothing must keep its field - that is the only way back out of it - so
+  // this must never key off `rows`.
+  $(".filterbar").hidden = state.recipes.length === 0;
   scheduleEqualise();
 }
 
