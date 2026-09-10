@@ -207,7 +207,12 @@ two filter rows - **Category** (the ingredient card, and its variant) and
 past any level that offers only one choice, and the accent marks the deepest
 level naming a real value - the subject of the chart - with the levels above it
 in grey. An unset level reads *All variants* / *All products*, since that is
-what the chart is pooling; a level with nothing to offer at all shows a dash. A
+what the chart is pooling. A level with nothing to offer at all says so, and
+since v11.12 the two levels say it differently: the variant pill reads *N/A* -
+a card with no variants, or a product with none under a card that has them -
+because "no variants exist" is a different fact from "all of them", and it
+never takes the accent since it names an absence rather than the subject of the
+chart. The product pill, which can only ever be empty, keeps its dash. A
 pill you could not have chosen otherwise carries no ✕ and opens no dropdown;
 one that does opens it under itself, floating over the chart without moving it.
 Tapping a chart point, or *See all*, opens the full-history sheet: day and
@@ -248,9 +253,8 @@ resolves to a product, a variant or a card via that file's `resolve` index,
 built server-side against the ingredients dictionary - never guessed
 client-side.
 
-**v11 - the Plan tab, first cut** - current at v11.0. Three sections that
-read; nothing builds a week or writes to the list yet. Spec:
-`V11-MEAL-PLANNING-TAB-SPEC.md`.
+**v11 - the Plan tab** - current at v11.14. Sections that read; nothing builds
+a week or writes to the list yet. Spec: `V11-MEAL-PLANNING-TAB-SPEC.md`.
 
 *Worth pairing* finds recipes that share something whose pack outlives one
 recipe - the bunch of coriander that is always four recipes' worth. It ranks
@@ -269,13 +273,29 @@ the grid's own algorithm against the strip's width, off the same `--card-min`
 and `--card-gap` the grid uses. Two up on a phone, four on a tablet, no
 breakpoints and no card styling scoped to the Plan tab.
 
-*The bolognese move* and *New to us* both ship built but blank, each holding
-its place with a dashed "Coming soon" box. Both are waiting on data that is
-Hugo's to supply, not on code: the first needs a `leftovers` block on the
-recipes (which dish is a base, how long it keeps, what finishes it - kitchen
-judgements, not something to infer), the second needs the list of creators.
-When *New to us* is unparked, the point of it is one tap writing a recipe we
-liked into the book, not a list of links.
+*Good for leftovers* shipped at v11.14, having held its place with a dashed
+"Coming soon" box since the first cut. It surfaces the recipes marked
+`Restes: oui` on their card in kave-hub, as the same cards the Recipes tab
+shows, opening the same sheet. It carries no schedule and no keeping rules:
+which dishes are worth cooking big is a kitchen judgement made in the card, and
+the section only surfaces it. It was called *The bolognese move* until v11.14 -
+renamed because it holds four dishes and the ragu is only one of them, so the
+name says what the rows have in common instead of naming the flagship.
+
+*New to us* is still parked and still blank, waiting on data that is Hugo's to
+supply rather than on code: the list of creators. When it is unparked, the point
+of it is one tap writing a recipe we liked into the book, not a list of links.
+
+Also at v11.14, *Worth pairing* collapses to one row behind a *Show all · N*
+button, N being the pairings found rather than the recipes in them. It grew with
+the book - four pairings once the new cards landed - and was pushing the section
+below it off screen. Both sections carry a **Randomise** button by their title,
+for the evening you open the tab because you cannot think what to cook. Each has
+a settled order it is trading away - worst perishable first, then card order for
+the leftovers - so the shuffle is held as a list of keys rather than a shuffled
+copy of the rows: a sync that changes the recipes cannot strand it, and anything
+the shuffle never saw keeps its natural place at the end. It is deliberately not
+persisted, since a remembered random order is just a worse default.
 
 The recipe sheet is no longer the Recipes tab's: `detailState.owner` records
 which tab opened it, so Plan opens the same swoop-up sheet and it parks,
@@ -307,6 +327,32 @@ whole dataset once per product: 213 scans per render of *Worth watching*, on
 every render of the Prices tab, poll ticks included. That section now renders in
 1.9 ms instead of 19.4. The map is only ever replaced wholesale, never mutated,
 so its identity is an exact cache key rather than a heuristic.
+
+**v11.12** is two things Isa asked for. *Trends* no longer needs two
+purchases: the chart had a `filtered.length < 2` guard that hid it behind "Just
+one purchase here - no line to draw", so a product bought once was invisible
+even though the chart builder already handled a lone point. Now only an empty
+period draws nothing, and one purchase is one dot with no polyline. And the
+variant pill reads its label rather than its slug - `l2` became a slug in the
+07/09/2026 kave-hub clean-up (`chocolate-filling`, `creme-de-cuisine-18`) and
+each product carries the authored `l2_label` beside it, so `titleCaseVariant`
+looks the label up, cached on the identity of the products map the same way
+`priceToday` is. The variant dropdown sorts by that label too, since sorting
+slugs orders it by a string nobody sees.
+
+**v11.13** makes a list row added from a recipe price its *variant* rather than
+its whole card. Recipes in kave-hub now carry an authored variant from the
+shared vocabulary, so a row added from one arrives knowing both its card and
+which kind it wants, and `priceHintFor` targets that variant when it has a
+history. Carbonara's parmesan was being hinted against all 70 cheese
+observations - mozzarella, philadelphia and brie included - and is now hinted
+against the 6 parmigiano ones; mince goes from 21 pooled meat points to 16
+minced-beef ones. Where the variant has no priced receipt line yet (the
+bolognese's mixed mince, gruyere) it falls back to the card, which is the old
+behaviour, and hand-typed rows are unchanged since they still resolve by name.
+The list note now prefers the authored `variantLabel` ("Hachée mixte
+boeuf-porc") over the derived `variantHint` ("hachée mixte") - the note is what
+you read in the aisle, so the fuller name wins.
 
 **v11.15 - one cart button** - the same round cart in the Trends chart and in
 every recipe, so one gesture means one thing anywhere in the app: put this on

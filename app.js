@@ -1646,7 +1646,7 @@ function equaliseCards() {
 // Ranked worst-first. `low` is never a reason for a row, so it is absent here.
 const WASTE_RANK = { high: 0, medium: 1 };
 
-// How many pairings show before the reveal button. Two is enough to read the
+// How many pairings show before the reveal button. One is enough to read the
 // section as a list without it pushing "Good for leftovers" off the screen;
 // the rest are one tap away, and the count is on the button so a collapsed
 // section never hides how much it found. Same idiom as Worth watching.
