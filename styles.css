@@ -958,7 +958,7 @@ body.readonly .add-row,
 body.readonly .list li .tick,
 body.readonly .list li .del,
 body.readonly #tidyChecked,
-body.readonly #ingAddToggle {
+body.readonly #ingArm {
   opacity: 0.4;
   pointer-events: none;
 }
@@ -1113,45 +1113,38 @@ body.readonly .add-row input { cursor: not-allowed; }
   margin: 22px 0 10px;
 }
 .ing-head h3 { margin: 0; }
-/* the Shopping-mode switch in the ingredients header - a real sliding toggle */
-.switch {
+/* One round cart button, used in two places: at the end of the Trends
+   Category row, and on every ingredient row once shopping mode is armed. Same
+   shape and same confirm in both, so the gesture means one thing anywhere in
+   the app - put this on the list.
+   The confirm is a colour change and a tick, nothing more: it has to read at a
+   glance on a phone held at arm's length in a supermarket, and a glow would be
+   one more thing happening on a row that already has a quantity and a name. */
+.cart-btn {
   flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 36px;
-  padding: 4px 0;
+  width: 34px;
+  height: 34px;
+  min-height: 0;
+  padding: 0;
   border: none;
-  background: transparent;
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: var(--text-dim);
-}
-.switch.on { color: var(--text); }
-.switch-icon { display: inline-flex; }
-.switch-icon svg { width: 19px; height: 19px; }
-.switch-track {
-  position: relative;
-  width: 40px;
-  height: 24px;
-  flex: none;
   border-radius: 999px;
   background: var(--surface-2);
-  transition: background 0.15s ease;
+  color: var(--text-dim);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
 }
-.switch-knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
-  transition: transform 0.15s ease;
+.cart-btn svg { width: 17px; height: 17px; display: block; }
+.cart-btn.added {
+  background: var(--accent);
+  color: var(--accent-text);
 }
-.switch.on .switch-track { background: var(--accent); }
-.switch.on .switch-knob { transform: translateX(16px); }
+/* the one in the Ingredients header stands alone, so it can afford to be the
+   size the ingredient rows' buttons are */
+.cart-btn.cart-lg { width: 36px; height: 36px; }
+.cart-btn.cart-lg svg { width: 18px; height: 18px; }
+@media (prefers-reduced-motion: reduce) { .cart-btn { transition: none; } }
 
 /* ruled-page treatment: rows on lines, a left margin rule */
 .ing-list {
@@ -1181,8 +1174,8 @@ body.readonly .add-row input { cursor: not-allowed; }
   padding: 0 0 6px;
   border-bottom: 1px solid var(--rule);
 }
-/* shopping mode: rows breathe, cells centre on the + so the quantity and
-   name sit level with the middle of the button, flush under the cart toggle */
+/* shopping mode: rows breathe, and cells centre on the cart button so the
+   quantity and name sit level with the middle of it */
 .ing-list.adding li {
   align-items: center;
   min-height: 52px;
@@ -1203,25 +1196,9 @@ body.readonly .add-row input { cursor: not-allowed; }
 }
 .ing-list .nm { min-width: 0; }
 .ing-list .note { color: var(--text-dim); font-size: 0.85rem; }
-.ing-list .ing-add {
-  width: 36px;
-  height: 36px;
-  min-height: 0;
-  padding: 0;
-  border: none;
-  border-radius: 999px;
-  background: var(--surface-2);
-  color: var(--text-dim);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
+/* the row buttons match the header one they replaced */
+.ing-list .ing-add { width: 36px; height: 36px; }
 .ing-list .ing-add svg { width: 18px; height: 18px; }
-.ing-list .ing-add.added {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-text);
-}
 
 .steps { padding-left: 20px; }
 .steps li { margin-bottom: 10px; }
@@ -1364,32 +1341,28 @@ body.readonly .add-row input { cursor: not-allowed; }
   display: flex; align-items: center; gap: 7px; flex-wrap: nowrap;
 }
 
-/* The three pills are one geometric progression, smallest to largest:
-   card -> variant -> product, every step the same multiple. The Product pill
-   is alone on its row, so it IS the row: call it 1. The two Category pills
-   share a row, and how much of that row they take is the one free choice -
-   call it k. One common ratio r then means the widths are r^2 : r : 1 with
-   r^2 + r = k, which fixes r for whatever k we pick.
-     k = 1     -> r = 0.618 (phi), and the two rows finish flush.
-     k = 0.88  -> r = 0.563, and the Category row stops short of the Product
-                  row by 12% of it less the 7px gap - 23px on a 375px phone.
-   We take k = 0.88: the Category row visibly steps in, and the steps stay
-   even at x1.776. Both Category pills sit in the ratio - the card pill is
-   not pinned at its old width and left out of it.
-   Shares, not pixels: a 360px phone and a 412px phone each divide their own
-   row, and a pill never depends on the length of its own label again. */
-/* The shares are flex-basis, not flex-grow. Growing from a zero basis splits
-   the free space left AFTER each pill's own 24px of padding is set aside, so
-   the ratio would land on the text boxes rather than on the capsules you see.
-   A percentage basis is the border-box width, which is the thing being
-   sized. */
-.price-pills > .pill { flex: 1 1 0; overflow: hidden; }
-#priceCatPills > .pill[data-lvl="l1"] { flex: 0 1 31.7%; }
-#priceCatPills > .pill[data-lvl="l2"] { flex: 0 1 56.3%; }
-/* the label fills its pill and ellipsises inside it, rather than setting
-   the pill's width as it used to */
+/* A Category pill is as wide as its own label, and shrinks - proportionally,
+   from that width - only when the row runs out of room. So "Viande" takes the
+   little it needs and leaves the rest to "Crème de cuisine 18%", instead of
+   both being pinned to a share of the row and the long one ellipsising while
+   the short one sits half empty. The cart button on the end is a fixed 34px
+   and never shrinks, and the min-width stops any pill being squeezed to a
+   sliver.
+   The card name never shrinks, because it is the short one by construction -
+   an L1 is the coarsest label that still decides the purchase, so it is a word
+   or two - and "Hou..." helps nobody. The variant absorbs whatever the row is
+   short by. The max-width is the guard for the rare long card name: it caps
+   how much of the row a pill that cannot shrink is allowed to take.
+   The Product pill is alone on its row, so it still fills it. */
+.price-pills > .pill { flex: 0 1 auto; overflow: hidden; min-width: 66px; }
+#priceCatPills > .pill[data-lvl="l1"] { flex-shrink: 0; max-width: 46%; }
+#priceProdPills > .pill { flex: 1 1 auto; }
+/* the label fills its pill and ellipsises inside it when the pill has had to
+   shrink below the width the label asked for */
 .price-pills .pill-text { flex: 1; min-width: 0; max-width: none; text-align: left; }
-/* a level with nothing to offer holds its dash in the middle of its share */
+/* a level with nothing to offer holds a dash, and needs no more width than
+   that - it is not competing for the row */
+.price-pills .pill-empty { min-width: 40px; flex: 0 0 auto; }
 .price-pills .pill-empty .pill-text { text-align: center; }
 .pill-wrap { position: relative; flex: none; }
 .pill {

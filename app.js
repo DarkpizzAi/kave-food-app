@@ -879,9 +879,36 @@ const ICON = {
   sortUp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 20V6M7 6l-4 4M7 6l4 4M13 8h8M13 13h5M13 18h2"/></svg>',
   sortDown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v14M7 18l-4-4M7 18l4-4M13 8h2M13 13h5M13 18h8"/></svg>',
   cart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/><path d="M3 4h2l2.3 11.4a1 1 0 0 0 1 .8h8.5a1 1 0 0 0 1-.8L20.5 8H6"/></svg>',
-  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
   check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>',
 };
+
+// How long the round cart button stays coloured in with a tick after a tap.
+const CONFIRM_MS = 1500;
+
+// The confirm both cart buttons share - the one on the Trends category row and
+// the one on every ingredient row in shopping mode.
+//
+// A tap adds, and the button says so by colouring in and showing a tick. It is
+// inert for that window: a second tap while the tick is up does nothing, so a
+// double tap cannot quietly become two rows. Then it reverts to a cart, and a
+// tap after that adds the thing AGAIN - deliberately. The list is a tally, not
+// a set: two packs of mince is a real thing to want, and Clean up already
+// groups duplicates by concept when they are ticked off shopping.
+//
+// The button can be gone before the timer fires - the sheet closes, or the
+// pills re-render under a new target - so the revert checks it is still in the
+// document rather than writing into a detached node.
+function confirmAdd(btn) {
+  btn.classList.add("added");
+  btn.innerHTML = ICON.check;
+  btn.setAttribute("aria-label", "Added to the shopping list");
+  setTimeout(() => {
+    if (!btn.isConnected) return;
+    btn.classList.remove("added");
+    btn.innerHTML = ICON.cart;
+    btn.setAttribute("aria-label", "Add to the shopping list");
+  }, CONFIRM_MS);
+}
 
 /* round a scaled quantity sensibly */
 function roundQty(n, isCount) {
@@ -1796,7 +1823,9 @@ function openRecipe(slug) {
   if (!recipe) return;
   detailState = {
     recipe, servings: recipe.portions, custom: null, customEditing: false,
-    addMode: false, added: new Set(), // ingredient indices ticked this add-mode session
+    // armed by the header cart, and never carried between openings: a tick is
+    // a moment, not a record of what is on the list
+    addMode: false,
     owner: store.state.view,          // the tab that opened it: "recipes" or "planner"
   };
   const el = $("#recipeDetail");
@@ -2148,6 +2177,12 @@ function renderDetail() {
   const scaled = target !== base;
   const presets = servingPresets(recipe);
 
+  // Shopping mode is armed by the one cart button in the Ingredients header,
+  // which then leaves: there is a cart on every row, and a twelfth in the
+  // header would be noise. There is no way back out, and none is needed - the
+  // mode adds nothing, undoes nothing, and openRecipe starts every opening
+  // with addMode false, so closing the sheet is the exit.
+  //
   // read-only (no usable token) blocks every list write, so shopping mode
   // would just show ticks that never land - collapse it instead
   const addMode = detailState.addMode && !store.readOnly();
@@ -2164,11 +2199,9 @@ function renderDetail() {
       scaledCell = scaled ? `<span class="qty-scaled"></span>` : "";
       trailing = ing.raw ? ` <span class="note">${escapeHtml(ing.raw)}</span>` : "";
     }
-    let addCell = "";
-    if (addMode) {
-      const added = detailState.added.has(i);
-      addCell = `<button type="button" class="ing-add${added ? " added" : ""}" data-i="${i}" aria-label="${added ? "Remove from shopping list" : "Add to shopping list"}">${added ? ICON.check : ICON.plus}</button>`;
-    }
+    const addCell = addMode
+      ? `<button type="button" class="cart-btn ing-add" data-i="${i}" aria-label="Add to the shopping list">${ICON.cart}</button>`
+      : "";
     return `<li>${qtyCell}${scaledCell}${nameHtml}${trailing}</span>${addCell}</li>`;
   }).join("");
 
@@ -2210,10 +2243,7 @@ function renderDetail() {
     </div>
     <div class="ing-head">
       <h3>Ingredients</h3>
-      <button type="button" id="ingAddToggle" class="switch${addMode ? " on" : ""}" role="switch" aria-checked="${addMode}" aria-label="Shopping mode">
-        <span class="switch-icon">${ICON.cart}</span>
-        <span class="switch-track"><span class="switch-knob"></span></span>
-      </button>
+      ${addMode ? "" : `<button type="button" id="ingArm" class="cart-btn cart-lg" aria-label="Add ingredients to the shopping list">${ICON.cart}</button>`}
     </div>
     <ul class="ing-list${addMode ? " adding" : ""}" style="grid-template-columns:${gridCols}">${ingHtml}</ul>
     ${recipe.portionsConfirmed ? "" : `<p class="unconfirmed">Base portions not confirmed in the kitchen.</p>`}
@@ -2268,46 +2298,43 @@ function renderDetail() {
     renderDetail();
   });
 
-  $("#ingAddToggle", body).addEventListener("click", () => {
-    detailState.addMode = !detailState.addMode;
-    if (!detailState.addMode) detailState.added.clear(); // leaving: reset the ticks
-    renderDetail();
-  });
+  const arm = $("#ingArm", body);
+  if (arm) {
+    arm.addEventListener("click", () => {
+      detailState.addMode = true;
+      renderDetail();
+    });
+  }
 
   $$(".ing-add", body).forEach((btn) => {
     btn.addEventListener("click", () => {
+      if (btn.classList.contains("added")) return; // inert while the tick is up
       const i = Number(btn.dataset.i);
       const ing = recipe.ingredients[i];
-      const key = `recipe:${recipe.slug}#${i}`;
-      const existing = store.state.list.find((it) => it.source === key);
-      if (detailState.added.has(i)) {
-        if (existing) store.deleteItem(existing.id);
-        detailState.added.delete(i);
-      } else if (existing) {
-        detailState.added.add(i);
-      } else {
-        let qty = null, unit = null;
-        if (ing.qty != null) {
-          qty = scaled ? scaleQty(ing, factor) : ing.qty;
-          unit = ing.unit;
-        }
-        // only tick the row if the item actually landed - store.addItem
-        // returns null when the list is read-only
-        const created = store.addItem({
-          name: ing.conceptName || ing.name,
-          qty, unit,
-          // the authored variant label when the recipe has one ("Hachée
-          // mixte boeuf-porc"), else the derived hint ("hachée mixte") -
-          // the note is what you read in the aisle, so the fuller name wins
-          note: [ing.variantLabel || ing.variantHint, ing.note]
-            .filter(Boolean).join(", ") || null,
-          source: key,
-          slug: ing.slug || null,
-          variant: ing.variant || null,
-        });
-        if (created) detailState.added.add(i);
+      let qty = null, unit = null;
+      if (ing.qty != null) {
+        qty = scaled ? scaleQty(ing, factor) : ing.qty;
+        unit = ing.unit;
       }
-      renderDetail();
+      // only confirm if the item actually landed - store.addItem returns
+      // null when the list is read-only
+      const created = store.addItem({
+        name: ing.conceptName || ing.name,
+        qty, unit,
+        // the authored variant label when the recipe has one ("Hachée
+        // mixte boeuf-porc"), else the derived hint ("hachée mixte") -
+        // the note is what you read in the aisle, so the fuller name wins
+        note: [ing.variantLabel || ing.variantHint, ing.note]
+          .filter(Boolean).join(", ") || null,
+        // provenance, not identity - the same row can be added twice, so
+        // nothing looks this key up expecting to find at most one
+        source: `recipe:${recipe.slug}#${i}`,
+        slug: ing.slug || null,
+        variant: ing.variant || null,
+      });
+      // the button carries the whole confirm; re-rendering the sheet here
+      // would throw the tick away the moment it appeared
+      if (created) confirmAdd(btn);
     });
   });
 }
@@ -2360,6 +2387,27 @@ let pricesUiState = {
   oppOpen: false,
 };
 
+// The Trends cart button's confirm. It cannot live on the button itself the
+// way the recipe rows' does: adding an item re-renders the whole Prices view,
+// which rebuilds that button. So the deadline lives here, renderPricePills
+// draws the button from it, and a timer re-renders once to clear it.
+let priceCartUntil = 0;
+let priceCartTimer = null;
+
+function startPriceCartConfirm() {
+  priceCartUntil = Date.now() + CONFIRM_MS;
+  clearTimeout(priceCartTimer);
+  priceCartTimer = setTimeout(() => {
+    priceCartUntil = 0;
+    if (store.state.view === "prices") renderPrices(store.state);
+  }, CONFIRM_MS);
+}
+
+function endPriceCartConfirm() {
+  clearTimeout(priceCartTimer);
+  priceCartUntil = 0;
+}
+
 // picks a sensible first thing to show the moment real data exists and
 // nothing has been tapped yet: the top Worth-watching mover if there is
 // one, else whichever product has the deepest history. Never runs again
@@ -2408,6 +2456,7 @@ function selectPriceTarget(target, opts = {}) {
   if (!series.length) return;
   pricesUiState.target = target;
   pricesUiState.openPill = null;
+  endPriceCartConfirm(); // the tick belonged to the old target, not this one
   pricesUiState.period = defaultPeriodFor(series);
   renderTrends();
   if (opts.scroll) {
@@ -2606,8 +2655,8 @@ function pillButton({ which, text, extra = [], opens, trailing = "" }) {
   // says - it can name a pill that lost its choices under a new target, and
   // the render that clears it runs after this
   if (opens && pricesUiState.openPill === which) cls.push("open");
-  // data-lvl is on every pill, opening or not - it is what the width ratio
-  // keys off, and a pill with no choices still has to hold its share of the row
+  // data-lvl says which level a pill is, whether or not it opens - a hook for
+  // styling and for finding one in the DOM
   return `<button type="button" class="${cls.join(" ")}" data-lvl="${which}"` +
     `${opens ? ` data-pill="${which}"` : ` aria-disabled="true"`}>` +
     `<span class="pill-text">${escapeHtml(text)}</span>${trailing}</button>`;
@@ -2668,8 +2717,61 @@ function renderPricePills(target, info) {
       extra: [which === accent && "sel", !p.filled && !p.opens && "pill-empty"],
     });
   };
-  catHost.innerHTML = pill("l1") + pill("l2");
+  // The Category row ends in the same round cart button the ingredient rows
+  // carry, so one gesture means one thing everywhere in the app: put this on
+  // the list. What it adds is what the two pills say - the card, plus the
+  // variant when one is actually named. A product selection is narrower than
+  // anything you would write on a shopping list, so an L3 target adds the card
+  // and variant that product sits under, never the product itself.
+  //
+  // Read-only hides it, for the same reason it hides the recipe one: a tick
+  // that never lands is worse than no button.
+  //
+  // The Prices view re-renders on every change to the store - including the
+  // add this very button just made - so unlike the recipe rows, the confirm
+  // cannot live on the button element: it would be replaced the instant it
+  // appeared. It lives in priceCartUntil, and this renders whatever state that
+  // says the button is in.
+  const confirming = Date.now() < priceCartUntil;
+  catHost.innerHTML = pill("l1") + pill("l2") +
+    (store.readOnly() ? "" :
+      `<button type="button" class="cart-btn${confirming ? " added" : ""}" id="priceCart"
+        aria-label="${confirming ? "Added to the shopping list" : "Add to the shopping list"}"
+        >${confirming ? ICON.check : ICON.cart}</button>`);
   prodHost.innerHTML = pill("l3");
+
+  const cart = $("#priceCart", catHost);
+  if (cart) {
+    cart.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (Date.now() < priceCartUntil) return; // inert while the tick is up
+      pricesUiState.openPill = null; // an open dropdown is done with
+      // before the add, not after: addItem re-renders the whole Prices view,
+      // and that render has to already know this button is confirming or it
+      // draws a fresh cart over the tick
+      startPriceCartConfirm();
+      // what the L2 pill is showing: the target's own variant, or - when the
+      // card has exactly one and the pill shows that - the forced one. Reading
+      // both is what guarantees the button adds what the pills say, whatever
+      // level the target happens to sit at.
+      const listedVariant = info.l2 || forcedVariant || null;
+      const created = store.addItem({
+        name: info.l1_label,
+        qty: null, unit: null,
+        // the variant goes in the note, exactly where a recipe add puts it -
+        // that is the field Clean up groups on and the field you read in the
+        // aisle, so a row added here and one added from a recipe are the same
+        // kind of row
+        note: listedVariant ? titleCaseVariant(listedVariant) : null,
+        source: `trend:${info.l1}${listedVariant ? "#" + listedVariant : ""}`,
+        slug: info.l1,
+        variant: listedVariant,
+      });
+      // nothing landed (a list gone read-only between render and tap): take
+      // the tick back rather than claim an add that did not happen
+      if (!created) { endPriceCartConfirm(); renderTrends(); }
+    });
+  }
 
   [catHost, prodHost].forEach((h) => {
     $$(".pill[data-pill]", h).forEach((b) => {
