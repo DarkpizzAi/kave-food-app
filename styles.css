@@ -1,15 +1,19 @@
 /* ============================================================
-   Colour palettes. One tonal logic for every palette:
-   LIGHT  - card (lightest), then header/footer, then background,
-            then filters/search (darkest).
-   DARK   - that order inverted (card darkest, filters lightest).
-   Light or dark follows the phone and nothing else - there is no
-   in-app override any more, so data-theme is never set and the
-   prefers-color-scheme blocks below always decide.
-   data-palette on <html> selects the theme; absent = Cobalt.
-   ============================================================ */
+   Spoon's own styles.
 
-:root { --nav-h: 64px; }
+   Every colour, type step, spacing step, radius and motion value comes from
+   tokens.css, which is GENERATED from design/data/household-tokens.css in
+   kave-hub by that repo's design/tools/sync-household-tokens.py. Do not add
+   a token here and never hand-edit tokens.css: edit the hub and re-sync, or
+   this app quietly disagrees with every other surface in the household.
+
+   The six palettes, --nav-h and the --good-* semantic pair used to live
+   here. They moved to tokens.css on 19/09/2026. What stays below is only
+   what is genuinely Spoon's: the store colours, which are data rather than
+   theme.
+
+   Density tier: phone.
+   ============================================================ */
 
 /* Store colours (v10 spec): fixed per store, light/dark only - never
    per-palette, so a colour keeps meaning the same store everywhere it
@@ -20,308 +24,6 @@
   /* the pair flips to a light olive-cream, so the icon drawn on top of the
      bubble has to flip from white to dark with it, or it disappears */
   :root { --store-ametller: #F2EBDF; --store-ametller-on: #2c2c2a; }
-}
-
-/* "this went down" badge, Prices tab - a plain semantic green, not tied to
-   any palette's accent colour, same reasoning as --store-ametller above */
-:root { --good-bg: #dff3ea; --good-tx: #1c6b4d; }
-@media (prefers-color-scheme: dark) {
-  :root { --good-bg: #143f30; --good-tx: #7fd9b6; }
-}
-
-/* ---- 01 Cobalt (default) ---- */
-:root {
-  --bg: #f4f7fd;
-  --surface: #e9eef8;
-  --surface-2: #dbe3f2;
-  --card: #ffffff;
-  --text: #1f2430;
-  --text-dim: #5c6270;
-  --accent: #1a73e8;
-  --accent-text: #ffffff;
-  --border: #d5dded;
-  --danger: #c5372c;
-  --accent-soft: #d7e6fb;
-  --rule: #dbe3f2;
-  --rule-strong: #b6c1d6;
-}
-:root[data-theme="dark"],
-:root[data-palette="cobalt"][data-theme="dark"] {
-  --bg: #16181d;
-  --surface: #1c1e24;
-  --surface-2: #363b44;
-  --card: #0f1013;
-  --text: #e7eaf2;
-  --text-dim: #9aa0ac;
-  --accent: #1a73e8;
-  --accent-text: #ffffff;
-  --border: #333944;
-  --danger: #f2938a;
-  --accent-soft: #17365f;
-  --rule: #2b2e36;
-  --rule-strong: #454b57;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]):not([data-theme="dark"]) {
-    --bg: #16181d;
-    --surface: #1c1e24;
-    --surface-2: #363b44;
-    --card: #0f1013;
-    --text: #e7eaf2;
-    --text-dim: #9aa0ac;
-    --accent: #1a73e8;
-    --accent-text: #ffffff;
-    --border: #333944;
-    --danger: #f2938a;
-    --accent-soft: #17365f;
-    --rule: #2b2e36;
-    --rule-strong: #454b57;
-  }
-}
-
-/* ---- 02 Amber ---- */
-:root[data-palette="amber"] {
-  --bg: #faf8f0;
-  --surface: #f2efe3;
-  --surface-2: #e6e2d4;
-  --card: #ffffff;
-  --text: #23211c;
-  --text-dim: #625e52;
-  --accent: #f4b400;
-  --accent-text: #201d0a;
-  --border: #e3ddcc;
-  --danger: #c5372c;
-  --accent-soft: #fdeecb;
-  --rule: #e6e2d4;
-  --rule-strong: #c9c2ac;
-}
-:root[data-palette="amber"][data-theme="dark"] {
-  --bg: #191813;
-  --surface: #201f1a;
-  --surface-2: #3a382f;
-  --card: #100f0c;
-  --text: #ece8dc;
-  --text-dim: #a09a8a;
-  --accent: #f4b400;
-  --accent-text: #201d0a;
-  --border: #35332b;
-  --danger: #f2938a;
-  --accent-soft: #4a3d1a;
-  --rule: #2c2b24;
-  --rule-strong: #4a4740;
-}
-@media (prefers-color-scheme: dark) {
-  :root[data-palette="amber"]:not([data-theme="light"]):not([data-theme="dark"]) {
-    --bg: #191813;
-    --surface: #201f1a;
-    --surface-2: #3a382f;
-    --card: #100f0c;
-    --text: #ece8dc;
-    --text-dim: #a09a8a;
-    --accent: #f4b400;
-    --accent-text: #201d0a;
-    --border: #35332b;
-    --danger: #f2938a;
-    --accent-soft: #4a3d1a;
-    --rule: #2c2b24;
-    --rule-strong: #4a4740;
-  }
-}
-
-/* ---- 03 Chartreuse ---- */
-:root[data-palette="chartreuse"] {
-  --bg: #f5f6fa;
-  --surface: #ebedf3;
-  --surface-2: #dde0ea;
-  --card: #ffffff;
-  --text: #1e1f24;
-  --text-dim: #5f6470;
-  --accent: #d7d63a;
-  --accent-text: #1b1b06;
-  --border: #d5d8e3;
-  --danger: #c5372c;
-  --accent-soft: #eeeeba;
-  --rule: #dde0ea;
-  --rule-strong: #bcc0cd;
-}
-:root[data-palette="chartreuse"][data-theme="dark"] {
-  --bg: #16171b;
-  --surface: #1d1e23;
-  --surface-2: #383b43;
-  --card: #0f1012;
-  --text: #eceef4;
-  --text-dim: #999ea8;
-  --accent: #d7d63a;
-  --accent-text: #1b1b06;
-  --border: #34363f;
-  --danger: #f2938a;
-  --accent-soft: #3c3c1e;
-  --rule: #2b2c33;
-  --rule-strong: #474a54;
-}
-@media (prefers-color-scheme: dark) {
-  :root[data-palette="chartreuse"]:not([data-theme="light"]):not([data-theme="dark"]) {
-    --bg: #16171b;
-    --surface: #1d1e23;
-    --surface-2: #383b43;
-    --card: #0f1012;
-    --text: #eceef4;
-    --text-dim: #999ea8;
-    --accent: #d7d63a;
-    --accent-text: #1b1b06;
-    --border: #34363f;
-    --danger: #f2938a;
-    --accent-soft: #3c3c1e;
-    --rule: #2b2c33;
-    --rule-strong: #474a54;
-  }
-}
-
-/* ---- 04 Lime ---- */
-:root[data-palette="lime"] {
-  --bg: #f0f4fc;
-  --surface: #e2e9f7;
-  --surface-2: #d0dbf0;
-  --card: #ffffff;
-  --text: #172542;
-  --text-dim: #566486;
-  --accent: #c3ee5c;
-  --accent-text: #142338;
-  --border: #c8d5ec;
-  --danger: #c5372c;
-  --accent-soft: #e6f6c4;
-  --rule: #d0dbf0;
-  --rule-strong: #a9b8d6;
-}
-:root[data-palette="lime"][data-theme="dark"] {
-  --bg: #121826;
-  --surface: #182030;
-  --surface-2: #33404f;
-  --card: #0c111c;
-  --text: #e6ecf8;
-  --text-dim: #93a1bd;
-  --accent: #c3ee5c;
-  --accent-text: #142338;
-  --border: #2c3546;
-  --danger: #f2938a;
-  --accent-soft: #2f3a1c;
-  --rule: #232c3c;
-  --rule-strong: #414d5f;
-}
-@media (prefers-color-scheme: dark) {
-  :root[data-palette="lime"]:not([data-theme="light"]):not([data-theme="dark"]) {
-    --bg: #121826;
-    --surface: #182030;
-    --surface-2: #33404f;
-    --card: #0c111c;
-    --text: #e6ecf8;
-    --text-dim: #93a1bd;
-    --accent: #c3ee5c;
-    --accent-text: #142338;
-    --border: #2c3546;
-    --danger: #f2938a;
-    --accent-soft: #2f3a1c;
-    --rule: #232c3c;
-    --rule-strong: #414d5f;
-  }
-}
-
-/* ---- 05 Tangerine ---- */
-:root[data-palette="tangerine"] {
-  --bg: #f8f1e6;
-  --surface: #f0e6d6;
-  --surface-2: #e4d7c3;
-  --card: #ffffff;
-  --text: #211d16;
-  --text-dim: #6b6454;
-  --accent: #ff7a1a;
-  --accent-text: #ffffff;
-  --border: #e3d6c2;
-  --danger: #c5372c;
-  --accent-soft: #ffe2c6;
-  --rule: #e4d7c3;
-  --rule-strong: #c9b99f;
-}
-:root[data-palette="tangerine"][data-theme="dark"] {
-  --bg: #17140f;
-  --surface: #201c15;
-  --surface-2: #3c352b;
-  --card: #100e0a;
-  --text: #f0e9dd;
-  --text-dim: #a39a88;
-  --accent: #ff7a1a;
-  --accent-text: #ffffff;
-  --border: #35302a;
-  --danger: #f2938a;
-  --accent-soft: #4a2f16;
-  --rule: #2b271f;
-  --rule-strong: #4a443a;
-}
-@media (prefers-color-scheme: dark) {
-  :root[data-palette="tangerine"]:not([data-theme="light"]):not([data-theme="dark"]) {
-    --bg: #17140f;
-    --surface: #201c15;
-    --surface-2: #3c352b;
-    --card: #100e0a;
-    --text: #f0e9dd;
-    --text-dim: #a39a88;
-    --accent: #ff7a1a;
-    --accent-text: #ffffff;
-    --border: #35302a;
-    --danger: #f2938a;
-    --accent-soft: #4a2f16;
-    --rule: #2b271f;
-    --rule-strong: #4a443a;
-  }
-}
-
-/* ---- 06 Volt ---- */
-:root[data-palette="volt"] {
-  --bg: #f5f5f2;
-  --surface: #eeeeea;
-  --surface-2: #e0e0dc;
-  --card: #ffffff;
-  --text: #171613;
-  --text-dim: #64645c;
-  --accent: #dcff33;
-  --accent-text: #14140a;
-  --border: #dededa;
-  --danger: #c5372c;
-  --accent-soft: #f0f9c8;
-  --rule: #e0e0dc;
-  --rule-strong: #c2c2bc;
-}
-:root[data-palette="volt"][data-theme="dark"] {
-  --bg: #131312;
-  --surface: #1a1a19;
-  --surface-2: #363634;
-  --card: #0b0b0a;
-  --text: #f0f0e8;
-  --text-dim: #93938a;
-  --accent: #dcff33;
-  --accent-text: #14140a;
-  --border: #33332f;
-  --danger: #f2938a;
-  --accent-soft: #3a3d1c;
-  --rule: #262624;
-  --rule-strong: #4a4a46;
-}
-@media (prefers-color-scheme: dark) {
-  :root[data-palette="volt"]:not([data-theme="light"]):not([data-theme="dark"]) {
-    --bg: #131312;
-    --surface: #1a1a19;
-    --surface-2: #363634;
-    --card: #0b0b0a;
-    --text: #f0f0e8;
-    --text-dim: #93938a;
-    --accent: #dcff33;
-    --accent-text: #14140a;
-    --border: #33332f;
-    --danger: #f2938a;
-    --accent-soft: #3a3d1c;
-    --rule: #262624;
-    --rule-strong: #4a4a46;
-  }
 }
 
 * { box-sizing: border-box; }
@@ -360,7 +62,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--sp-3);
   /* env(safe-area-inset-top) is 0 in today's standalone window, where the
      status bar is its own opaque strip. If the platform ever hands this PWA an
      edge-to-edge window (Android 15 + newer Chrome), the inset goes non-zero
@@ -373,7 +75,7 @@ body {
 .app-header h1 {
   font-family: "Rubik", system-ui, sans-serif;
   font-weight: 600;
-  font-size: 1.4rem;
+  font-size: var(--fs-display);
   letter-spacing: -0.02em;
   margin: 0;
 }
@@ -416,16 +118,16 @@ main {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--sp-2);
   height: 40px;
   color: var(--text-dim);
-  font-size: 0.85rem;
+  font-size: var(--fs-ui);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s ease;
 }
 .ptr-arrow {
-  font-size: 1rem;
+  font-size: var(--fs-lede);
   transition: transform 0.12s ease;
 }
 .ptr.ready .ptr-arrow { transform: rotate(180deg); }
@@ -468,19 +170,18 @@ input, .search {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--sp-3);
   padding: 10px 4px;
   border-bottom: 1px solid var(--rule);
   margin-bottom: 4px;
 }
-.add-plus { color: var(--text-dim); font-size: 1.2rem; width: 22px; text-align: center; }
+.add-plus { color: var(--text-dim); font-size: var(--fs-title); width: 22px; text-align: center; }
 .add-row input {
   border: none;
   background: transparent;
   padding: 4px 0;
   min-height: 36px;
 }
-.add-row input:focus { outline: none; }
 
 .suggestions {
   position: absolute;
@@ -488,7 +189,7 @@ input, .search {
   z-index: 10;
   background: var(--surface);
   border-radius: 10px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+  box-shadow: var(--shadow-raised);
   overflow: hidden;
 }
 .suggestions button {
@@ -503,7 +204,7 @@ input, .search {
 .suggestions button:last-child { border-bottom: none; }
 .suggestions .hint-line {
   padding: 6px 14px;
-  font-size: 0.78rem;
+  font-size: var(--fs-meta);
   color: var(--text-dim);
   background: var(--surface-2);
 }
@@ -513,20 +214,20 @@ input, .search {
 .list li {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--sp-3);
   padding: 11px 4px;
   border-bottom: 1px solid var(--rule);
 }
-.list li .main { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 7px; }
+.list li .main { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: var(--sp-2); }
 .list li .nm { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .list li .sub {
   flex: 0 1 auto; min-width: 0;
-  color: var(--text-dim); font-size: 0.85rem;
+  color: var(--text-dim); font-size: var(--fs-ui);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .list li .qty {
   flex: none; margin-left: auto; padding-left: 8px;
-  color: var(--text-dim); font-size: 0.85rem;
+  color: var(--text-dim); font-size: var(--fs-ui);
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .list.keep li .tick {
@@ -546,7 +247,7 @@ input, .search {
   border: none;
   background: transparent;
   color: var(--text-dim);
-  font-size: 1.1rem;
+  font-size: var(--fs-lede);
   line-height: 1;
   padding: 6px 8px;
   min-height: 32px;
@@ -554,12 +255,12 @@ input, .search {
 
 /* checked block */
 .checked-block { margin-top: 18px; }
-.checked-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.checked-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
 .tidy-btn {
   border: none;
   background: transparent;
   color: var(--text-dim);
-  font-size: 0.82rem;
+  font-size: var(--fs-ui);
   padding: 8px 4px;
   min-height: 32px;
   transition: opacity 0.2s ease;
@@ -572,10 +273,10 @@ input, .search {
   background: transparent;
   padding: 8px 4px;
   color: var(--text-dim);
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 .checked-list { opacity: 0.85; }
 
@@ -587,7 +288,7 @@ input, .search {
   border-top: 1px solid var(--rule);
 }
 .advanced-block > .checked-toggle {
-  font-size: 0.95rem;
+  font-size: var(--fs-body);
   font-weight: 500;
   color: var(--text);
   padding-left: 0;
@@ -603,7 +304,7 @@ input, .search {
 .control-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--sp-3);
   min-height: 40px;
   margin-top: 10px;
 }
@@ -626,12 +327,12 @@ input, .search {
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--sp-1);
   border: none;
   background: transparent;
   color: var(--accent);
   font-weight: 500;
-  font-size: 0.82rem;
+  font-size: var(--fs-ui);
   padding: 6px 4px;
   min-height: 32px;
 }
@@ -640,13 +341,14 @@ input, .search {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   height: 40px;
   padding: 0 12px;
   border: none;
   border-radius: 999px;
   background: var(--surface-2);
 }
+.search-field:focus-within { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
 .search-field > svg { width: 16px; height: 16px; color: var(--text-dim); flex: none; }
 .search-field input {
   flex: 1;
@@ -655,7 +357,7 @@ input, .search {
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 0.95rem;
+  font-size: var(--fs-body);
   min-width: 0;
   min-height: 0;
   padding: 0;
@@ -672,10 +374,10 @@ input, .search {
 }
 .search-field .clr svg { width: 15px; height: 15px; }
 
-.rails { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.rails { margin-top: 10px; display: flex; flex-direction: column; gap: var(--sp-2); }
 .rail {
   display: flex;
-  gap: 7px;
+  gap: var(--sp-2);
   overflow-x: auto;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
@@ -693,7 +395,7 @@ input, .search {
   flex: none;
   align-self: center;
   font-weight: 500;
-  font-size: 0.78rem;
+  font-size: var(--fs-meta);
   color: var(--text-dim);
   padding-right: 4px;
 }
@@ -702,7 +404,7 @@ input, .search {
   padding: 6px 13px;
   min-height: 36px;
   border-radius: 999px;
-  font-size: 0.85rem;
+  font-size: var(--fs-ui);
   white-space: nowrap;
   background: var(--surface-2);
   color: var(--text-dim);
@@ -713,11 +415,11 @@ input, .search {
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sp-2);
   border: none;
   background: transparent;
   color: var(--text-dim);
-  font-size: 0.82rem;
+  font-size: var(--fs-ui);
   padding: 6px 2px;
   min-height: 32px;
 }
@@ -736,20 +438,20 @@ input, .search {
   padding: 6px;
   border-radius: 14px;
   background: var(--card);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--shadow-raised);
 }
 .sort-opt {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--sp-3);
   width: 100%;
   border: none;
   background: transparent;
   color: var(--text);
   text-align: left;
   font: inherit;
-  font-size: 0.86rem;
+  font-size: var(--fs-ui);
   line-height: 1.25;
   padding: 9px 10px;
   border-radius: 10px;
@@ -763,7 +465,7 @@ input, .search {
    feeds them to auto-fill; the Plan tab's strips have no grid to do that for
    them, so sizePlanStrips() reads these and runs the same arithmetic. Change
    either here and both tabs follow. */
-:root { --card-min: 150px; --card-gap: 10px; }
+:root { --card-min: 150px; --card-gap: var(--sp-3); }
 #recipeList {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(var(--card-min), 1fr));
@@ -794,7 +496,7 @@ li.recipe-card {
 }
 .recipe-card .main {
   font-weight: 500;
-  font-size: 0.98rem;
+  font-size: var(--fs-lede);
   line-height: 1.25;
   letter-spacing: -0.005em;
   padding-right: 46px;
@@ -814,9 +516,9 @@ li.recipe-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--sp-3);
   min-height: 30px;
-  font-size: 0.72rem;
+  font-size: var(--fs-meta);
   color: var(--text-dim);
 }
 .card-time {
@@ -826,7 +528,7 @@ li.recipe-card {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-.dots { display: inline-flex; gap: 4px; flex-shrink: 0; margin-left: auto; }
+.dots { display: inline-flex; gap: var(--sp-1); flex-shrink: 0; margin-left: auto; }
 .dots i {
   width: 6px;
   height: 6px;
@@ -843,7 +545,7 @@ li.recipe-card {
   padding: 2px 8px;
   background: var(--surface);
   border-radius: 999px;
-  font-size: 0.68rem;
+  font-size: var(--fs-micro);
   letter-spacing: 0.02em;
 }
 .stub-body { padding: 4px 0 8px; }
@@ -870,11 +572,11 @@ li.recipe-card {
   font-weight: 600;
   margin: 0 0 8px;
 }
-.who-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.who-buttons { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .who-buttons button {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--sp-2);
 }
 .who-buttons button svg { width: 17px; height: 17px; flex: none; }
 .who-buttons button.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
@@ -888,18 +590,18 @@ li.recipe-card {
 }
 .who-buttons button.on .pal-swatch { border-color: var(--accent-text); }
 
-.token-row { display: flex; gap: 8px; width: 75%; min-width: 240px; }
+.token-row { display: flex; gap: var(--sp-2); width: 75%; min-width: 240px; }
 .token-row input { flex: 1; min-width: 0; }
-.hint { color: var(--text-dim); font-size: 0.85rem; margin: 6px 0 0; }
+.hint { color: var(--text-dim); font-size: var(--fs-ui); margin: 6px 0 0; }
 
-.token-status { font-size: 0.85rem; margin: 8px 0 0; font-weight: 600; }
+.token-status { font-size: var(--fs-ui); margin: 8px 0 0; font-weight: 600; }
 .token-status.checking { color: var(--text-dim); font-weight: 400; }
 .token-status.ok { color: var(--accent); }
 .token-status.error { color: var(--danger); }
 
 /* sync section */
-.sync-status { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
-.sync-line { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; }
+.sync-status { display: flex; flex-direction: column; gap: var(--sp-1); margin-bottom: 12px; }
+.sync-line { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-body); }
 .sync-line i {
   width: 8px; height: 8px; border-radius: 50%; flex: none;
   background: var(--text-dim);
@@ -910,21 +612,21 @@ li.recipe-card {
 .sync-line.muted { color: var(--text-dim); }
 
 /* custom theme editor: name | light | dark */
-.custom-grid { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.custom-grid { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: 4px; }
 .ct-head, .ct-row {
   display: grid;
   grid-template-columns: minmax(64px, 1fr) minmax(0, 1.25fr) minmax(0, 1.25fr);
-  gap: 8px;
+  gap: var(--sp-2);
   align-items: center;
 }
 .ct-head {
-  font-size: 0.72rem;
+  font-size: var(--fs-meta);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-dim);
 }
-.ct-name { font-size: 0.86rem; }
-.ct-cell { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ct-name { font-size: var(--fs-ui); }
+.ct-cell { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; }
 .ct-prev {
   width: 20px; height: 20px; border-radius: 6px; flex: none;
   border: 1px solid var(--rule-strong);
@@ -932,7 +634,7 @@ li.recipe-card {
 .ct-hex {
   flex: 1; min-width: 0;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  font-size: 0.82rem; text-transform: lowercase;
+  font-size: var(--fs-ui); text-transform: lowercase;
   padding: 8px 6px;
 }
 .ct-hex.bad { box-shadow: inset 0 0 0 1.5px var(--danger); color: var(--danger); }
@@ -942,7 +644,7 @@ li.recipe-card {
   background: var(--surface-2);
   color: var(--text-dim);
   padding: 8px 16px;
-  font-size: 0.85rem;
+  font-size: var(--fs-ui);
   text-align: center;
 }
 .banner-tap {
@@ -1012,39 +714,39 @@ body.readonly .add-row input { cursor: not-allowed; }
   display: block;
   font-family: "Rubik", system-ui, sans-serif;
   font-weight: 600;
-  font-size: 1.35rem;
+  font-size: var(--fs-title-lg);
   line-height: 1.15;
   letter-spacing: -0.02em;
   text-wrap: balance;
 }
-.detail-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.detail-tags { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: 9px; }
 .detail-tag {
   padding: 2px 9px;
   border-radius: 999px;
   background: var(--accent);
   color: var(--accent-text);
-  font-size: 0.72rem;
+  font-size: var(--fs-meta);
   letter-spacing: 0.02em;
 }
 
 .detail-inner { max-width: 720px; margin: 0 auto; padding: 16px; }
-.detail h3 { margin: 22px 0 10px; font-size: 1.15rem; }
+.detail h3 { margin: 22px 0 10px; font-size: var(--fs-title); }
 .detail .unconfirmed {
   color: var(--danger);
-  font-size: 0.8rem;
+  font-size: var(--fs-ui);
   margin: 12px 0 0;
 }
 
 .scaler {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   margin: 4px 0 6px;
 }
 .scaler-label {
   flex: none;
   font-weight: 500;
-  font-size: 0.8rem;
+  font-size: var(--fs-ui);
   color: var(--text-dim);
 }
 .scaler .reset {
@@ -1052,7 +754,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   border: none;
   background: transparent;
   color: var(--text-dim);
-  font-size: 0.85rem;
+  font-size: var(--fs-ui);
   padding: 4px 2px;
   min-height: 32px;
 }
@@ -1060,7 +762,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   flex: 1;
   min-width: 0;
   display: flex;
-  gap: 7px;
+  gap: var(--sp-2);
   overflow-x: auto;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
@@ -1109,7 +811,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--sp-3);
   margin: 22px 0 10px;
 }
 .ing-head h3 { margin: 0; }
@@ -1175,7 +877,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   display: grid;
   grid-column: 1 / -1;
   grid-template-columns: subgrid;
-  column-gap: 12px;
+  column-gap: var(--sp-3);
   align-items: end;
   min-height: 38px;
   padding: 0 0 6px;
@@ -1202,7 +904,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   color: var(--accent);
 }
 .ing-list .nm { min-width: 0; }
-.ing-list .note { color: var(--text-dim); font-size: 0.85rem; }
+.ing-list .note { color: var(--text-dim); font-size: var(--fs-ui); }
 /* the row buttons match the header one they replaced */
 .ing-list .ing-add { width: 36px; height: 36px; }
 .ing-list .ing-add svg { width: 18px; height: 18px; }
@@ -1222,7 +924,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   border: none; border-radius: 50%;
   background: var(--accent); color: var(--accent-text);
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow-card);
   cursor: pointer;
   opacity: 0; transform: translateY(8px); pointer-events: none;
   transition: opacity 0.18s ease, transform 0.18s ease;
@@ -1254,7 +956,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: var(--sp-1);
   padding: 0;
 }
 /* the pill that appears behind the icon on the active tab */
@@ -1275,7 +977,7 @@ body.readonly .add-row input { cursor: not-allowed; }
 .bottom-nav button.active .nav-icon { background: var(--accent-soft); }
 
 .nav-label {
-  font-size: 0.66rem;
+  font-size: var(--fs-micro);
   line-height: 1;
   letter-spacing: 0.01em;
 }
@@ -1292,7 +994,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   border-radius: 999px;
   background: var(--accent);
   color: var(--accent-text);
-  font-size: 0.62rem;
+  font-size: var(--fs-micro);
   font-weight: 700;
   line-height: 16px;
   text-align: center;
@@ -1315,21 +1017,21 @@ body.readonly .add-row input { cursor: not-allowed; }
   padding: 0 2px;
   margin-bottom: 8px;
 }
-.tab-section-title { font-weight: 600; font-size: 1.05rem; }
-.tab-section-sub { color: var(--text-dim); font-size: 0.78rem; }
+.tab-section-title { font-weight: 600; font-size: var(--fs-lede); }
+.tab-section-sub { color: var(--text-dim); font-size: var(--fs-meta); }
 /* A lede under the title, not beside it. "Worth pairing" does not say what is
    being paired, so its one line is load-bearing rather than decoration - it is
    always visible, never a tooltip (v11 spec §8). */
 .tab-section-lede {
   color: var(--text-dim);
-  font-size: 0.82rem;
+  font-size: var(--fs-ui);
   line-height: 1.35;
   margin: -4px 2px 8px;
 }
 /* Reset by the Trends title - same flat, dim treatment as the Servings reset */
 .tab-section-head .reset {
   flex: none; border: none; background: transparent;
-  color: var(--text-dim); font-size: 0.82rem;
+  color: var(--text-dim); font-size: var(--fs-ui);
   padding: 2px 2px; min-height: 0; align-self: center;
 }
 
@@ -1337,7 +1039,7 @@ body.readonly .add-row input { cursor: not-allowed; }
 /* Category (L1 + L2) and Product (L3): a fixed label, then a row the pills
    divide between them. Nothing overflows any more, so the row does not
    scroll and the label has nothing to mask. */
-.price-pills-row { display: flex; align-items: center; gap: 7px; }
+.price-pills-row { display: flex; align-items: center; gap: var(--sp-2); }
 .price-pills-row + .price-pills-row { margin-top: 7px; }
 /* fixed width so both rows' pills start at the same x */
 .price-pills-row .rail-label,
@@ -1345,7 +1047,7 @@ body.readonly .add-row input { cursor: not-allowed; }
 .price-pills-row .rail-label { flex: none; padding-right: 7px; }
 .price-pills {
   flex: 1; min-width: 0;
-  display: flex; align-items: center; gap: 7px; flex-wrap: nowrap;
+  display: flex; align-items: center; gap: var(--sp-2); flex-wrap: nowrap;
 }
 
 /* A Category pill is as wide as its own label, and shrinks - proportionally,
@@ -1380,9 +1082,9 @@ body.readonly .add-row input { cursor: not-allowed; }
 .pill-wrap { position: relative; flex: none; }
 .pill {
   flex: none;
-  display: inline-flex; align-items: center; gap: 6px;
+  display: inline-flex; align-items: center; gap: var(--sp-2);
   padding: 6px 12px; min-height: 0; border: none;
-  border-radius: 999px; font-size: 0.82rem; white-space: nowrap;
+  border-radius: 999px; font-size: var(--fs-ui); white-space: nowrap;
   background: var(--surface-2); color: var(--text-dim); font-weight: 500;
 }
 .pill.sel { background: var(--accent); color: var(--accent-text); font-weight: 600; }
@@ -1391,7 +1093,7 @@ body.readonly .add-row input { cursor: not-allowed; }
 .pill-x {
   display: inline-flex; align-items: center; justify-content: center;
   width: 15px; height: 15px; flex: none; border-radius: 50%;
-  background: rgba(255, 255, 255, 0.22); font-size: 0.62rem;
+  background: rgba(255, 255, 255, 0.22); font-size: var(--fs-micro);
 }
 /* only the deepest filled pill is accent, so a clearable pill can sit on the
    grey surface - where a translucent white disc vanishes in the light theme.
@@ -1422,7 +1124,7 @@ body.readonly .add-row input { cursor: not-allowed; }
    Each control takes half the line, because two options are two equal
    options: neither "6 months" nor "All time" is the one being qualified. */
 .price-subfilters {
-  display: flex; gap: 7px; align-items: stretch;
+  display: flex; gap: var(--sp-2); align-items: stretch;
   margin: 10px 0 6px;
 }
 .price-subfilters > .pill-wrap { flex: 1 1 0; min-width: 0; }
@@ -1446,7 +1148,7 @@ body.readonly .add-row input { cursor: not-allowed; }
 }
 .segment button {
   position: relative; z-index: 1; flex: 1 1 0; min-width: 0;
-  border: none; background: none; font: inherit; font-size: 0.82rem;
+  border: none; background: none; font: inherit; font-size: var(--fs-ui);
   font-weight: 500; color: var(--text-dim); padding: 6px 4px; min-height: 0;
   border-radius: 999px; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
@@ -1463,19 +1165,19 @@ body.readonly .add-row input { cursor: not-allowed; }
   position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
   min-width: 190px; max-width: 78vw;
   background: var(--card); border: 1px solid var(--border);
-  border-radius: 12px; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+  border-radius: 12px; box-shadow: var(--shadow-raised);
   padding: 6px;
 }
 .pill-opts { max-height: 240px; overflow-y: auto; }
 .pill-search {
   width: 100%; box-sizing: border-box; margin-bottom: 4px;
   padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
-  background: var(--surface); color: var(--text); font-size: 0.85rem;
+  background: var(--surface); color: var(--text); font-size: var(--fs-ui);
 }
 .pill-opt {
   display: block; width: 100%; text-align: left;
   padding: 9px 10px; min-height: 0; border: none; background: transparent;
-  color: var(--text); font-size: 0.85rem; border-radius: 8px;
+  color: var(--text); font-size: var(--fs-ui); border-radius: 8px;
 }
 .pill-opt.on { color: var(--accent); font-weight: 600; }
 .pill-opt:active { background: var(--surface-2); }
@@ -1490,7 +1192,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   text-align: center;
   background: transparent;
   color: var(--accent);
-  font-size: 0.82rem;
+  font-size: var(--fs-ui);
   font-weight: 600;
   padding: 9px 0;
   min-height: 0;
@@ -1503,7 +1205,7 @@ body.readonly .add-row input { cursor: not-allowed; }
 .opp-row {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: var(--sp-2);
   padding: 8px 8px;
   border-bottom: 1px solid var(--rule);
   cursor: pointer;
@@ -1514,8 +1216,8 @@ body.readonly .add-row input { cursor: not-allowed; }
    .price-bubble so a coloured bubble means the same thing everywhere */
 .opp-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* same treatment as .list li .qty, so the two rows genuinely read as one row shape */
-.opp-price { flex: none; color: var(--text-dim); font-size: 0.85rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.opp-empty { padding: 14px 8px; color: var(--text-dim); font-size: 0.88rem; }
+.opp-price { flex: none; color: var(--text-dim); font-size: var(--fs-ui); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.opp-empty { padding: 14px 8px; color: var(--text-dim); font-size: var(--fs-body); }
 
 /* ---- Trends ---- */
 .trends-card { background: var(--card); border-radius: 14px; padding: 14px 12px 4px; }
@@ -1523,22 +1225,25 @@ body.readonly .add-row input { cursor: not-allowed; }
 /* the legend sits between the chart and the KPI cards, same row shape as
    Period/Product above but plain text since it isn't itself a filter */
 #priceLegend { margin: 4px 0 14px; }
-.legend-item { display: flex; align-items: center; gap: 5px; align-self: center; flex: none; padding: 6px 0; font-size: 0.78rem; color: var(--text-dim); white-space: nowrap; }
+.legend-item { display: flex; align-items: center; gap: var(--sp-1); align-self: center; flex: none; padding: 6px 0; font-size: var(--fs-meta); color: var(--text-dim); white-space: nowrap; }
 .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 
 .price-chart-wrap { margin-bottom: 4px; }
 .price-svg { width: 100%; height: auto; display: block; }
 .chart-grid { stroke: var(--rule); stroke-width: 1; }
+/* Chart text is deliberately OFF the type ramp and sized in px: --fs-micro
+   resolves to 10.4px, too big for an axis label. The only place in this app
+   where a raw font size is correct. */
 .chart-axis { font-size: 9px; fill: var(--text-dim); }
 .price-pt { cursor: pointer; }
 .promo-mark { font-size: 8px; fill: #fff; text-anchor: middle; font-weight: 600; }
 
-.price-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 0 4px; }
+.price-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); margin: 0 0 4px; }
 .metric-card { background: var(--surface); border-radius: 12px; padding: 10px 12px; }
-.metric-label { color: var(--text-dim); font-size: 0.72rem; margin-bottom: 4px; }
-.metric-value { font-weight: 600; font-size: 1.15rem; }
-.metric-unit { font-size: 0.68rem; color: var(--text-dim); font-weight: 400; }
-.metric-store { display: flex; align-items: center; gap: 5px; margin-top: 4px; font-size: 0.72rem; color: var(--text-dim); }
+.metric-label { color: var(--text-dim); font-size: var(--fs-meta); margin-bottom: 4px; }
+.metric-value { font-weight: 600; font-size: var(--fs-title); }
+.metric-unit { font-size: var(--fs-micro); color: var(--text-dim); font-weight: 400; }
+.metric-store { display: flex; align-items: center; gap: var(--sp-1); margin-top: 4px; font-size: var(--fs-meta); color: var(--text-dim); }
 
 /* the chart icon + optional store-coloured bubble - shared by a shopping-
    list row and a Worth watching row, so the same bubble means the same
@@ -1583,7 +1288,7 @@ body.readonly .add-row input { cursor: not-allowed; }
 .price-row .pt-cell:last-child { padding-right: 0; }
 .pt-head {
   padding-top: 9px; padding-bottom: 9px;
-  font-size: 0.72rem;
+  font-size: var(--fs-meta);
   color: var(--text-dim);
   border-bottom: 1px solid var(--rule-strong);
 }
@@ -1591,7 +1296,7 @@ body.readonly .add-row input { cursor: not-allowed; }
 .pt-year {
   grid-column: 1 / -1;
   padding: 14px 0 6px;
-  font-size: 0.74rem;
+  font-size: var(--fs-meta);
   font-weight: 700;
   letter-spacing: 0.04em;
   color: var(--text-dim);
@@ -1614,21 +1319,21 @@ body.readonly .add-row input { cursor: not-allowed; }
      horizontal padding either, and lands flush under a plain summary price,
      while an offer child's pill lines up with the summary's own pill. */
   justify-content: flex-end;
-  gap: 7px;
+  gap: var(--sp-2);
   padding: 0 0 11px 0;
   border-bottom: 1px solid var(--rule);
-  font-size: 0.8rem;
+  font-size: var(--fs-ui);
   font-variant-numeric: tabular-nums;
 }
 .pt-subs[hidden] { display: none; }
 .pt-subitem { color: var(--text-dim); padding: 2px 0; }
 .price-row.expanded.has-subs .pt-cell { border-bottom: none; }
-.pt-caret { margin-left: 3px; font-size: 0.66rem; color: var(--text-dim); }
+.pt-caret { margin-left: 3px; font-size: var(--fs-micro); color: var(--text-dim); }
 
-.price-date { white-space: nowrap; font-size: 0.8rem; color: var(--text-dim); }
-.price-qty { white-space: nowrap; font-size: 0.8rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.price-date { white-space: nowrap; font-size: var(--fs-ui); color: var(--text-dim); }
+.price-qty { white-space: nowrap; font-size: var(--fs-ui); color: var(--text-dim); font-variant-numeric: tabular-nums; }
 .price-value {
-  white-space: nowrap; font-weight: 600; font-size: 0.84rem;
+  white-space: nowrap; font-weight: 600; font-size: var(--fs-ui);
   font-variant-numeric: tabular-nums;
 }
 /* a promo price sits in an accent pill - no separate marker */
@@ -1640,10 +1345,10 @@ body.readonly .add-row input { cursor: not-allowed; }
 }
 
 .price-item {
-  font-size: 0.84rem;
+  font-size: var(--fs-ui);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.price-store { display: flex; align-items: center; gap: 5px; font-size: 0.82rem; }
+.price-store { display: flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-ui); }
 .price-store-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Tapped-open row: the clipped names wrap and the row grows around them.
@@ -1696,16 +1401,16 @@ body.readonly .add-row input { cursor: not-allowed; }
   border-radius: 12px;
   text-align: center;
   color: var(--text-dim);
-  font-size: 0.88rem;
+  font-size: var(--fs-body);
 }
 .plan-row + .plan-row { margin-top: 22px; }
 
-.plan-share { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 9px; }
+.plan-share { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: 9px; }
 /* The chip carries the risk in its weight, not in a badge or a number: `high`
    is the reason the row exists, `medium` is a milder version of the same
    thing. No legend, because two levels do not need explaining. */
 .plan-chip {
-  font-size: 0.72rem;
+  font-size: var(--fs-meta);
   padding: 3px 8px;
   border-radius: 999px;
   background: var(--surface-2);
@@ -1736,3 +1441,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   flex: 0 0 var(--plan-card-w, calc((100% - var(--card-gap)) / 2));
   scroll-snap-align: start;
 }
+
+/* Accessible focus, which this app did not have before 19/09/2026: it had
+   `outline: none` in two places and no focus style anywhere else. */
+:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }

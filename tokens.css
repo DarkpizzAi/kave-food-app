@@ -1,0 +1,511 @@
+/* ============================================================
+   Household design tokens. The single source of truth for every
+   colour, type step, spacing step, radius and motion value used
+   by any surface in this household: Spoon, Compass, the hub
+   webpage, dashboards, artifacts.
+
+   Spec: docs/superpowers/specs/2026-09-10-household-app-conventions-design.md
+   Reasoning: design/data/household-look.md
+
+   THIS FILE IS COPIED INTO THE APP REPOS by
+   design/tools/sync-household-tokens.py, where it lands as
+   tokens.css. Never hand-edit a downstream copy: edit this file
+   and re-sync. `sync-household-tokens.py --check` reports drift
+   without writing.
+
+   Values are Spoon's, lifted unchanged. The STRUCTURE is not
+   Spoon's: see "Dark promotion" below for the one deliberate
+   restructure and why it removes a bug class.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   TYPE
+
+   Modular scale, ratio 1.125, anchored on 0.82rem. The anchor is
+   not arbitrary: 0.82 was already the most common size in Spoon
+   (10 declarations), so anchoring there is what kept the
+   workhorse text still through the migration.
+
+   Families: Rubik for everything, ui-monospace for figures.
+   Weights 400 / 500 / 600 / 700, with 600 doing most of the work.
+   Headings are 600 with -0.01em tracking.
+
+   NOT ON THIS RAMP: chart text inside SVG. --fs-micro resolves to
+   10.4px, which is too large for an axis label. Chart text is
+   sized deliberately in px (Spoon uses 9px axis, 8px promo
+   glyph). That is an exception, and it is the only one.
+   ------------------------------------------------------------ */
+:root {
+  /* Tells the browser which way the page leans, so scrollbars, form controls
+     and the Android gesture bar follow the theme instead of staying light.
+     Lives here rather than per-surface because every surface wants it and a
+     CSS-only page has no other way to say it. Spoon also sets it from JS,
+     to the same value. */
+  color-scheme: light;
+
+  --font-ui: "Rubik", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+  --fs-micro: 0.65rem;     /* nav labels, badges, carets */
+  --fs-meta: 0.73rem;      /* card meta, tags, chips, secondary labels */
+  --fs-ui: 0.82rem;        /* THE WORKHORSE: pills, buttons, list rows, banners, hints */
+  --fs-body: 0.92rem;      /* inputs, card titles, toggles */
+  --fs-lede: 1.04rem;      /* section titles, intro text */
+  --fs-title: 1.17rem;     /* sheet section headings, metric values */
+  --fs-title-lg: 1.32rem;  /* sheet titles */
+  --fs-display: 1.48rem;   /* app header */
+
+  --lh-base: 1.45;
+  --tracking-heading: -0.01em;
+
+  /* PAGE TIER ONLY. The eight steps above are a phone app's ramp and stop at
+     --fs-display, which is an app header: 1.48rem is about 24px. A dashboard
+     headline needs more, and the Spend Dashboard proved it on first contact
+     (its h1 was clamp(2.4rem, 5vw, 3.4rem)). These continue the same 1.125
+     ratio upward rather than inventing a second scale beside it, so the whole
+     ramp is still one geometric series.
+
+     Consequence worth knowing: type IS tiered after all. The spec said it was
+     not. A phone stops at --fs-display; a page may go past it. */
+  --fs-xl: 1.67rem;
+  --fs-2xl: 1.87rem;
+  --fs-3xl: 2.11rem;
+  --fs-4xl: 2.37rem;
+  --fs-page-title: clamp(2.37rem, 5vw, 3.38rem);
+}
+
+/* ------------------------------------------------------------
+   ELEVATION
+
+   Spoon hardcodes its shadows as literal rgba in four places, which is
+   why there was no token for this until a second surface needed one.
+   Two levels: resting cards, and things that float above the page.
+   ------------------------------------------------------------ */
+:root {
+  --shadow-card: 0 1px 2px rgba(20, 20, 20, 0.06), 0 6px 20px rgba(20, 20, 20, 0.05);
+  --shadow-raised: 0 6px 20px rgba(20, 20, 20, 0.18);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.30), 0 6px 24px rgba(0, 0, 0, 0.35);
+    --shadow-raised: 0 10px 28px rgba(0, 0, 0, 0.45);
+  }
+}
+
+/* ------------------------------------------------------------
+   SPACING
+
+   Strict 4pt grid. Both fixed dimensions below are already on it,
+   so neither moved: --nav-h is 4x16, --touch-min is 4x11.
+
+   DENSITY TIERS are a convention, not a selector. Nothing here
+   enforces them, because a surface that needs to break one
+   should do so visibly rather than by defeating a rule:
+
+     phone  (Spoon, Compass)      steps 1 to 4 do the work,
+                                  --sp-5 is a section break
+     page   (hub, dashboards,     steps 3 to 7
+             artifacts)
+
+   Where the nearest step is a tie, ROLE decides, not arithmetic:
+     icon-to-label pair (dot beside a store name)  --sp-1
+     inline control row (chips, pills, tags)       --sp-2
+     grid gutter (card grids, metric grids)        --sp-3
+     section spacing                               --sp-4 / --sp-5
+   ------------------------------------------------------------ */
+:root {
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+
+  --nav-h: 64px;      /* bottom tab bar. Scroll containers reserve
+                         calc(var(--nav-h) + env(safe-area-inset-bottom, 0px)) */
+  --touch-min: 44px;  /* minimum tap target. Secondary controls may go to 40px */
+}
+
+/* ------------------------------------------------------------
+   RADIUS
+   ------------------------------------------------------------ */
+:root {
+  --r-pill: 999px;              /* pills, chips, badges */
+  --r-card: 12px;               /* cards, panels, menus */
+  --r-control: 8px;             /* inputs, small buttons, options */
+  --r-sheet: 18px 18px 0 0;     /* bottom sheets */
+  --r-round: 50%;               /* avatars, dots, icon buttons */
+  --r-square: 0;                /* bars and stacked bars, ALWAYS. See charts below */
+}
+
+/* ------------------------------------------------------------
+   MOTION
+
+   120 to 280ms. Colour and opacity use --ease-standard; sheet
+   transforms and drag have their own curves.
+
+   EVERY animated rule needs a prefers-reduced-motion: reduce
+   counterpart. This is not optional and it is not decorative:
+   Spoon carries four of them.
+
+   Feedback is a LABEL SWAP held for --confirm-ms, not a toast
+   ("Add to the shopping list" becomes "Added to the shopping
+   list"). Status uses a banner, with a tappable variant.
+   ------------------------------------------------------------ */
+:root {
+  --motion-fast: 120ms;
+  --motion-base: 180ms;
+  --motion-slow: 280ms;
+
+  --ease-standard: ease;
+  --ease-sheet: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-drag: cubic-bezier(0.3, 0.7, 0.3, 1);
+
+  --confirm-ms: 1500ms;  /* JS keeps its own numeric constant; keep them equal */
+}
+
+/* ------------------------------------------------------------
+   FOCUS
+
+   NOTE: Spoon does not currently do this. It has `outline: none`
+   in two places and no focus style anywhere else, so it is
+   non-conformant against this rule as of 2026-09-19. Fixing that
+   belongs to the Spoon CSS migration; the household standard is
+   stated here regardless of who currently meets it.
+   ------------------------------------------------------------ */
+:root {
+  --focus-ring: 2px solid var(--accent);
+  --focus-offset: 2px;
+}
+
+/* ------------------------------------------------------------
+   SEMANTIC COLOURS
+
+   Outside the palette system on purpose, so a colour keeps its
+   meaning under every palette. A palette's accent is decoration;
+   "this got better" is information.
+
+   The fixed-roster rule goes with them: an entity outside a known
+   colour roster renders greyscale, never an invented colour.
+   ------------------------------------------------------------ */
+:root {
+  --good-bg: #dff3ea;
+  --good-tx: #1c6b4d;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --good-bg: #143f30;
+    --good-tx: #7fd9b6;
+  }
+}
+
+/* ------------------------------------------------------------
+   THIRD TEXT TIER
+
+   Spoon needs two text weights (--text, --text-dim) and has never wanted a
+   third. A dense page does: the Spend Dashboard uses three, with 22 uses of
+   the faintest, and collapsing them would flatten a hierarchy that is doing
+   real work in a table.
+
+   Derived rather than hand-authored, so it exists for all six palettes and
+   for Custom without twelve more hex values to keep in step. Order-
+   independent: custom property references resolve after the cascade, so this
+   picks up whichever palette's --text-dim and --bg won.
+   ------------------------------------------------------------ */
+:root {
+  --text-faint: color-mix(in srgb, var(--text-dim) 70%, var(--bg));
+}
+
+/* ------------------------------------------------------------
+   PALETTES
+
+   Thirteen themeable tokens, in the order the custom editor shows
+   them. Six named palettes plus Custom, selected by data-palette
+   on <html>; absent means Cobalt.
+
+   TONAL LOGIC, and it is the same for every palette:
+     LIGHT  card lightest, then header and footer, then
+            background, then filters and search darkest
+     DARK   that order inverted
+
+   LIGHT / DARK FOLLOWS THE OS, ALWAYS. There is no in-app
+   override. [data-theme] is an internal read mechanism only: the
+   custom-colour editor sets and restores it to read a palette's
+   resolved hex. An app that adds a user-facing override is
+   diverging deliberately and must say so.
+
+   Every token has its LIGHT definition on a bare selector first.
+   Never declare a colour only inside a media or [data-theme]
+   block.
+
+   DARK PROMOTION - the one structural change from Spoon.
+   Spoon writes each palette's dark set out twice, once for
+   [data-theme="dark"] and once inside the prefers-color-scheme
+   block. That is 78 hex values duplicated and 78 chances for the
+   two paths to silently disagree. Here each palette parks its
+   dark set once as --dk-*, and the two rules at the bottom
+   promote it for every palette at once. The values exist exactly
+   once and the two paths cannot diverge.
+
+   Those promotion rules MUST stay last in this file: they tie
+   with the palette selectors on specificity, so source order is
+   what makes them win.
+   ------------------------------------------------------------ */
+
+/* ---- 01 Cobalt (default) ---- */
+:root {
+  --bg: #f4f7fd;
+  --surface: #e9eef8;
+  --surface-2: #dbe3f2;
+  --card: #ffffff;
+  --text: #1f2430;
+  --text-dim: #5c6270;
+  --accent: #1a73e8;
+  --accent-text: #ffffff;
+  --accent-soft: #d7e6fb;
+  --border: #d5dded;
+  --rule: #dbe3f2;
+  --rule-strong: #b6c1d6;
+  --danger: #c5372c;
+
+  --dk-bg: #16181d;
+  --dk-surface: #1c1e24;
+  --dk-surface-2: #363b44;
+  --dk-card: #0f1013;
+  --dk-text: #e7eaf2;
+  --dk-text-dim: #9aa0ac;
+  --dk-accent: #1a73e8;
+  --dk-accent-text: #ffffff;
+  --dk-accent-soft: #17365f;
+  --dk-border: #333944;
+  --dk-rule: #2b2e36;
+  --dk-rule-strong: #454b57;
+  --dk-danger: #f2938a;
+}
+
+/* ---- 02 Amber ---- */
+:root[data-palette="amber"] {
+  --bg: #faf8f0;
+  --surface: #f2efe3;
+  --surface-2: #e6e2d4;
+  --card: #ffffff;
+  --text: #23211c;
+  --text-dim: #625e52;
+  --accent: #f4b400;
+  --accent-text: #201d0a;
+  --accent-soft: #fdeecb;
+  --border: #e3ddcc;
+  --rule: #e6e2d4;
+  --rule-strong: #c9c2ac;
+  --danger: #c5372c;
+
+  --dk-bg: #191813;
+  --dk-surface: #201f1a;
+  --dk-surface-2: #3a382f;
+  --dk-card: #100f0c;
+  --dk-text: #ece8dc;
+  --dk-text-dim: #a09a8a;
+  --dk-accent: #f4b400;
+  --dk-accent-text: #201d0a;
+  --dk-accent-soft: #4a3d1a;
+  --dk-border: #35332b;
+  --dk-rule: #2c2b24;
+  --dk-rule-strong: #4a4740;
+  --dk-danger: #f2938a;
+}
+
+/* ---- 03 Chartreuse ---- */
+:root[data-palette="chartreuse"] {
+  --bg: #f5f6fa;
+  --surface: #ebedf3;
+  --surface-2: #dde0ea;
+  --card: #ffffff;
+  --text: #1e1f24;
+  --text-dim: #5f6470;
+  --accent: #d7d63a;
+  --accent-text: #1b1b06;
+  --accent-soft: #eeeeba;
+  --border: #d5d8e3;
+  --rule: #dde0ea;
+  --rule-strong: #bcc0cd;
+  --danger: #c5372c;
+
+  --dk-bg: #16171b;
+  --dk-surface: #1d1e23;
+  --dk-surface-2: #383b43;
+  --dk-card: #0f1012;
+  --dk-text: #eceef4;
+  --dk-text-dim: #999ea8;
+  --dk-accent: #d7d63a;
+  --dk-accent-text: #1b1b06;
+  --dk-accent-soft: #3c3c1e;
+  --dk-border: #34363f;
+  --dk-rule: #2b2c33;
+  --dk-rule-strong: #474a54;
+  --dk-danger: #f2938a;
+}
+
+/* ---- 04 Lime ---- */
+:root[data-palette="lime"] {
+  --bg: #f0f4fc;
+  --surface: #e2e9f7;
+  --surface-2: #d0dbf0;
+  --card: #ffffff;
+  --text: #172542;
+  --text-dim: #566486;
+  --accent: #c3ee5c;
+  --accent-text: #142338;
+  --accent-soft: #e6f6c4;
+  --border: #c8d5ec;
+  --rule: #d0dbf0;
+  --rule-strong: #a9b8d6;
+  --danger: #c5372c;
+
+  --dk-bg: #121826;
+  --dk-surface: #182030;
+  --dk-surface-2: #33404f;
+  --dk-card: #0c111c;
+  --dk-text: #e6ecf8;
+  --dk-text-dim: #93a1bd;
+  --dk-accent: #c3ee5c;
+  --dk-accent-text: #142338;
+  --dk-accent-soft: #2f3a1c;
+  --dk-border: #2c3546;
+  --dk-rule: #232c3c;
+  --dk-rule-strong: #414d5f;
+  --dk-danger: #f2938a;
+}
+
+/* ---- 05 Tangerine ---- */
+:root[data-palette="tangerine"] {
+  --bg: #f8f1e6;
+  --surface: #f0e6d6;
+  --surface-2: #e4d7c3;
+  --card: #ffffff;
+  --text: #211d16;
+  --text-dim: #6b6454;
+  --accent: #ff7a1a;
+  --accent-text: #ffffff;
+  --accent-soft: #ffe2c6;
+  --border: #e3d6c2;
+  --rule: #e4d7c3;
+  --rule-strong: #c9b99f;
+  --danger: #c5372c;
+
+  --dk-bg: #17140f;
+  --dk-surface: #201c15;
+  --dk-surface-2: #3c352b;
+  --dk-card: #100e0a;
+  --dk-text: #f0e9dd;
+  --dk-text-dim: #a39a88;
+  --dk-accent: #ff7a1a;
+  --dk-accent-text: #ffffff;
+  --dk-accent-soft: #4a2f16;
+  --dk-border: #35302a;
+  --dk-rule: #2b271f;
+  --dk-rule-strong: #4a443a;
+  --dk-danger: #f2938a;
+}
+
+/* ---- 06 Volt ---- */
+:root[data-palette="volt"] {
+  --bg: #f5f5f2;
+  --surface: #eeeeea;
+  --surface-2: #e0e0dc;
+  --card: #ffffff;
+  --text: #171613;
+  --text-dim: #64645c;
+  --accent: #dcff33;
+  --accent-text: #14140a;
+  --accent-soft: #f0f9c8;
+  --border: #dededa;
+  --rule: #e0e0dc;
+  --rule-strong: #c2c2bc;
+  --danger: #c5372c;
+
+  --dk-bg: #131312;
+  --dk-surface: #1a1a19;
+  --dk-surface-2: #363634;
+  --dk-card: #0b0b0a;
+  --dk-text: #f0f0e8;
+  --dk-text-dim: #93938a;
+  --dk-accent: #dcff33;
+  --dk-accent-text: #14140a;
+  --dk-accent-soft: #3a3d1c;
+  --dk-border: #33332f;
+  --dk-rule: #262624;
+  --dk-rule-strong: #4a4a46;
+  --dk-danger: #f2938a;
+}
+
+/* ---- Custom ----
+   The Custom palette has no block here. It is the user's own
+   thirteen hex values, held in that app's settings and pushed
+   onto <html> as inline style properties, which beat everything
+   in this file. Seeding a new custom set reads whichever palette
+   is on screen, which is why the [data-theme="dark"] promotion
+   below has to keep working: that read sets the attribute
+   explicitly and restores it afterwards.
+   ------------------------------------------------------------ */
+
+/* ------------------------------------------------------------
+   DARK PROMOTION - keep last, see the note above.
+   Palette-independent: each palette parked its dark set as --dk-*
+   and these promote it, so the values live in exactly one place.
+   ------------------------------------------------------------ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: var(--dk-bg);
+  --surface: var(--dk-surface);
+  --surface-2: var(--dk-surface-2);
+  --card: var(--dk-card);
+  --text: var(--dk-text);
+  --text-dim: var(--dk-text-dim);
+  --accent: var(--dk-accent);
+  --accent-text: var(--dk-accent-text);
+  --accent-soft: var(--dk-accent-soft);
+  --border: var(--dk-border);
+  --rule: var(--dk-rule);
+  --rule-strong: var(--dk-rule-strong);
+  --danger: var(--dk-danger);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    color-scheme: dark;
+    --bg: var(--dk-bg);
+    --surface: var(--dk-surface);
+    --surface-2: var(--dk-surface-2);
+    --card: var(--dk-card);
+    --text: var(--dk-text);
+    --text-dim: var(--dk-text-dim);
+    --accent: var(--dk-accent);
+    --accent-text: var(--dk-accent-text);
+    --accent-soft: var(--dk-accent-soft);
+    --border: var(--dk-border);
+    --rule: var(--dk-rule);
+    --rule-strong: var(--dk-rule-strong);
+    --danger: var(--dk-danger);
+  }
+}
+
+/* ------------------------------------------------------------
+   NOT IN THIS FILE, ON PURPOSE
+
+   Store colours and line palettes (Spoon) - data colours owned by
+   the grocery domain, fixed per store so a colour keeps meaning
+   the same shop everywhere it appears.
+
+   Isa's numbered finance group colours - fixed by the
+   isa-finances-category-colours convention. Order and hue are
+   never reshuffled and this file has no business touching them.
+
+   Layout constants like --card-min and --card-gap - those are one
+   app's grid, not a household decision. --card-gap should resolve
+   to --sp-3.
+
+   CHART RULES that are household-wide but are not tokens:
+   bars and stacked bars are square-cornered (--r-square) even
+   though cards and chips are rounded; nothing spent may be
+   invisible; no legends. See isa-finances-chart-display-rules.
+   ------------------------------------------------------------ */
