@@ -54,7 +54,7 @@ iOS paints alpha black). Then bump `VERSION` in `service-worker.js`.
 Pushed to `main`, served by GitHub Pages at
 `https://darkpizzai.github.io/kave-food-app/`. Relative fetch paths, so the
 subpath is fine. **Bump `VERSION` in `service-worker.js` on every deploy** -
-see PHASE3-NOTES.md.
+see kave-hub docs/superpowers/notes/2026-09-01-household-food-app-phase3-notes.md.
 
 ## The token, and what protects it
 
@@ -245,7 +245,7 @@ place, greyed.
 
 Shopping-list rows get a price-history icon and a store-coloured bubble when
 one store is clearly cheapest. Series are keyed by product, not by ingredient -
-see `V10-PRICE-TRACKING-SPEC.md` for why. Real data: `state.prices` syncs from
+see `kave-hub docs/superpowers/specs/2026-09-03-spoon-price-tracking-design.md` for why. Real data: `state.prices` syncs from
 kave-hub's `food/data/price-series.json` (`build_price_series.py`), same GitHub
 Contents API path as recipes and the list, with `price-series.dev.json` as the
 localhost stand-in when there is no token. A typed name ("Fusilli", "Pasta")
@@ -254,7 +254,7 @@ built server-side against the ingredients dictionary - never guessed
 client-side.
 
 **v11 - the Plan tab** - current at v11.14. Sections that read; nothing builds
-a week or writes to the list yet. Spec: `V11-MEAL-PLANNING-TAB-SPEC.md`.
+a week or writes to the list yet. Spec: `kave-hub docs/superpowers/specs/2026-09-07-spoon-meal-planning-tab-design.md`.
 
 *Worth pairing* finds recipes that share something whose pack outlives one
 recipe - the bunch of coriander that is always four recipes' worth. It ranks
@@ -321,7 +321,7 @@ The same pass found three things left deliberately unfixed - a back gesture
 that can eat two dead presses, day-averaging that would pool stores under
 *Group by = Product*, and an offer marker that picks its colour from an
 arbitrary member. All three are reproduced and written up in
-`FEATURE-PARKING.md` §4, with the trade-off each one turns on, so they are not
+`kave-hub food/data/spoon-feature-parking.md` §4, with the trade-off each one turns on, so they are not
 rediscovered from scratch or "fixed" without that trade-off being seen again.
 
 `priceToday()` is memoised on the identity of the products map, the same
@@ -419,6 +419,6 @@ Worth fixing rather than shrugging at, because a reinstall clears
 that screen and stay there until the token is pasted back in.
 
 **Phase 4 proper** - picking a week, scaling a set, merging into the shopping
-list, and the cooking-rhythm loop. Still parked in `FEATURE-PARKING.md` §2.
+list, and the cooking-rhythm loop. Still parked in `kave-hub food/data/spoon-feature-parking.md` §2.
 
 Design notes and plans are in the private hub repo.

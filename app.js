@@ -1665,7 +1665,7 @@ function equaliseCards() {
 }
 
 /* ---------- Plan tab ---------- */
-/* Spec: V11-MEAL-PLANNING-TAB-SPEC.md. Read-only sections computed from the
+/* Spec: kave-hub docs/superpowers/specs/2026-09-07-spoon-meal-planning-tab-design.md. Read-only sections computed from the
    recipes already in state - no new sync path, nothing written back. */
 
 // Ranked worst-first. `low` is never a reason for a row, so it is absent here.
