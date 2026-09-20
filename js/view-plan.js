@@ -5,7 +5,9 @@
    line's history is still one git log --follow away. */
 "use strict";
 
+import { store } from "./store.js";
 import { $, $$, escapeHtml, own } from "./util.js";
+import { refreshListSheet } from "./sheet-list.js";
 import { recipeCard, updateRailFade } from "./view-recipes.js";
 
 /* Spec: kave-hub docs/superpowers/specs/2026-09-07-spoon-meal-planning-tab-design.md. Read-only sections computed from the
@@ -19,7 +21,10 @@ const WASTE_RANK = { high: 0, medium: 1 };
 // the rest are one tap away, and the count is on the button so a collapsed
 // section never hides how much it found. Same idiom as Worth watching.
 const PAIRS_COLLAPSED = 1;
-export let pairsOpen = false;
+
+// Good for leftovers shows this many cards in place, still, and the rest behind
+// See all. It used to be one strip that scrolled sideways.
+const BATCH_COLLAPSED = 2;
 
 /* Randomise: both Plan sections have a settled order - worst perishable first,
    then the card order for the leftovers - which is the right default and the
@@ -102,7 +107,7 @@ export function pairings(recipes) {
 
 // One row: the perishables that join the recipes, then the recipes themselves,
 // each its own tappable target opening the same sheet the Recipes tab opens.
-function planRow(shared, recipeSlugs, byRecipe) {
+function planRow(shared, recipeSlugs, byRecipe, wrap = false) {
   const li = document.createElement("li");
   li.className = "plan-row";
   const top = document.createElement("div");
@@ -116,14 +121,14 @@ function planRow(shared, recipeSlugs, byRecipe) {
   // overflow a phone, and a pair can grow, so the strip scrolls sideways
   // rather than wrapping into a block that pushes the next row off screen.
   const strip = document.createElement("ul");
-  strip.className = "plan-strip";
+  strip.className = wrap ? "plan-grid" : "plan-strip";
   recipeSlugs.forEach((slug) => {
     const r = byRecipe.get(slug);
     if (r) strip.appendChild(recipeCard(r));
   });
   // the same "there is more to the right" fade the filter rails use, so a
   // third card that does not fit is visibly a third card and not an edge
-  strip.addEventListener("scroll", () => updateRailFade(strip), { passive: true });
+  if (!wrap) strip.addEventListener("scroll", () => updateRailFade(strip), { passive: true });
   li.appendChild(strip);
   return li;
 }
@@ -159,14 +164,14 @@ export function renderPlanner(state) {
   ul.innerHTML = "";
   const rows = applyOrder(pairings(state.recipes), pairOrder,
                           (p) => p.recipes.join("|"));
-  const shown = pairsOpen ? rows : rows.slice(0, PAIRS_COLLAPSED);
+  const shown = rows.slice(0, PAIRS_COLLAPSED);
   shown.forEach((p) => ul.appendChild(planRow(p.shared, p.recipes, byRecipe)));
   const toggle = $("#pairToggle");
   toggle.hidden = rows.length <= PAIRS_COLLAPSED;
   // nothing to reorder with one row, and an inert button reads as broken
   $("#pairShuffle").hidden = rows.length < 2;
   // the count is the pairings found, not the recipes in them
-  toggle.textContent = pairsOpen ? "Show less" : `Show all · ${rows.length}`;
+  toggle.textContent = `See all · ${rows.length}`;
   const empty = $("#pairEmpty");
   empty.hidden = rows.length !== 0;
   empty.textContent = state.recipes.length === 0
@@ -181,7 +186,10 @@ export function renderPlanner(state) {
                            (r) => r.slug);
   const bul = $("#batchList");
   bul.innerHTML = "";
-  if (batch.length) bul.appendChild(batchRow(batch));
+  if (batch.length) bul.appendChild(batchRow(batch.slice(0, BATCH_COLLAPSED)));
+  const bToggle = $("#batchToggle");
+  bToggle.hidden = batch.length <= BATCH_COLLAPSED;
+  bToggle.textContent = `See all · ${batch.length}`;
   // after layout: neither a strip's width nor its overflow means anything
   // until the cards are in the document. Both sections' strips at once.
   sizePlanStrips();
@@ -191,6 +199,27 @@ export function renderPlanner(state) {
   bEmpty.textContent = state.recipes.length === 0
     ? "Recipes sync from your repo once a token is set."
     : "No recipe is marked as one to cook big yet.";
+  refreshListSheet();
+}
+
+// The See all sheets: every row, cards wrapping into the same grid the Recipes
+// tab uses instead of a strip to scroll.
+export function renderPairsSheet(body) {
+  const state = store.state;
+  const byRecipe = new Map(state.recipes.map((r) => [r.slug, r]));
+  const ul = document.createElement("ul");
+  ul.className = "plan-list";
+  applyOrder(pairings(state.recipes), pairOrder, (p) => p.recipes.join("|"))
+    .forEach((p) => ul.appendChild(planRow(p.shared, p.recipes, byRecipe, true)));
+  body.appendChild(ul);
+}
+
+export function renderBatchSheet(body) {
+  const grid = document.createElement("ul");
+  grid.className = "plan-grid";
+  applyOrder(store.state.recipes.filter((r) => r.batch), batchOrder, (r) => r.slug)
+    .forEach((r) => grid.appendChild(recipeCard(r)));
+  body.appendChild(grid);
 }
 
 // One row, no chip: the strip of recipes worth cooking once and eating twice.
@@ -211,4 +240,3 @@ function batchRow(recipes) {
    happen across what was a single shared scope. */
 export function setBatchOrder(v) { batchOrder = v; }
 export function setPairOrder(v) { pairOrder = v; }
-export function setPairsOpen(v) { pairsOpen = v; }

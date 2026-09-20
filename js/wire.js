@@ -7,14 +7,15 @@
 
 import { syncHeaderHeight } from "./pull-to-sync.js";
 import { render, updateToTop } from "./render.js";
+import { openListSheet } from "./sheet-list.js";
 import { openPriceDetail } from "./sheet-price.js";
 import { setSyncState, store } from "./store.js";
 import { fullSync } from "./sync.js";
 import { HEX_RE, applyTheme } from "./theme.js";
 import { $, $$ } from "./util.js";
 import { checkedOpen, renderSuggestions, setCheckedOpen, submitAddName, tidyChecked } from "./view-list.js";
-import { pairings, pairsOpen, renderPlanner, setBatchOrder, setPairOrder, setPairsOpen, shuffled, sizePlanStrips } from "./view-plan.js";
-import { pricesUiState, renderOpportunities, renderTrends, resetTrends } from "./view-prices.js";
+import { pairings, renderBatchSheet, renderPairsSheet, renderPlanner, setBatchOrder, setPairOrder, shuffled, sizePlanStrips } from "./view-plan.js";
+import { pricesUiState, renderOppSheet, renderOpportunities, renderTrends, resetTrends, resizePriceChart } from "./view-prices.js";
 import { equaliseCards, updateRailFade } from "./view-recipes.js";
 import { advancedOpen, checkForUpdate, checkToken, renderSettings, setAdvancedOpen, setTokenStatus, updateState } from "./view-settings.js";
 
@@ -53,14 +54,9 @@ export function wire() {
   });
   $("#tidyChecked").addEventListener("click", tidyChecked);
 
-  $("#oppToggle").addEventListener("click", () => {
-    pricesUiState.oppOpen = !pricesUiState.oppOpen;
-    renderOpportunities();
-  });
-  $("#pairToggle").addEventListener("click", () => {
-    setPairsOpen(!pairsOpen);
-    renderPlanner(store.state);
-  });
+  $("#oppToggle").addEventListener("click", () => openListSheet("Worth watching", "Lowest price · 6 mo", renderOppSheet));
+  $("#pairToggle").addEventListener("click", () => openListSheet("Worth pairing", "Meals that share a perishable, so the bunch gets used.", renderPairsSheet));
+  $("#batchToggle").addEventListener("click", () => openListSheet("Good for leftovers", "Cook the base once, then twice more just the fast fresh part.", renderBatchSheet));
   $("#pairShuffle").addEventListener("click", () => {
     setPairOrder(shuffled(pairings(store.state.recipes).map((p) => p.recipes.join("|"))));
     renderPlanner(store.state);
@@ -121,6 +117,7 @@ export function wire() {
     resizeTimer = setTimeout(() => {
       if (store.state.view === "recipes") equaliseCards();
       if (store.state.view === "planner") sizePlanStrips();
+      if (store.state.view === "prices") resizePriceChart();
     }, 120);
   });
   $("#setToken").addEventListener("blur", (e) => {

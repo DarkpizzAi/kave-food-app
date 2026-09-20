@@ -230,6 +230,30 @@
           </div>
         </div>
       </div>
+
+      <div class="tab-section">
+        <div class="tab-section-head">
+          <span class="tab-section-title">Receipt data clean-up</span>
+          <span class="tab-section-sub">Last 30 days</span>
+        </div>
+        <div class="trends-card">
+          <div class="cleanup-kpis">
+            <div class="metric-card">
+              <div class="metric-label">No ingredient</div>
+              <div id="cleanupNoIng" class="metric-value">-</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">No variant</div>
+              <div id="cleanupNoVar" class="metric-value">-</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">No pack size</div>
+              <div id="cleanupNoPack" class="metric-value">-</div>
+            </div>
+          </div>
+          <button id="cleanupOpen" type="button" class="reveal-btn">Clean up</button>
+        </div>
+      </div>
     </section>
 
     <!-- RECIPES -->
@@ -265,6 +289,7 @@
         </div>
         <p class="tab-section-lede">Cook the base once, then twice more just the fast fresh part.</p>
         <ul id="batchList" class="plan-list"></ul>
+        <button id="batchToggle" type="button" class="reveal-btn" hidden></button>
         <p id="batchEmpty" class="empty" hidden></p>
       </div>
 
@@ -370,6 +395,15 @@
   </main>
 
   <!-- RECIPE DETAIL -->
+  <!-- SEE ALL: one shared sheet for Worth watching, Worth pairing and Good for leftovers -->
+  <div id="listSheet" class="detail" hidden>
+    <div class="detail-bar" id="listSheetBar">
+      <div id="listSheetTitle" class="rname"></div>
+      <p id="listSheetSub" class="sheet-sub"></p>
+    </div>
+    <div class="detail-inner" id="listSheetBody"></div>
+  </div>
+
   <div id="recipeDetail" class="detail" hidden>
     <div class="detail-bar" id="detailBar"></div>
     <div class="detail-inner">
@@ -389,6 +423,21 @@
     </div>
     <div class="detail-inner">
       <div id="priceTable" class="price-table"></div>
+    </div>
+  </div>
+
+  <!-- RECEIPT DATA CLEAN-UP: the same swoop-up sheet, cards to answer or a list of answers to undo -->
+  <div id="cleanupSheet" class="detail" hidden>
+    <div class="detail-bar" id="cleanupBar">
+      <div class="rname">Receipt data clean-up</div>
+      <p class="sheet-sub">Products from the last 30 days with something missing or doubtful.</p>
+    </div>
+    <div class="detail-inner">
+      <div id="cleanupTabs" class="cu-tabs">
+        <button type="button" data-tab="todo" class="on">To do</button>
+        <button type="button" data-tab="decisions">Decisions</button>
+      </div>
+      <div id="cleanupBody"></div>
     </div>
   </div>
 

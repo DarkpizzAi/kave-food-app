@@ -5,6 +5,7 @@
    line's history is still one git log --follow away. */
 "use strict";
 
+import { syncCleanup } from "./cleanup.js";
 import { github } from "../github.js";
 import { render } from "./render.js";
 import { setSyncState, store, syncState } from "./store.js";
@@ -167,6 +168,8 @@ export async function syncRecipes() {
 }
 
 export async function syncPrices() {
+  // optional and separate: its failure must never touch the price sync
+  syncCleanup().catch((e) => console.warn("syncCleanup failed:", e));
   const r = await github.getFile(github.config.pricesPath, { etag: store.sync.pricesEtag });
   if (r.notModified) return;
   const doc = r.json || {};

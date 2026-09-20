@@ -23,6 +23,8 @@ export const github = {
     listPath: "food/data/shopping-list.json",
     recipesPath: "food/data/recipes.json",
     pricesPath: "food/data/price-series.json",
+    cleanupQueuePath: "food/data/cleanup-queue.json",
+    cleanupAnswersDir: "food/data/cleanup-answers",
   },
   // GitHub's suggested minimum seconds between polls, if it ever sends one
   pollInterval: 60,
@@ -142,6 +144,29 @@ export const github = {
     const res = await request("PUT", contentsUrl(path, false), payload);
     const out = await res.json();
     return { sha: out.content && out.content.sha, commit: out.commit && out.commit.sha };
+  };
+
+  // [{ name, path, sha }] for a directory. A directory that does not exist yet
+  // is an empty one, not an error: the first answer creates it.
+  github.listDir = async (path) => {
+    try {
+      const res = await request("GET", contentsUrl(path, true));
+      const body = await res.json();
+      return Array.isArray(body)
+        ? body.map((f) => ({ name: f.name, path: f.path, sha: f.sha }))
+        : [];
+    } catch (e) {
+      if (e.gh === "notFound") return [];
+      throw e;
+    }
+  };
+
+  github.deleteFile = async (path, sha, message) => {
+    await request("DELETE", contentsUrl(path, false), {
+      message: message || ("delete " + path),
+      sha,
+      branch: github.config.branch,
+    });
   };
 
   // { login } - used only for the "connected as" check in Settings

@@ -44,10 +44,37 @@ html, body {
   font: 16px/1.45 "Rubik", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
+/* Wide-window layout: one column and everything else derived from it.
+   Type, colour and spacing never change with the window, only the room.
+
+     --page-max        the column: 720px, the width four 150px cards fit in.
+                       Wider windows centre it with blank space either side.
+     --page-gutter-min the phone's side padding (one spacing step).
+     --page-gutter     the header's side padding: 0 extra on a phone, and
+                       half the spare width plus the minimum on a wide window,
+                       so the header BACKGROUND spans the window while its
+                       title and buttons line up with the column. One formula
+                       for every width - max() picks the minimum on a phone -
+                       so there is no breakpoint to keep in sync.
+     --control-max     half the column. A control (pill, segmented control,
+                       stat card) keeps its phone proportions and sits left
+                       instead of stretching into a bar; the chart and the card
+                       grids are what use the room.
+
+   The Trends chart is drawn at its own pixel width, at a fixed height
+   (0.45 of its width, between 148px and 296px: see view-prices.js). Sheets and the recipe
+   detail are the column wide, so they need no rule of their own. */
+:root {
+  --page-max: 720px;
+  --page-gutter-min: var(--sp-4);
+  --page-gutter: max(var(--page-gutter-min), calc((100% - var(--page-max)) / 2 + var(--page-gutter-min)));
+  --control-max: calc(var(--page-max) / 2);
+}
+
 body {
   padding-top: var(--header-h, 56px);
   padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
-  max-width: 720px;
+  max-width: var(--page-max);
   margin: 0 auto;
 }
 
@@ -56,8 +83,6 @@ body {
   top: 0;
   left: 0;
   right: 0;
-  max-width: 720px;
-  margin: 0 auto;
   z-index: 5;
   display: flex;
   align-items: center;
@@ -69,7 +94,7 @@ body {
      and the bar becomes transparent over --bg on its own - the title just
      needs to clear the clock. syncHeaderHeight() measures this padding into
      --header-h, so <body>, .ptr and .detail all follow with no other change. */
-  padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 14px;
+  padding: calc(14px + env(safe-area-inset-top, 0px)) var(--page-gutter) 14px;
   background: var(--bg);
 }
 .app-header h1 {
@@ -672,7 +697,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   top: var(--header-h, 56px);
   left: 50%;
   bottom: 0;
-  width: min(100%, 720px);
+  width: min(100%, var(--page-max));
   z-index: 20;
   background: var(--surface);
   overflow-y: auto;
@@ -729,7 +754,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   letter-spacing: 0.02em;
 }
 
-.detail-inner { max-width: 720px; margin: 0 auto; padding: 16px; }
+.detail-inner { max-width: var(--page-max); margin: 0 auto; padding: 16px; }
 .detail h3 { margin: 22px 0 10px; font-size: var(--fs-title); }
 .detail .unconfirmed {
   color: var(--danger);
@@ -941,7 +966,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   display: flex;
   background: var(--bg);
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  max-width: 720px;
+  max-width: var(--page-max);
   margin: 0 auto;
 }
 .bottom-nav button {
@@ -1128,6 +1153,9 @@ body.readonly .add-row input { cursor: not-allowed; }
   margin: 10px 0 6px;
 }
 .price-subfilters > .pill-wrap { flex: 1 1 0; min-width: 0; }
+/* Controls keep their phone proportions (see --control-max): same height and
+   type at any window size, so a pill twice as wide reads as a bar, not a pill. */
+.price-subfilters, .price-pills-row, .price-metrics { max-width: var(--control-max); }
 
 /* the same capsule as a pill - same radius, same 0.82rem, same surface-2
    ground - so the row below the chart is visibly the same family as the rows
@@ -1229,6 +1257,8 @@ body.readonly .add-row input { cursor: not-allowed; }
 .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 
 .price-chart-wrap { margin-bottom: 4px; }
+/* drawn at its own pixel width and height by buildPriceChartSvg, so this is
+   1:1: text and strokes never scale, only the plotted area grows */
 .price-svg { width: 100%; height: auto; display: block; }
 .chart-grid { stroke: var(--rule); stroke-width: 1; }
 /* Chart text is deliberately OFF the type ramp and sized in px: --fs-micro
@@ -1445,3 +1475,50 @@ body.readonly .add-row input { cursor: not-allowed; }
 /* Accessible focus, which this app did not have before 19/09/2026: it had
    `outline: none` in two places and no focus style anywhere else. */
 :focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+
+/* ---- Receipt data clean-up (Prices tab, after Trends) ---- */
+.cleanup-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); }
+.cleanup-kpis .metric-label { font-size: var(--fs-micro); }
+.cu-tabs { display: flex; gap: var(--sp-2); margin: 0 0 14px; }
+.cu-tabs button {
+  padding: 5px 12px; border-radius: var(--r-pill); background: transparent;
+  color: var(--text); font-size: var(--fs-ui); border: 1px solid var(--rule-strong);
+}
+.cu-tabs button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.cu-card { background: var(--card); border-radius: var(--r-card); padding: 14px; margin: 0 0 12px; }
+.cu-raw { font-size: var(--fs-meta); color: var(--text-dim); }
+.cu-name { font-weight: 600; font-size: var(--fs-title); margin: 2px 0; }
+.cu-meta { font-size: var(--fs-meta); color: var(--text-dim); }
+.cu-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.cu-tags .tag { background: var(--accent-soft); border-radius: var(--r-pill); padding: 2px 8px; font-size: var(--fs-micro); }
+.cu-card .ask { margin: 12px 0 6px; font-weight: 500; }
+.cu-card .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cu-card .chip {
+  border: 1px solid var(--rule-strong); background: transparent; color: var(--text);
+  border-radius: var(--r-pill); padding: 7px 12px; font-size: var(--fs-ui); min-height: 0;
+}
+.cu-card .chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.cu-card .chip.pen { color: var(--text-dim); }
+.pen-input {
+  flex: 1 1 160px; min-width: 0; padding: 7px 12px; border-radius: var(--r-pill);
+  border: 1px solid var(--rule-strong); background: var(--surface); color: var(--text); font-size: var(--fs-ui);
+}
+.cu-foot { display: flex; align-items: center; gap: var(--sp-3); margin-top: 14px; }
+.cu-quiet { background: none; color: var(--text-dim); font-size: var(--fs-ui); padding: 6px 4px; min-height: 0; }
+.cu-done {
+  margin-left: auto; padding: 8px 20px; border-radius: var(--r-control); background: var(--accent);
+  color: var(--accent-text); font-weight: 600; font-size: var(--fs-ui);
+}
+.cu-done:disabled { opacity: 0.4; }
+.cu-note { color: var(--text-dim); font-size: var(--fs-meta); margin: 0 0 12px; }
+
+/* the See all sheet's card grid: the Recipes tab's own columns, so a card is the
+   same size here as there */
+.plan-grid {
+  list-style: none; margin: 0; padding: 0; display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--card-min), 1fr));
+  gap: var(--card-gap);
+}
+
+/* the sentence under a See all sheet's title: the same words the section has in place */
+.sheet-sub { margin: 6px 0 0; color: var(--text-dim); font-size: var(--fs-meta); font-weight: 400; }

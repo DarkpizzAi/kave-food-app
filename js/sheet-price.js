@@ -7,6 +7,7 @@
 
 import { MAIN_LABELS, cap, cartButtonHtml, confirmAdd, roundQty } from "./prices-data.js";
 import { closeRecipe, detailState, setDetailState, setSheetHasHistory, setTabHasHistory, slideSheetDown, tabHasHistory } from "./sheet-recipe.js";
+import { backSheets } from "./back-sheets.js";
 import { store } from "./store.js";
 import { $, $$, escapeHtml, own, safeUrl } from "./util.js";
 import { pricesUiState, renderPriceDetail, scrollToHighlightedRow } from "./view-prices.js";
@@ -99,6 +100,11 @@ export function closePriceDetail() {
   }
 }
 
+// Other sheets that own one history entry each (the receipt clean-up popup).
+// They register here so this one popstate handler decides, in one place,
+// whether a back press was theirs to consume - two handlers racing would let
+// the tab underneath react to a press that only closed a sheet.
+
 window.addEventListener("popstate", () => {
   setSheetHasHistory(false);
   priceSheetHasHistory = false;
@@ -113,6 +119,14 @@ window.addEventListener("popstate", () => {
     else slidePriceSheetDown();
     consumed = true;
   }
+  // A recipe or price sheet opened from one of the listed sheets sits on top of
+  // it, so it takes the press first; only when neither was open does a listed
+  // sheet close. One press, one sheet.
+  if (!consumed) {
+    for (const s of backSheets) {
+      if (s.isOpen()) { s.close(); consumed = true; break; }
+    }
+  }
   // A sheet was on top, so this press closed it and goes no further. Only a
   // press with no sheet in the way reaches the tab underneath.
   if (consumed) return;
@@ -126,7 +140,7 @@ window.addEventListener("popstate", () => {
 
 // tap or swipe-down on the tinted name bar closes the sheet - shared by the
 // recipe sheet and the price sheet, same physics, different close callback
-function bindSheetDrag(barSel, elSel, onClose) {
+export function bindSheetDrag(barSel, elSel, onClose) {
   const bar = $(barSel);
   const el = $(elSel);
   let startY = 0;

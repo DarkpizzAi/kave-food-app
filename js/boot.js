@@ -6,6 +6,8 @@
 "use strict";
 
 import { github } from "../github.js";
+import { loadCleanup, wireCleanup } from "./cleanup.js";
+import { initListSheet } from "./sheet-list.js";
 import { initPullToSync } from "./pull-to-sync.js";
 import { render } from "./render.js";
 import { initPriceSheetDrag, initSheetDrag } from "./sheet-price.js";
@@ -15,7 +17,8 @@ import { applyPalette, applyTheme } from "./theme.js";
 import { checkToken, renderSyncStatus, themeBootRan } from "./view-settings.js";
 import { wire } from "./wire.js";
 
-store.load();                       // list + recipes + sync meta from the cache
+store.load();
+loadCleanup();                       // list + recipes + sync meta from the cache
 if (!themeBootRan()) {
   console.warn(
     "Spoon: #theme-preload in index.html did not run. If you just edited it, "
@@ -29,6 +32,8 @@ applyPalette(store.state.settings.palette || "cobalt");
 applyTheme(store.state.settings.theme || "system");
 store.subscribe(render);
 wire();
+wireCleanup();
+initListSheet();
 initPullToSync();
 initSheetDrag();
 initPriceSheetDrag();

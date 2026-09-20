@@ -279,8 +279,12 @@ export function updateRailFade(rail) {
    on every render while the tab is visible - including a background poll - and
    foodPixelIcon builds two canvases per card, so 43 recipes meant re-drawing
    86 canvases for a repaint that changed nothing. Re-appending a cached
-   element moves it, which is exactly what we want. Cleared when recipes
-   resync, in case a name or category changed. */
+   element MOVES it, which is the opposite of what a recipe shown in more than
+   one place needs: the Plan tab draws the same recipe in a pairing, in
+   Good for leftovers and in its See all sheet, and with one shared element
+   only the last card drawn kept its icon. So the cache holds the rasterised
+   original and every card gets its own copy. Cleared when recipes resync, in
+   case a name or category changed. */
 export const iconCache = new Map();
 
 function recipeIcon(r) {
@@ -290,7 +294,17 @@ function recipeIcon(r) {
     el = foodPixelIcon(r.name, r.category, 38);
     iconCache.set(r.slug, el);
   }
-  return el;
+  return copyIcon(el);
+}
+
+// A cloneNode copies a canvas's element but not its pixels, so the bitmaps are
+// drawn across by hand.
+function copyIcon(src) {
+  const dst = src.cloneNode(true);
+  const from = src instanceof HTMLCanvasElement ? [src] : [...src.querySelectorAll("canvas")];
+  const to = dst instanceof HTMLCanvasElement ? [dst] : [...dst.querySelectorAll("canvas")];
+  from.forEach((c, i) => { if (to[i]) to[i].getContext("2d").drawImage(c, 0, 0); });
+  return dst;
 }
 
 // One recipe card. Used by the Recipes grid and by the Plan tab's horizontal

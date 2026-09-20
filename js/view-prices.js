@@ -5,7 +5,9 @@
    line's history is still one git log --follow away. */
 "use strict";
 
+import { renderCleanup } from "./cleanup.js";
 import { CONFIRM_MS, GROUPS, PERIODS, PERIOD_SHORT, bestPriceInPeriod, cartButtonHtml, computeBubble, computeOpportunities, dayAveraged, l1Options, l2Options, l3Options, lineColor, narrowPriceTarget, productEntry, purchaseKey, resolveTargetInfo, seriesForTarget, seriesInPeriod, showCartReady, soleVariant, storeColor, storeOnColor, titleCaseVariant } from "./prices-data.js";
+import { closeListSheet, refreshListSheet } from "./sheet-list.js";
 import { openPriceDetail, priceDetailState } from "./sheet-price.js";
 import { store } from "./store.js";
 import { $, $$, deburr, escapeHtml } from "./util.js";
@@ -16,7 +18,6 @@ export let pricesUiState = {
   period: "6m",   // "6m" | "all" | a "YYYY" year
   groupBy: "supermarket",  // "supermarket" (one line per store) | "product" (one line per variant/product)
   openPill: null,  // "l1" | "l2" | "l3" | null - which pill's dropdown is open
-  oppOpen: false,
 };
 
 // The Trends cart button's confirm. It cannot live on the button itself the
@@ -151,24 +152,16 @@ function togglePricePill(which) {
 
 const OPP_COLLAPSED = 5;
 
-export function renderOpportunities() {
-  const opps = computeOpportunities("6m");
-  const list = $("#oppList");
-  if (!opps.length) {
-    list.innerHTML = `<li class="opp-empty">Nothing worth watching yet.</li>`;
-    $("#oppToggle").hidden = true;
-    return;
-  }
-  const shown = pricesUiState.oppOpen ? opps : opps.slice(0, OPP_COLLAPSED);
+// One Worth watching row. The same markup in the page and in the See all sheet.
+function oppRowHtml(o) {
+  const entry = productEntry(o.key);
+  const bubbleStore = entry ? computeBubble(entry.series) : null;
+  const best6 = bestPriceInPeriod(entry.series, "6m");
   // same shape as a shopping-list row: name left, then right-aligned a
   // qty-styled number and the price icon - and the same bubble rule
   // (v10 spec §6), so a coloured bubble means "clear cheapest store"
   // everywhere it shows up, not just on the list
-  list.innerHTML = shown.map((o) => {
-    const entry = productEntry(o.key);
-    const bubbleStore = entry ? computeBubble(entry.series) : null;
-    const best6 = bestPriceInPeriod(entry.series, "6m");
-    return `
+  return `
     <li class="opp-row" data-price-key="${escapeHtml(o.key)}">
       <span class="opp-name">${escapeHtml(o.label)}</span>
       <span class="opp-price">${best6 ? `€${best6.price.toFixed(2)}/kg` : ""}</span>
@@ -177,18 +170,36 @@ export function renderOpportunities() {
         <svg viewBox="0 0 24 24" fill="none" stroke="${bubbleStore ? storeOnColor(bubbleStore) : "currentColor"}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${PRICE_ICON_DOWN_PATH}</svg>
       </span>
     </li>`;
-  }).join("");
+}
+
+function bindOppRows(list, pick) {
   $$(".opp-row", list).forEach((row) => {
-    row.addEventListener("click", () =>
-      selectPriceTarget({ level: "l3", key: row.dataset.priceKey }, { scroll: true }));
+    row.addEventListener("click", () => pick({ level: "l3", key: row.dataset.priceKey }));
   });
-  const toggle = $("#oppToggle");
-  if (opps.length <= OPP_COLLAPSED) {
-    toggle.hidden = true;
-  } else {
-    toggle.hidden = false;
-    toggle.textContent = pricesUiState.oppOpen ? "Show less" : `Show all · ${opps.length}`;
+}
+
+export function renderOpportunities() {
+  const opps = computeOpportunities("6m");
+  const list = $("#oppList");
+  if (!opps.length) {
+    list.innerHTML = `<li class="opp-empty">Nothing worth watching yet.</li>`;
+    $("#oppToggle").hidden = true;
+    return;
   }
+  list.innerHTML = opps.slice(0, OPP_COLLAPSED).map(oppRowHtml).join("");
+  bindOppRows(list, (t) => selectPriceTarget(t, { scroll: true }));
+  const toggle = $("#oppToggle");
+  toggle.hidden = opps.length <= OPP_COLLAPSED;
+  toggle.textContent = `See all · ${opps.length}`;
+  refreshListSheet();
+}
+
+// the See all sheet: every row, and a tap closes the sheet and then takes you
+// to that product's chart, which the sheet would otherwise be covering
+export function renderOppSheet(body) {
+  const opps = computeOpportunities("6m");
+  body.innerHTML = `<div class="opp-card"><ul class="opp-list">${opps.map(oppRowHtml).join("")}</ul></div>`;
+  bindOppRows(body, (t) => closeListSheet().then(() => selectPriceTarget(t, { scroll: true })));
 }
 
 // what each line on the chart is: a supermarket (Group by = Supermarket), or a
@@ -217,9 +228,40 @@ function chartLines(points, granularity) {
   return lines;
 }
 
+// what the chart is currently showing, kept so a resize can redraw it at the
+// new width without rebuilding the whole Prices view
+let chartLinesShown = null;
+function paintChart() {
+  const wrap = $("#priceChartWrap");
+  if (!wrap || wrap.hidden || !chartLinesShown) return;
+  wrap.innerHTML = buildPriceChartSvg(chartLinesShown, wrap.clientWidth);
+  $$(".price-pt", wrap).forEach((el) => {
+    el.addEventListener("click", () =>
+      openPriceDetail({ keys: (el.dataset.keys || "").split("~").filter(Boolean) }));
+  });
+}
+export function resizePriceChart() {
+  const wrap = $("#priceChartWrap");
+  const svg = wrap && wrap.firstElementChild;
+  // only when the width actually changed: a redraw drops any open tooltip state
+  if (svg && wrap.clientWidth && Math.round(wrap.clientWidth) !== Number(svg.getAttribute("width"))) paintChart();
+}
+
 // dynamic per-item y-axis (v10 spec §5): a fixed scale would flatten a
 // EUR 3/kg product to a hairline next to a EUR 60/kg one
-function buildPriceChartSvg(lines) {
+// The chart is drawn at the width it is shown at, not drawn small and scaled.
+// A scaled viewBox zooms the axis numbers and stroke widths with the width, so
+// on a wide window the labels balloon. Here the height is fixed, one SVG unit
+// is one CSS pixel, and a wider window just gives the lines more room to run.
+// Height is a proportion of the width, held between the phone's height and
+// twice it: 0.45 of the width, never under 148px (the phone chart) or over
+// 296px. So a phone keeps the chart it had, the 720px column gets the tall
+// one, and nothing in between is a stretched or a squashed guess.
+const CHART_H_MIN = 148, CHART_H_MAX = 296, CHART_ASPECT = 0.45;
+const CHART_MIN_W = 240;
+function buildPriceChartSvg(lines, width) {
+  const W = Math.max(CHART_MIN_W, Math.round(width || 320));
+  const CHART_H = Math.min(CHART_H_MAX, Math.max(CHART_H_MIN, Math.round(W * CHART_ASPECT)));
   const points = lines.flatMap((l) => l.points);
   const dates = [...points.map((p) => p.date)].sort();
   const t0 = new Date(dates[0]).getTime();
@@ -228,11 +270,11 @@ function buildPriceChartSvg(lines) {
   const lo = Math.min(...prices), hi = Math.max(...prices);
   const pad = Math.max((hi - lo) * 0.15, hi * 0.05, 0.1);
   const yLo = Math.max(0, lo - pad), yHi = hi + pad;
-  const X0 = 30, X1 = 310, Y0 = 14, Y1 = 126;
+  const X0 = 30, X1 = W - 10, Y0 = 14, Y1 = CHART_H - 22;
   const xOf = (d) => (t1 === t0 ? (X0 + X1) / 2 : X0 + (X1 - X0) * ((new Date(d).getTime() - t0) / (t1 - t0)));
   const yOf = (p) => Y1 - (Y1 - Y0) * ((p - yLo) / ((yHi - yLo) || 1));
 
-  let svg = `<svg viewBox="0 0 320 148" class="price-svg">`;
+  let svg = `<svg viewBox="0 0 ${W} ${CHART_H}" width="${W}" height="${CHART_H}" class="price-svg">`;
   [yHi, (yHi + yLo) / 2, yLo].forEach((v) => {
     const y = yOf(v);
     svg += `<line x1="28" y1="${y.toFixed(1)}" x2="${X1}" y2="${y.toFixed(1)}" class="chart-grid"/>`;
@@ -596,11 +638,8 @@ export function renderTrends() {
   } else {
     wrap.hidden = false;
     $("#priceEmpty").hidden = true;
-    wrap.innerHTML = buildPriceChartSvg(lines);
-    $$(".price-pt", wrap).forEach((el) => {
-      el.addEventListener("click", () =>
-        openPriceDetail({ keys: (el.dataset.keys || "").split("~").filter(Boolean) }));
-    });
+    chartLinesShown = lines;
+    paintChart();
   }
 
   // "Latest price" is always the most recent purchase, whatever the period
@@ -639,6 +678,7 @@ export function renderTrends() {
 export function renderPrices(state) {
   renderOpportunities();
   renderTrends();
+  renderCleanup();
 }
 
 // See-all rows show only day + month - the year is a full-width bar above each
