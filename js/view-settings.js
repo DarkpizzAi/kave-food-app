@@ -1,4 +1,4 @@
-/* Spoon: the Settings tab: token, update, diagnostics, custom colours.
+/* Spoon: the Settings tab: token, update, diagnostics.
 
    Split out of app.js, which was one 4240-line classic script. The
    boundaries are the section banners that file already drew, so any
@@ -9,7 +9,6 @@ import { github } from "../github.js";
 import { render } from "./render.js";
 import { IS_LOCAL_DEV, setSyncState, store, syncState } from "./store.js";
 import { flushing, fullSync, hhmm, syncRecipes, syncing, timeAgo } from "./sync.js";
-import { CUSTOM_TOKENS, TOKEN_LABELS, seedCustom } from "./theme.js";
 import { $, $$, escapeHtml } from "./util.js";
 
 // { state: "idle"|"checking"|"ok"|"error", text, login }  (not persisted)
@@ -56,10 +55,6 @@ export function renderSettings(state) {
   $$("#setPalette button").forEach((b) => {
     b.classList.toggle("on", b.dataset.palette === (state.settings.palette || "cobalt"));
   });
-
-  const ctf = $("#customThemeField");
-  ctf.hidden = state.settings.palette !== "custom";
-  if (!ctf.hidden) renderCustomGrid(state);
 
   const t = $("#setToken");
   if (document.activeElement !== t) t.value = state.settings.token || "";
@@ -312,45 +307,8 @@ export function renderSyncStatus() {
     .join("");
 }
 
-function ctCell(mode, tok, v) {
-  return `<span class="ct-cell">
-    <span class="ct-prev" data-prev="${mode}:${tok}" style="background:${escapeHtml(v)}"></span>
-    <input class="ct-hex" data-mode="${mode}" data-token="${tok}" value="${escapeHtml(v)}"
-           inputmode="text" autocapitalize="off" autocorrect="off"
-           spellcheck="false" maxlength="7" enterkeyhint="done" />
-  </span>`;
-}
-
-let customGridBuilt = false;
-function renderCustomGrid(state) {
-  const grid = $("#customGrid");
-  if (!grid) return;
-  const c = state.settings.custom || seedCustom();
-  const val = (mode, tok) => (c[mode] && c[mode][tok]) || "#000000";
-  if (!customGridBuilt) {
-    grid.innerHTML =
-      `<div class="ct-head"><span></span><span>Light</span><span>Dark</span></div>` +
-      CUSTOM_TOKENS.map((tok) => `<div class="ct-row">
-        <span class="ct-name">${escapeHtml(TOKEN_LABELS[tok] || tok)}</span>
-        ${ctCell("light", tok, val("light", tok))}
-        ${ctCell("dark", tok, val("dark", tok))}
-      </div>`).join("");
-    customGridBuilt = true;
-  } else {
-    // keep in sync when values change from elsewhere, but never fight the caret
-    ["light", "dark"].forEach((mode) => CUSTOM_TOKENS.forEach((tok) => {
-      const inp = grid.querySelector(`.ct-hex[data-mode="${mode}"][data-token="${tok}"]`);
-      const prev = grid.querySelector(`.ct-prev[data-prev="${mode}:${tok}"]`);
-      const v = val(mode, tok);
-      if (inp && document.activeElement !== inp) inp.value = v;
-      if (prev) prev.style.background = v;
-    }));
-  }
-}
-
 /* An imported binding is read-only, so a module that does not declare
    one of these cannot assign to it. These are the writes that used to
    happen across what was a single shared scope. */
 export function setAdvancedOpen(v) { advancedOpen = v; }
-export function setCustomGridBuilt(v) { customGridBuilt = v; }
 export function setTokenStatus(v) { tokenStatus = v; }

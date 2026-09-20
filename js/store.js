@@ -9,9 +9,8 @@ import { github } from "../github.js";
 import { closePriceDetail, parkPriceDetail, priceDetailState, unparkPriceDetail } from "./sheet-price.js";
 import { closeRecipe, detailState, parkRecipe, setTabHasHistory, tabHasHistory, unparkRecipe } from "./sheet-recipe.js";
 import { scheduleFlush } from "./sync.js";
-import { CUSTOM_TOKENS, HEX_RE, PALETTES, applyCustomForTheme, applyPalette, normaliseCustom, seedCustom, syncColorScheme } from "./theme.js";
+import { PALETTES, applyPalette } from "./theme.js";
 import { uid } from "./util.js";
-import { setCustomGridBuilt } from "./view-settings.js";
 
 const LS_LIST = "foodapp.list";        // the shopping list, optimistic working copy
 const LS_SETTINGS = "foodapp.settings";
@@ -29,7 +28,7 @@ export const store = {
   state: {
     view: "list",
     list: [],
-    settings: { token: "", who: "", theme: "system", palette: "cobalt", custom: null },
+    settings: { token: "", who: "", theme: "system", palette: "cobalt" },
     recipes: [],
     // {products: {key: {l1,l1_label,l2,label,series}}, resolve: {name: {level,l1,l1_label,l2?}}}
     // - see build_price_series.py in kave-hub for exactly what these mean
@@ -72,7 +71,6 @@ export const store = {
           who: s.who || "",
           theme: "system",  // no longer a choice; see setPalette/applyTheme
           palette: PALETTES[s.palette] ? s.palette : "cobalt",
-          custom: normaliseCustom(s.custom),
         };
       }
     } catch (e) { /* ignore */ }
@@ -240,27 +238,10 @@ export const store = {
   },
   setPalette(palette) {
     if (!PALETTES[palette]) return;
-    // entering Custom always copies the theme that was on screen a moment ago,
-    // both its light and dark sets, so the editor starts from the last look
-    if (palette === "custom" && this.state.settings.palette !== "custom") {
-      this.state.settings.custom = seedCustom();
-      setCustomGridBuilt(false);
-    }
     this.state.settings.palette = palette;
     this.saveSettings();
     applyPalette(palette);
     this.notify();
-  },
-  setCustomToken(mode, token, value) {
-    if ((mode !== "light" && mode !== "dark") ||
-        !CUSTOM_TOKENS.includes(token) || !HEX_RE.test(value)) return;
-    const c = this.state.settings.custom || (this.state.settings.custom = seedCustom());
-    (c[mode] || (c[mode] = {}))[token] = value;
-    this.saveSettings();
-    if (this.state.settings.palette === "custom") {
-      applyCustomForTheme();
-      syncColorScheme();
-    }
   },
 };
 

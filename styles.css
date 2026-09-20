@@ -99,12 +99,12 @@ body {
 }
 .app-header h1 {
   font-family: "Rubik", system-ui, sans-serif;
-  font-weight: 600;
+  font-weight: var(--fw-strong);
   font-size: var(--fs-display);
-  letter-spacing: -0.02em;
+  letter-spacing: var(--tracking-heading);
   margin: 0;
 }
-h2, h3 { font-family: "Rubik", system-ui, sans-serif; font-weight: 600; letter-spacing: -0.01em; }
+h2, h3 { font-family: "Rubik", system-ui, sans-serif; font-weight: var(--fw-strong); letter-spacing: var(--tracking-heading); }
 
 /* header sync indicator: invisible when idle + clean */
 .sync-dot {
@@ -115,7 +115,7 @@ h2, h3 { font-family: "Rubik", system-ui, sans-serif; font-weight: 600; letter-s
   background: transparent;
 }
 .sync-dot.pending { background: var(--accent); }
-.sync-dot.error { background: var(--danger); }
+.sync-dot.error { background: var(--text); }
 .sync-dot.working {
   border: 2px solid var(--rule-strong);
   border-top-color: var(--accent);
@@ -126,7 +126,7 @@ h2, h3 { font-family: "Rubik", system-ui, sans-serif; font-weight: 600; letter-s
 
 main {
   padding: 16px;
-  margin-top: 6px;
+  margin-top: var(--sp-2);
   min-height: calc(100dvh - var(--header-h, 56px) - var(--nav-h) - 6px);
   background: var(--surface);
   border-radius: 18px 18px 0 0;
@@ -198,7 +198,7 @@ input, .search {
   gap: var(--sp-3);
   padding: 10px 4px;
   border-bottom: 1px solid var(--rule);
-  margin-bottom: 4px;
+  margin-bottom: var(--sp-1);
 }
 .add-plus { color: var(--text-dim); font-size: var(--fs-title); width: 22px; text-align: center; }
 .add-row input {
@@ -292,7 +292,7 @@ input, .search {
 }
 /* Clean up result briefly replaces the button label */
 .tidy-btn.fading { opacity: 0; }
-.tidy-btn.result { color: var(--accent); }
+.tidy-btn.result { color: var(--text); }
 .checked-toggle {
   border: none;
   background: transparent;
@@ -308,13 +308,13 @@ input, .search {
 /* Settings > Advanced settings: the ticked-items disclosure, given a rule so
    it reads as a section divider rather than a footnote under Sync */
 .advanced-block {
-  margin-top: 8px;
+  margin-top: var(--sp-2);
   padding-top: 14px;
   border-top: 1px solid var(--rule);
 }
 .advanced-block > .checked-toggle {
   font-size: var(--fs-body);
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   color: var(--text);
   padding-left: 0;
 }
@@ -331,7 +331,7 @@ input, .search {
   align-items: center;
   gap: var(--sp-3);
   min-height: 40px;
-  margin-top: 10px;
+  margin-top: var(--sp-3);
 }
 .icon-btn {
   flex: none;
@@ -355,8 +355,8 @@ input, .search {
   gap: var(--sp-1);
   border: none;
   background: transparent;
-  color: var(--accent);
-  font-weight: 500;
+  color: var(--text);
+  font-weight: var(--fw-medium);
   font-size: var(--fs-ui);
   padding: 6px 4px;
   min-height: 32px;
@@ -419,7 +419,7 @@ input, .search {
 .rail-label {
   flex: none;
   align-self: center;
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   font-size: var(--fs-meta);
   color: var(--text-dim);
   padding-right: 4px;
@@ -434,7 +434,7 @@ input, .search {
   background: var(--surface-2);
   color: var(--text-dim);
 }
-.rail .chip.on { background: var(--accent); color: var(--accent-text); font-weight: 600; }
+.rail .chip.on { background: var(--accent); color: var(--accent-text); font-weight: var(--fw-strong); }
 
 .sort-btn {
   flex: none;
@@ -482,7 +482,7 @@ input, .search {
   border-radius: 10px;
   min-height: 38px;
 }
-.sort-opt.on { background: var(--accent-soft); font-weight: 600; }
+.sort-opt.on { background: var(--accent-soft); font-weight: var(--fw-strong); }
 .sort-opt svg { flex: none; width: 15px; height: 15px; color: var(--accent); }
 
 /* recipe cards */
@@ -495,7 +495,7 @@ input, .search {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(var(--card-min), 1fr));
   gap: var(--card-gap);
-  margin-top: 14px;
+  margin-top: var(--sp-4);
 }
 /* The card is defined by its class, not by the list it happens to sit in: the
    Plan tab puts the same cards in a horizontal strip. Only the grid below
@@ -514,16 +514,16 @@ li.recipe-card {
   text-align: left;
   border: none;
   border-radius: 12px;
-  background: var(--card);
+  background: var(--panel);
   padding: 16px;
   min-height: 168px;
   cursor: pointer;
 }
 .recipe-card .main {
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   font-size: var(--fs-lede);
   line-height: 1.25;
-  letter-spacing: -0.005em;
+  letter-spacing: var(--tracking-heading);
   padding-right: 46px;
 }
 .recipe-card .pix {
@@ -563,7 +563,7 @@ li.recipe-card {
 .dots i.on { background: var(--accent); }
 
 /* index-only recipe (no card written yet) */
-.recipe-card.stub .main { color: var(--text-dim); }
+.recipe-card.stub .main { color: var(--text); }
 .card-stub {
   margin-left: auto;
   flex-shrink: 0;
@@ -571,17 +571,17 @@ li.recipe-card {
   background: var(--surface);
   border-radius: 999px;
   font-size: var(--fs-micro);
-  letter-spacing: 0.02em;
+  letter-spacing: var(--tracking-label);
 }
 .stub-body { padding: 4px 0 8px; }
 .stub-link {
   display: inline-block;
-  margin: 0 10px 8px 0;
+  margin: 0 var(--sp-3) var(--sp-2) 0;
   padding: 10px 16px;
   border-radius: 10px;
   background: var(--accent);
   color: var(--accent-text);
-  font-weight: 600;
+  font-weight: var(--fw-strong);
   text-decoration: none;
 }
 
@@ -594,8 +594,8 @@ li.recipe-card {
 .field > label,
 .field > .field-label {
   display: block;
-  font-weight: 600;
-  margin: 0 0 8px;
+  font-weight: var(--fw-strong);
+  margin: 0 0 var(--sp-2);
 }
 .who-buttons { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .who-buttons button {
@@ -619,10 +619,10 @@ li.recipe-card {
 .token-row input { flex: 1; min-width: 0; }
 .hint { color: var(--text-dim); font-size: var(--fs-ui); margin: 6px 0 0; }
 
-.token-status { font-size: var(--fs-ui); margin: 8px 0 0; font-weight: 600; }
-.token-status.checking { color: var(--text-dim); font-weight: 400; }
-.token-status.ok { color: var(--accent); }
-.token-status.error { color: var(--danger); }
+.token-status { font-size: var(--fs-ui); margin: 8px 0 0; font-weight: var(--fw-strong); }
+.token-status.checking { color: var(--text-dim); font-weight: var(--fw-regular); }
+.token-status.ok { color: var(--text); }
+.token-status.error { color: var(--text); }
 
 /* sync section */
 .sync-status { display: flex; flex-direction: column; gap: var(--sp-1); margin-bottom: 12px; }
@@ -633,36 +633,9 @@ li.recipe-card {
 }
 .sync-line.ok i { background: var(--accent); }
 .sync-line.warn i { background: #e6a700; }
-.sync-line.error i { background: var(--danger); }
+.sync-line.error i { background: var(--text); }
 .sync-line.muted { color: var(--text-dim); }
 
-/* custom theme editor: name | light | dark */
-.custom-grid { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: 4px; }
-.ct-head, .ct-row {
-  display: grid;
-  grid-template-columns: minmax(64px, 1fr) minmax(0, 1.25fr) minmax(0, 1.25fr);
-  gap: var(--sp-2);
-  align-items: center;
-}
-.ct-head {
-  font-size: var(--fs-meta);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-}
-.ct-name { font-size: var(--fs-ui); }
-.ct-cell { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; }
-.ct-prev {
-  width: 20px; height: 20px; border-radius: 6px; flex: none;
-  border: 1px solid var(--rule-strong);
-}
-.ct-hex {
-  flex: 1; min-width: 0;
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  font-size: var(--fs-ui); text-transform: lowercase;
-  padding: 8px 6px;
-}
-.ct-hex.bad { box-shadow: inset 0 0 0 1.5px var(--danger); color: var(--danger); }
 
 /* banner */
 .banner {
@@ -676,7 +649,7 @@ li.recipe-card {
   background: var(--accent);
   color: var(--accent-text);
   cursor: pointer;
-  font-weight: 600;
+  font-weight: var(--fw-strong);
 }
 
 /* read-only: no token but a synced copy to show. The mutating controls are
@@ -738,10 +711,10 @@ body.readonly .add-row input { cursor: not-allowed; }
 .detail-bar .rname {
   display: block;
   font-family: "Rubik", system-ui, sans-serif;
-  font-weight: 600;
+  font-weight: var(--fw-strong);
   font-size: var(--fs-title-lg);
   line-height: 1.15;
-  letter-spacing: -0.02em;
+  letter-spacing: var(--tracking-heading);
   text-wrap: balance;
 }
 .detail-tags { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: 9px; }
@@ -751,26 +724,26 @@ body.readonly .add-row input { cursor: not-allowed; }
   background: var(--accent);
   color: var(--accent-text);
   font-size: var(--fs-meta);
-  letter-spacing: 0.02em;
+  letter-spacing: var(--tracking-label);
 }
 
 .detail-inner { max-width: var(--page-max); margin: 0 auto; padding: 16px; }
 .detail h3 { margin: 22px 0 10px; font-size: var(--fs-title); }
 .detail .unconfirmed {
-  color: var(--danger);
+  color: var(--text);
   font-size: var(--fs-ui);
-  margin: 12px 0 0;
+  margin: var(--sp-3) 0 0;
 }
 
 .scaler {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  margin: 4px 0 6px;
+  margin: var(--sp-1) 0 var(--sp-2);
 }
 .scaler-label {
   flex: none;
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   font-size: var(--fs-ui);
   color: var(--text-dim);
 }
@@ -809,7 +782,7 @@ body.readonly .add-row input { cursor: not-allowed; }
 .bubble.on {
   background: var(--accent);
   color: var(--accent-text);
-  font-weight: 600;
+  font-weight: var(--fw-strong);
 }
 /* the base serving, when selected, stays neutral - accent means "adjusted" */
 .bubble.on.base {
@@ -837,7 +810,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-3);
-  margin: 22px 0 10px;
+  margin: var(--sp-5) 0 var(--sp-3);
 }
 .ing-head h3 { margin: 0; }
 /* One round cart button, used in two places: at the end of the Trends
@@ -884,7 +857,7 @@ body.readonly .add-row input { cursor: not-allowed; }
 .ing-list {
   list-style: none;
   position: relative;
-  margin: 4px 0 22px;
+  margin: var(--sp-1) 0 var(--sp-5);
   padding: 6px 0 0 34px;
   display: grid;
   grid-template-columns: max-content 1fr;
@@ -917,16 +890,16 @@ body.readonly .add-row input { cursor: not-allowed; }
 }
 .ing-list .qty {
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  font-weight: var(--fw-strong);
   white-space: nowrap;
   color: var(--text);
 }
 /* the adjusted value (only shown for a non-base serving) is the accent green */
 .ing-list .qty-scaled {
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  font-weight: var(--fw-strong);
   white-space: nowrap;
-  color: var(--accent);
+  color: var(--text);
 }
 .ing-list .nm { min-width: 0; }
 .ing-list .note { color: var(--text-dim); font-size: var(--fs-ui); }
@@ -998,15 +971,15 @@ body.readonly .add-row input { cursor: not-allowed; }
 /* safety: an older cached index.html may still ship a second (filled) icon */
 .bottom-nav .icon-filled { display: none; }
 /* selected tab: icon takes the accent colour, pill bubble behind it */
-.bottom-nav button.active { color: var(--accent); }
+.bottom-nav button.active { color: var(--accent-ink); }
 .bottom-nav button.active .nav-icon { background: var(--accent-soft); }
 
 .nav-label {
   font-size: var(--fs-micro);
   line-height: 1;
-  letter-spacing: 0.01em;
+  letter-spacing: var(--tracking-label);
 }
-.bottom-nav button.active .nav-label { font-weight: 600; }
+.bottom-nav button.active .nav-label { font-weight: var(--fw-strong); }
 
 .nav-badge {
   position: absolute;
@@ -1020,7 +993,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   background: var(--accent);
   color: var(--accent-text);
   font-size: var(--fs-micro);
-  font-weight: 700;
+  font-weight: var(--fw-strong);
   line-height: 16px;
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -1040,9 +1013,9 @@ body.readonly .add-row input { cursor: not-allowed; }
   align-items: baseline;
   justify-content: space-between;
   padding: 0 2px;
-  margin-bottom: 8px;
+  margin-bottom: var(--sp-2);
 }
-.tab-section-title { font-weight: 600; font-size: var(--fs-lede); }
+.tab-section-title { font-weight: var(--fw-strong); font-size: var(--fs-lede); }
 .tab-section-sub { color: var(--text-dim); font-size: var(--fs-meta); }
 /* A lede under the title, not beside it. "Worth pairing" does not say what is
    being paired, so its one line is load-bearing rather than decoration - it is
@@ -1110,9 +1083,9 @@ body.readonly .add-row input { cursor: not-allowed; }
   display: inline-flex; align-items: center; gap: var(--sp-2);
   padding: 6px 12px; min-height: 0; border: none;
   border-radius: 999px; font-size: var(--fs-ui); white-space: nowrap;
-  background: var(--surface-2); color: var(--text-dim); font-weight: 500;
+  background: var(--surface-2); color: var(--text-dim); font-weight: var(--fw-medium);
 }
-.pill.sel { background: var(--accent); color: var(--accent-text); font-weight: 600; }
+.pill.sel { background: var(--accent); color: var(--accent-text); font-weight: var(--fw-strong); }
 .pill.open { box-shadow: inset 0 0 0 1.5px var(--rule-strong); }
 .pill-text { overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
 .pill-x {
@@ -1150,7 +1123,7 @@ body.readonly .add-row input { cursor: not-allowed; }
    options: neither "6 months" nor "All time" is the one being qualified. */
 .price-subfilters {
   display: flex; gap: var(--sp-2); align-items: stretch;
-  margin: 10px 0 6px;
+  margin: var(--sp-3) 0 var(--sp-2);
 }
 .price-subfilters > .pill-wrap { flex: 1 1 0; min-width: 0; }
 /* Controls keep their phone proportions (see --control-max): same height and
@@ -1177,11 +1150,11 @@ body.readonly .add-row input { cursor: not-allowed; }
 .segment button {
   position: relative; z-index: 1; flex: 1 1 0; min-width: 0;
   border: none; background: none; font: inherit; font-size: var(--fs-ui);
-  font-weight: 500; color: var(--text-dim); padding: 6px 4px; min-height: 0;
+  font-weight: var(--fw-medium); color: var(--text-dim); padding: 6px 4px; min-height: 0;
   border-radius: 999px; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
 }
-.segment button[aria-pressed="true"] { color: var(--accent-text); font-weight: 600; }
+.segment button[aria-pressed="true"] { color: var(--accent-text); font-weight: var(--fw-strong); }
 /* a half with nothing behind it: still named, plainly not choosable, and the
    capsule keeps its size so the row does not change shape. aria-disabled
    rather than disabled, so it stays announced and keeps these colours instead
@@ -1207,7 +1180,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   padding: 9px 10px; min-height: 0; border: none; background: transparent;
   color: var(--text); font-size: var(--fs-ui); border-radius: 8px;
 }
-.pill-opt.on { color: var(--accent); font-weight: 600; }
+.pill-opt.on { color: var(--text); }
 .pill-opt:active { background: var(--surface-2); }
 .metric-none { color: var(--text-dim); }
 
@@ -1219,16 +1192,16 @@ body.readonly .add-row input { cursor: not-allowed; }
   width: 100%;
   text-align: center;
   background: transparent;
-  color: var(--accent);
+  color: var(--text-dim);
   font-size: var(--fs-ui);
-  font-weight: 600;
+  font-weight: var(--fw-regular);
   padding: 9px 0;
   min-height: 0;
   border-radius: 10px;
 }
 
 /* ---- Worth watching ---- */
-.opp-card { background: var(--card); border-radius: 14px; padding: 2px 4px 4px; }
+.opp-card { background: var(--panel); border-radius: 14px; padding: 2px 4px 4px; }
 .opp-list { list-style: none; margin: 0; padding: 0; }
 .opp-row {
   display: flex;
@@ -1248,7 +1221,7 @@ body.readonly .add-row input { cursor: not-allowed; }
 .opp-empty { padding: 14px 8px; color: var(--text-dim); font-size: var(--fs-body); }
 
 /* ---- Trends ---- */
-.trends-card { background: var(--card); border-radius: 14px; padding: 14px 12px 4px; }
+.trends-card { background: var(--panel); border-radius: 14px; padding: 14px 12px 4px; }
 
 /* the legend sits between the chart and the KPI cards, same row shape as
    Period/Product above but plain text since it isn't itself a filter */
@@ -1266,13 +1239,13 @@ body.readonly .add-row input { cursor: not-allowed; }
    where a raw font size is correct. */
 .chart-axis { font-size: 9px; fill: var(--text-dim); }
 .price-pt { cursor: pointer; }
-.promo-mark { font-size: 8px; fill: #fff; text-anchor: middle; font-weight: 600; }
+.promo-mark { font-size: 8px; fill: #fff; text-anchor: middle; font-weight: var(--fw-strong); }
 
 .price-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); margin: 0 0 4px; }
 .metric-card { background: var(--surface); border-radius: 12px; padding: 10px 12px; }
 .metric-label { color: var(--text-dim); font-size: var(--fs-meta); margin-bottom: 4px; }
-.metric-value { font-weight: 600; font-size: var(--fs-title); }
-.metric-unit { font-size: var(--fs-micro); color: var(--text-dim); font-weight: 400; }
+.metric-value { font-weight: var(--fw-strong); font-size: var(--fs-title); }
+.metric-unit { font-size: var(--fs-micro); color: var(--text-dim); font-weight: var(--fw-regular); }
 .metric-store { display: flex; align-items: center; gap: var(--sp-1); margin-top: 4px; font-size: var(--fs-meta); color: var(--text-dim); }
 
 /* the chart icon + optional store-coloured bubble - shared by a shopping-
@@ -1327,8 +1300,8 @@ body.readonly .add-row input { cursor: not-allowed; }
   grid-column: 1 / -1;
   padding: 14px 0 6px;
   font-size: var(--fs-meta);
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-weight: var(--fw-strong);
+  letter-spacing: var(--tracking-label);
   color: var(--text-dim);
   border-bottom: 1px solid var(--rule-strong);
 }
@@ -1363,13 +1336,13 @@ body.readonly .add-row input { cursor: not-allowed; }
 .price-date { white-space: nowrap; font-size: var(--fs-ui); color: var(--text-dim); }
 .price-qty { white-space: nowrap; font-size: var(--fs-ui); color: var(--text-dim); font-variant-numeric: tabular-nums; }
 .price-value {
-  white-space: nowrap; font-weight: 600; font-size: var(--fs-ui);
+  white-space: nowrap; font-weight: var(--fw-strong); font-size: var(--fs-ui);
   font-variant-numeric: tabular-nums;
 }
 /* a promo price sits in an accent pill - no separate marker */
 .promo-price {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--text);
   padding: 2px 7px;
   border-radius: 999px;
 }
@@ -1447,7 +1420,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   color: var(--text-dim);
   white-space: nowrap;
 }
-.plan-chip.high { background: var(--accent); color: var(--accent-text); font-weight: 500; }
+.plan-chip.high { background: var(--accent); color: var(--accent-text); font-weight: var(--fw-medium); }
 
 /* The strip sits in the same container the Recipes grid sits in, so giving it
    the grid's own column width makes a card here the same size as a card there
@@ -1487,11 +1460,11 @@ body.readonly .add-row input { cursor: not-allowed; }
 .cu-tabs button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 .cu-card { background: var(--card); border-radius: var(--r-card); padding: 14px; margin: 0 0 12px; }
 .cu-raw { font-size: var(--fs-meta); color: var(--text-dim); }
-.cu-name { font-weight: 600; font-size: var(--fs-title); margin: 2px 0; }
+.cu-name { font-weight: var(--fw-strong); font-size: var(--fs-title); margin: 2px 0; }
 .cu-meta { font-size: var(--fs-meta); color: var(--text-dim); }
 .cu-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
 .cu-tags .tag { background: var(--accent-soft); border-radius: var(--r-pill); padding: 2px 8px; font-size: var(--fs-micro); }
-.cu-card .ask { margin: 12px 0 6px; font-weight: 500; }
+.cu-card .ask { margin: var(--sp-3) 0 var(--sp-2); font-weight: var(--fw-medium); }
 .cu-card .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .cu-card .chip {
   border: 1px solid var(--rule-strong); background: transparent; color: var(--text);
@@ -1507,7 +1480,7 @@ body.readonly .add-row input { cursor: not-allowed; }
 .cu-quiet { background: none; color: var(--text-dim); font-size: var(--fs-ui); padding: 6px 4px; min-height: 0; }
 .cu-done {
   margin-left: auto; padding: 8px 20px; border-radius: var(--r-control); background: var(--accent);
-  color: var(--accent-text); font-weight: 600; font-size: var(--fs-ui);
+  color: var(--accent-text); font-weight: var(--fw-strong); font-size: var(--fs-ui);
 }
 .cu-done:disabled { opacity: 0.4; }
 .cu-note { color: var(--text-dim); font-size: var(--fs-meta); margin: 0 0 12px; }
@@ -1521,4 +1494,4 @@ body.readonly .add-row input { cursor: not-allowed; }
 }
 
 /* the sentence under a See all sheet's title: the same words the section has in place */
-.sheet-sub { margin: 6px 0 0; color: var(--text-dim); font-size: var(--fs-meta); font-weight: 400; }
+.sheet-sub { margin: var(--sp-2) 0 0; color: var(--text-dim); font-size: var(--fs-meta); font-weight: var(--fw-regular); }

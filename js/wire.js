@@ -11,7 +11,7 @@ import { openListSheet } from "./sheet-list.js";
 import { openPriceDetail } from "./sheet-price.js";
 import { setSyncState, store } from "./store.js";
 import { fullSync } from "./sync.js";
-import { HEX_RE, applyTheme } from "./theme.js";
+import { applyTheme } from "./theme.js";
 import { $, $$ } from "./util.js";
 import { checkedOpen, renderSuggestions, setCheckedOpen, submitAddName, tidyChecked } from "./view-list.js";
 import { pairings, renderBatchSheet, renderPairsSheet, renderPlanner, setBatchOrder, setPairOrder, shuffled, sizePlanStrips } from "./view-plan.js";
@@ -91,18 +91,6 @@ export function wire() {
   });
   $$("#setPalette button").forEach((b) => {
     b.addEventListener("click", () => store.setPalette(b.dataset.palette));
-  });
-  $("#customGrid").addEventListener("input", (e) => {
-    const inp = e.target.closest(".ct-hex");
-    if (!inp) return;
-    let v = inp.value.trim();
-    if (/^([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v)) v = "#" + v; // tolerate a pasted "aabbcc"
-    if (!HEX_RE.test(v)) { inp.classList.add("bad"); return; }
-    inp.classList.remove("bad");
-    if (v !== inp.value) inp.value = v;
-    store.setCustomToken(inp.dataset.mode, inp.dataset.token, v);
-    const prev = inp.parentElement.querySelector(".ct-prev");
-    if (prev) prev.style.background = v;
   });
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
     if ((store.state.settings.theme || "system") === "system") applyTheme("system");

@@ -39,7 +39,7 @@
     base-uri 'none';
     object-src 'none';
     form-action 'none';
-    script-src 'self' 'sha256-7yohqvlHCG607hZYdO5/0dhSi7BzIaND+H8lBopbh7M=';
+    script-src 'self' 'sha256-kpv0M6cydAvivYFu8poE9q+uAQOp9tdXKBE2iPKj8BM=';
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
     style-src-elem 'self' https://fonts.googleapis.com;
     style-src-attr 'unsafe-inline';
@@ -74,16 +74,9 @@
     root.dataset.themeBoot = "1";
     try {
       var s = JSON.parse(localStorage.getItem("foodapp.settings")) || {};
-      if (s.palette && s.palette !== "cobalt") root.setAttribute("data-palette", s.palette);
+      if (s.palette === "amber" || s.palette === "chartreuse") root.setAttribute("data-palette", s.palette);
       var dark = matchMedia("(prefers-color-scheme: dark)").matches;
       root.style.colorScheme = dark ? "dark" : "light";
-      var set = s.palette === "custom" && s.custom && s.custom[dark ? "dark" : "light"];
-      if (set) {
-        Object.keys(set).forEach(function (t) {
-          if (/^--[a-z0-9-]+$/.test(t) && /^#[0-9a-fA-F]{3,8}$/.test(set[t]))
-            root.style.setProperty(t, set[t]);
-        });
-      }
     } catch (e) { /* first run, or storage blocked */ }
   })();
 
@@ -326,27 +319,7 @@
             <span class="pal-swatch" style="background: conic-gradient(#0f1012 0 90deg, #d7d63a 90deg 180deg, #dde0ea 180deg 270deg, #ffffff 270deg 360deg)"></span>
             <span>Chartreuse</span>
           </button>
-          <button type="button" data-palette="lime">
-            <span class="pal-swatch" style="background: conic-gradient(#0c111c 0 90deg, #c3ee5c 90deg 180deg, #d0dbf0 180deg 270deg, #ffffff 270deg 360deg)"></span>
-            <span>Lime</span>
-          </button>
-          <button type="button" data-palette="tangerine">
-            <span class="pal-swatch" style="background: conic-gradient(#100e0a 0 90deg, #ff7a1a 90deg 180deg, #e4d7c3 180deg 270deg, #ffffff 270deg 360deg)"></span>
-            <span>Tangerine</span>
-          </button>
-          <button type="button" data-palette="volt">
-            <span class="pal-swatch" style="background: conic-gradient(#0b0b0a 0 90deg, #dcff33 90deg 180deg, #e0e0dc 180deg 270deg, #ffffff 270deg 360deg)"></span>
-            <span>Volt</span>
-          </button>
-          <button type="button" data-palette="custom">
-            <span>Custom</span>
-          </button>
         </div>
-      </div>
-
-      <div class="field" id="customThemeField" hidden>
-        <p class="field-label">Custom colours</p>
-        <div id="customGrid" class="custom-grid"></div>
       </div>
 
       <div class="field">
