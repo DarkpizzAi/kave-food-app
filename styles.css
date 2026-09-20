@@ -57,8 +57,8 @@ html, body {
                        for every width - max() picks the minimum on a phone -
                        so there is no breakpoint to keep in sync.
      --control-max     a control (pill, segmented control, stat card) fills
-                       the row, edge to edge, on every phone. Only past 440px
-                       (the Pixel 7a is 412) is it a computer window: then the
+                       the row, edge to edge, on a touch screen. On a computer
+                       (a mouse, or a window past 700px) the
                        control snaps to the left at 380px, the width it has on
                        a Pixel, instead of stretching into a bar. The chart and
                        the card grids are what use the room.
@@ -72,7 +72,7 @@ html, body {
   --page-gutter: max(var(--page-gutter-min), calc((100% - var(--page-max)) / 2 + var(--page-gutter-min)));
   --control-max: 100%;
 }
-@media (min-width: 440px) { :root { --control-max: 380px; } }
+@media (hover: hover) and (pointer: fine), (min-width: 700px) { :root { --control-max: 380px; } }
 
 body {
   padding-top: var(--header-h, 56px);
