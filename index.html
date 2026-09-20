@@ -18,7 +18,8 @@
        Edit that script - even one character of whitespace or a comment - and
        it stops matching and is silently blocked. It says so rather than only
        flashing the wrong colours: the script stamps data-theme-boot on <html>,
-       and app.js warns to the console and flags it red in Settings > Display
+       js/view-settings.js warns to the console and flags it red in Settings >
+       Display
        when that stamp is missing. The recompute command lives in the README,
        under "The token, and what protects it" - deliberately not here, because
        a command containing the text <script></script> is itself what a regex
@@ -38,7 +39,7 @@
     base-uri 'none';
     object-src 'none';
     form-action 'none';
-    script-src 'self' 'sha256-3733tRbDWO+QkuW08Hz+mNyD8/YYw1O/+xoac96s3YQ=';
+    script-src 'self' 'sha256-NxoVnJ7sQY+QwGOGsO6q80umFGnEd6kkLNQGUoxFxVg=';
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
     style-src-elem 'self' https://fonts.googleapis.com;
     style-src-attr 'unsafe-inline';
@@ -55,11 +56,13 @@
   <meta name="color-scheme" content="light dark" />
   <script id="theme-preload">
   /* Apply the saved theme before the first frame. Without this the document
-     paints on the default Cobalt tokens until app.js has loaded, so any other
-     theme arrives as a visible flash of the wrong colours. */
+     paints on the default Cobalt tokens until the modules have loaded, so any
+     other theme arrives as a visible flash of the wrong colours. Being inline
+     and classic, this runs during parse; js/boot.js is a module, so it is
+     deferred and does not. */
   (function () {
     var root = document.documentElement;
-    /* Proof this script ran, read back by renderDisplayDiag() and by app.js.
+    /* Proof this script ran, read back by renderDisplayDiag() and by boot.js.
        Set first, before anything that can throw, so a blocked localStorage
        does not read as a stale CSP hash. If the hash above stops matching,
        this attribute is absent and both places say so out loud - the whole
@@ -363,7 +366,7 @@
     </button>
     <button data-view="prices" aria-label="Prices">
       <span class="nav-icon">
-        <!-- kept in sync by hand with PRICE_ICON_PATH in app.js: static markup can't read a JS constant -->
+        <!-- kept in sync by hand with PRICE_ICON_PATH in js/view-list.js: static markup can't read a JS constant -->
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l5-6 4 3 7-7"/><path d="M15 7h5v5"/></svg>
       </span>
       <span class="nav-label">Prices</span>
@@ -388,8 +391,13 @@
     </button>
   </nav>
 
-  <script src="pixel-icons.js"></script>
-  <script src="github.js"></script>
-  <script src="app.js"></script>
+  <!-- One entry point. js/boot.js imports the other fifteen modules, and
+       github.js and pixel-icons.js through them. type="module" is deferred
+       where the three classic scripts it replaces were not, so this runs
+       after DOM parse rather than during it. Nothing here relied on the
+       old timing: every line of boot.js already ran at the end of the
+       file, and #theme-preload above still runs during parse, which is
+       the one thing that has to. -->
+  <script type="module" src="js/boot.js"></script>
 </body>
 </html>

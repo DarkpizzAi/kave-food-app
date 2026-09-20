@@ -8,9 +8,16 @@ URL and the service-worker cache name still carry that name on purpose - they
 are the deployment's identity and renaming them would move the live URL and
 orphan every installed copy. Only the user-facing name changed.
 
-**This repo is the static app shell only** - `index.html`, `styles.css`,
-`app.js`, `github.js`, `pixel-icons.js`. No data, no secrets. It is public so
-GitHub Pages can serve it for free.
+**This repo is the static app shell only** - `index.html`, `tokens.css`,
+`styles.css`, `js/` (sixteen ES modules, entered through `js/boot.js`),
+`github.js` and `pixel-icons.js`. No data, no secrets. It is public so GitHub
+Pages can serve it for free.
+
+`tokens.css` is a **generated** verbatim copy of
+`design/data/household-tokens.css` in the hub repo, placed by that repo's
+`design/tools/sync-household-tokens.py`. Never hand-edit it: the hub is the
+source of truth for every colour, type step, spacing step and radius, and
+`--check` in that script exists to catch a copy that has drifted.
 
 The shopping list and the recipes live in a separate **private** repo
 (`DarkpizzAi/kave-hub`, at `food/data/`). They sync into the app through a
@@ -119,7 +126,7 @@ it in the file it parses made it hash its own documentation.
 
 A blocked script would otherwise be silent - the symptom is the colour flash it
 exists to prevent, not an error. So it announces itself: the script stamps
-`data-theme-boot` on `<html>` before doing anything else, and app.js warns to
+`data-theme-boot` on `<html>` before doing anything else, and the app warns to
 the console and shows a red *Theme preload BLOCKED* line in
 *Settings > Display* when that stamp is missing.
 

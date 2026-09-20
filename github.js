@@ -11,7 +11,11 @@
 */
 "use strict";
 
-const github = {
+/* Exported, because Spoon is an ES-module app since v11.21. Compass has
+   carried this same line from the start; that one word was the only
+   difference between the two files, and now there is none. Keep it that
+   way: a bug found here is a bug in both. */
+export const github = {
   config: {
     owner: "DarkpizzAi",
     repo: "kave-hub",

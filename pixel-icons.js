@@ -3,7 +3,7 @@
    (Hugo's icons). No image assets, works offline. */
 "use strict";
 
-const foodPixelIcon = (() => {
+export const foodPixelIcon = (() => {
   function pixelEmoji(emoji, size = 40, grid = 16) {
     const small = document.createElement("canvas");
     small.width = grid;

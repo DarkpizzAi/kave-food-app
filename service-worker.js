@@ -5,14 +5,19 @@
    is the offline data store. Bump VERSION on every deploy so the old cache is
    cleared and the "new version" toast fires.
 
+   EVERY MODULE IN js/ HAS TO BE IN SHELL. The app is sixteen files since
+   v11.21, not one, and a module missing from this list is a module the
+   app cannot load with no network. Nothing says so until someone opens it
+   in a supermarket basement.
+
    On the local dev server this file is a kill switch instead: it wipes every
-   cache and unregisters itself. app.js also refuses to register on localhost,
-   but that guard is unreachable once an old SW is serving a stale app.js -
+   cache and unregisters itself. js/boot.js also refuses to register on localhost,
+   but that guard is unreachable once an old SW is serving a stale shell -
    the browser always re-fetches THIS file from the network, so the teardown
    has to live here to be able to break a browser out of a stale shell.
 */
 
-const VERSION = "v11.20";
+const VERSION = "v11.21";
 const CACHE = `kave-food-${VERSION}`;
 
 const IS_LOCAL_DEV = ["localhost", "127.0.0.1"].includes(self.location.hostname);
@@ -33,9 +38,24 @@ if (IS_LOCAL_DEV) {
 const SHELL = [
   "./",
   "index.html",
-  "app.js",
   "github.js",
   "pixel-icons.js",
+  "js/util.js",
+  "js/store.js",
+  "js/theme.js",
+  "js/prices-data.js",
+  "js/view-list.js",
+  "js/view-recipes.js",
+  "js/view-plan.js",
+  "js/sheet-recipe.js",
+  "js/sheet-price.js",
+  "js/view-prices.js",
+  "js/view-settings.js",
+  "js/render.js",
+  "js/wire.js",
+  "js/sync.js",
+  "js/pull-to-sync.js",
+  "js/boot.js",
   "tokens.css",
   "styles.css",
   "manifest.json",

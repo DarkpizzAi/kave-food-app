@@ -87,13 +87,35 @@ the `syncing` latch cleared in a `finally`. Clearing that latch on the normal
 tail leaves it stuck on after one throw, and the app then goes quietly stale
 with nothing to show for it.
 
-## `tokens.css` - not yet, and then generated
+## `tokens.css` is generated. Never hand-edit it
 
-Spoon has **not** adopted the shared token file. Its palettes still live in
-`styles.css`, and that is the current correct state.
+Adopted in v11.20. It is a verbatim copy of
+`design/data/household-tokens.css` in the hub, placed by that repo's
+`design/tools/sync-household-tokens.py`. Change a colour, a type step, a
+spacing step or a radius **there**, run the script, and bump `VERSION` here.
+Run it with `--check` before shipping: a stale copy looks exactly like a
+working one.
 
-When the migration lands, `tokens.css` becomes a verbatim generated copy of
-`design/data/household-tokens.css`, placed by the hub's
-`design/tools/sync-household-tokens.py`. From that point: never hand-edit it,
-and flip Spoon's flag in that script's `TARGETS` in the same commit that
-links it, or the drift check stops guarding this app silently.
+`styles.css` defines no design tokens any more. What it still owns is the
+store colours, because those are data - Isa's fixed roster, which must not
+move - and they are theme-aware, so they have their own `[data-theme]` block
+in this repo rather than in the household file.
+
+## One entry point, sixteen modules
+
+`index.html` loads `js/boot.js` and nothing else. Since v11.21 the app is ES
+modules in `js/`, split out of what was one 4240-line `app.js` on the section
+banners that file already drew. `github.js` and `pixel-icons.js` stay at the
+root and export.
+
+- **Every module in `js/` must be in `SHELL` in `service-worker.js`.** A
+  module missing from that list is an app that cannot open with no network,
+  and nothing says so until someone is in a supermarket basement.
+- **An imported binding is read-only.** A module that does not declare a
+  `let` cannot assign to it. Twelve of them are written from elsewhere and
+  have an exported `setX()` next to the declaration for exactly that reason.
+  Reaching for one is normal; adding a thirteenth is fine. Assigning directly
+  is a `TypeError`, not a warning.
+- `type="module"` is **deferred** where the old classic script was not. Only
+  `#theme-preload` still runs during parse, which is the one thing that has
+  to, since it exists to beat the first paint.
