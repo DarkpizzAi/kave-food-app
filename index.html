@@ -39,7 +39,7 @@
     base-uri 'none';
     object-src 'none';
     form-action 'none';
-    script-src 'self' 'sha256-NxoVnJ7sQY+QwGOGsO6q80umFGnEd6kkLNQGUoxFxVg=';
+    script-src 'self' 'sha256-7yohqvlHCG607hZYdO5/0dhSi7BzIaND+H8lBopbh7M=';
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
     style-src-elem 'self' https://fonts.googleapis.com;
     style-src-attr 'unsafe-inline';
@@ -55,11 +55,15 @@
        light/dark setting, and that is the whole story. -->
   <meta name="color-scheme" content="light dark" />
   <script id="theme-preload">
-  /* Apply the saved theme before the first frame. Without this the document
-     paints on the default Cobalt tokens until the modules have loaded, so any
-     other theme arrives as a visible flash of the wrong colours. Being inline
-     and classic, this runs during parse; js/boot.js is a module, so it is
-     deferred and does not. */
+  /* Two jobs, both of which have to happen during parse, before the modules.
+
+     1. Apply the saved theme before the first frame. Without this the
+        document paints on the default Cobalt tokens until the modules have
+        loaded, so any other theme arrives as a visible flash of the wrong
+        colours. Being inline and classic, this runs during parse; js/boot.js
+        is a module, so it is deferred and does not.
+     2. Recover from an inconsistent shell, which is a deploy-day failure
+        that only became fatal with the modules - see the second block. */
   (function () {
     var root = document.documentElement;
     /* Proof this script ran, read back by renderDisplayDiag() and by boot.js.
@@ -82,6 +86,42 @@
       }
     } catch (e) { /* first run, or storage blocked */ }
   })();
+
+  /* For exactly one load after a deploy the shell can disagree with itself.
+     The service worker serves a navigation network-first but every other
+     shell asset stale-while-revalidate, so a fresh index.html can meet a
+     pixel-icons.js still coming out of the previous version's cache. That
+     was harmless while the app was one classic script - two slightly
+     different files that each still parsed. An ES module import asserts the
+     exports it names, so now the mismatch kills the whole app: one failed
+     import takes down js/boot.js and the page is inert markup. It happened
+     on the v11.21 deploy, which is why this exists.
+
+     Deleting the caches and reloading is enough, because the incoming worker
+     has already precached the new shell with cache: "reload". sessionStorage
+     makes it once per tab and never a loop: if the second load fails too,
+     the failure is real and must stay visible rather than be reloaded away.
+     No storage means no guard, for the same reason.
+
+     This lives in index.html and not in a module on purpose. index.html is
+     the one file the old worker fetches network-first, so this reaches a
+     browser on the deploy that breaks it. A fix shipped inside js/ would
+     only run once the thing it repairs already worked. */
+  window.addEventListener("error", function (e) {
+    var m = (e && e.message) || "";
+    if (m.indexOf("does not provide an export") < 0
+        && m.indexOf("imported module") < 0) return;
+    try {
+      if (sessionStorage.getItem("foodapp.shellReload")) return;
+      sessionStorage.setItem("foodapp.shellReload", "1");
+    } catch (err) { return; }
+    var done = function () { location.reload(); };
+    if (window.caches) {
+      caches.keys().then(function (ks) {
+        return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+      }).then(done, done);
+    } else { done(); }
+  });
   </script>
   <title>Spoon</title>
   <link rel="manifest" href="manifest.json" />

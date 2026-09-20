@@ -119,3 +119,13 @@ root and export.
 - `type="module"` is **deferred** where the old classic script was not. Only
   `#theme-preload` still runs during parse, which is the one thing that has
   to, since it exists to beat the first paint.
+- **A deploy can hand the browser an inconsistent shell for one load.** The
+  worker serves a navigation network-first and every other shell asset
+  stale-while-revalidate, so a fresh `index.html` can meet a subresource
+  still coming out of the previous cache. Two classic scripts survived that;
+  a module import asserts its exports, so now it kills the app. It happened
+  live on v11.21. `#theme-preload` carries a recovery guard that clears the
+  caches and reloads once per tab - it lives in `index.html` and not in
+  `js/` because `index.html` is the one file the *old* worker fetches
+  fresh, so it reaches the browser on the deploy that breaks it. That is a
+  net, not a fix: the caching strategy still lets the mismatch happen.
