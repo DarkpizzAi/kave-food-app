@@ -5,10 +5,10 @@
    webpage, dashboards, artifacts.
 
    Spec: docs/superpowers/specs/2026-09-10-household-app-conventions-design.md
-   Reasoning: design/data/household-look.md
+   Reasoning: brand/data/household-look.md
 
    THIS FILE IS COPIED INTO THE APP REPOS by
-   design/tools/sync-household-tokens.py, where it lands as
+   brand/tools/sync-household-tokens.py, where it lands as
    tokens.css. Never hand-edit a downstream copy: edit this file
    and re-sync. `sync-household-tokens.py --check` reports drift
    without writing.
