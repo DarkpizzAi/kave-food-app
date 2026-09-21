@@ -139,11 +139,11 @@
    RADIUS
    ------------------------------------------------------------ */
 :root {
-  --r-pill: 999px;              /* pills, chips, badges */
-  --r-card: 12px;               /* cards, panels, menus */
-  --r-control: 8px;             /* inputs, small buttons, options */
+  --r-pill: 999px;              /* choosing: pills, chips, tabs, badges, filters */
+  --r-card: 12px;               /* containers: cards, panels, menus */
+  --r-control: 10px;            /* doing and entering: action buttons, text fields */
   --r-sheet: 18px 18px 0 0;     /* bottom sheets */
-  --r-round: 50%;               /* avatars, dots, icon buttons */
+  --r-round: 50%;               /* one glyph or colour: icon buttons, avatars, dots, swatches */
   --r-square: 0;                /* bars and stacked bars, ALWAYS. See charts below */
 }
 

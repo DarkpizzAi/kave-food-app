@@ -17,7 +17,8 @@
    has to live here to be able to break a browser out of a stale shell.
 */
 
-const VERSION = "v12.2";
+const VERSION = "v12.3";
+const SHELL_TIMEOUT_MS = 3000;
 const CACHE = `kave-food-${VERSION}`;
 
 const IS_LOCAL_DEV = ["localhost", "127.0.0.1"].includes(self.location.hostname);
@@ -140,7 +141,30 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // shell assets + fonts: stale-while-revalidate
+  // the app's own files (modules, css, icons): network first with a short
+  // timeout, cache as the fallback. Navigation is network first, so a fresh
+  // index.html has to meet fresh modules: stale-while-revalidate here let it
+  // meet the previous version's files for one load, and an ES module import
+  // fails outright on a stale export. The timeout keeps a weak signal in a
+  // shop from stalling the app; past it the cache answers, which is one
+  // consistent version, and the #theme-preload guard covers the rare rest.
+  if (url.origin === self.location.origin) {
+    e.respondWith(
+      caches.open(CACHE).then((cache) => {
+        const net = fetch(req).then((res) => {
+          if (res && res.ok && res.type === "basic") cache.put(req, res.clone());
+          return res;
+        });
+        net.catch(() => {}); // a late failure after the cache answered is not an error
+        const timeout = new Promise((_, no) => setTimeout(no, SHELL_TIMEOUT_MS));
+        return Promise.race([net, timeout])
+          .catch(() => cache.match(req).then((cached) => cached || net));
+      })
+    );
+    return;
+  }
+
+  // fonts: stale-while-revalidate
   e.respondWith(
     caches.open(CACHE).then((cache) =>
       cache.match(req).then((cached) => {
