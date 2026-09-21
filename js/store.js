@@ -13,6 +13,9 @@ import { PALETTES, applyPalette } from "./theme.js";
 import { uid } from "./util.js";
 
 const LS_LIST = "foodapp.list";        // the shopping list, optimistic working copy
+// The hub site (DarkpizzAi/kave-hub-site, js/embedded.js) shares this origin and
+// writes three fields of this object: token, who and palette (it keeps every
+// other field). Renaming the key or changing those fields' shape breaks it.
 const LS_SETTINGS = "foodapp.settings";
 const LS_RECIPES = "foodapp.recipes";  // last-synced recipes (offline cache)
 const LS_PRICES = "foodapp.prices";    // last-synced price-series.json (offline cache)
