@@ -17,7 +17,7 @@
    has to live here to be able to break a browser out of a stale shell.
 */
 
-const VERSION = "v12.3";
+const VERSION = "v12.4";
 const SHELL_TIMEOUT_MS = 3000;
 const CACHE = `kave-food-${VERSION}`;
 

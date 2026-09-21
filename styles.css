@@ -20,6 +20,9 @@
    appears (list bubble, chart line, sheet dot). Only Ametller needs a pair;
    the rest read fine unchanged against every surface. */
 :root { --store-ametller: #5E5945; --store-ametller-on: #fff; }
+/* the one status colour Spoon draws itself: the sync line warning dot. Fixed in
+   both modes, outside the palette, so it keeps meaning the same thing. */
+:root { --sync-warn: #e6a700; }
 @media (prefers-color-scheme: dark) {
   /* the pair flips to a light olive-cream, so the icon drawn on top of the
      bubble has to flip from white to dark with it, or it disappears */
@@ -97,8 +100,29 @@ body {
      and the bar becomes transparent over --bg on its own - the title just
      needs to clear the clock. syncHeaderHeight() measures this padding into
      --header-h, so <body>, .ptr and .detail all follow with no other change. */
-  padding: calc(14px + env(safe-area-inset-top, 0px)) var(--page-gutter) 14px;
+  padding: calc(var(--sp-4) + env(safe-area-inset-top, 0px)) var(--page-gutter) var(--sp-4);
   background: var(--bg);
+}
+/* The sheet's rounded top has to stay put while the page scrolls under it.
+   <main> is an ordinary block, so its own corners scroll away with it and the
+   content ends up cut off square behind the header. This strip hangs below the
+   fixed header and paints the outside of the two corners in the page colour:
+   a band for the gap above <main>, then an inverse quarter circle at each end.
+   The 18px is the top radius of --r-sheet, and the 8px is main's margin-top
+   (--sp-2); gradients cannot read either token, so keep them equal. */
+.app-header::after {
+  content: "";
+  position: absolute;
+  /* the same column as <body> and .detail: on a computer the sheet is a
+     centred 720px column, and the corners are at its edges, not the window's */
+  left: 50%; width: min(100%, var(--page-max)); transform: translateX(-50%);
+  top: 100%;
+  height: 26px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 100% 100%, transparent 17.5px, var(--bg) 18px) left 0 top 8px / 18px 18px no-repeat,
+    radial-gradient(circle at 0 100%, transparent 17.5px, var(--bg) 18px) right 0 top 8px / 18px 18px no-repeat,
+    linear-gradient(var(--bg), var(--bg)) top / 100% 8px no-repeat;
 }
 .app-header h1 {
   font-family: "Rubik", system-ui, sans-serif;
@@ -152,11 +176,11 @@ main {
   font-size: var(--fs-ui);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s var(--ease-standard);
 }
 .ptr-arrow {
   font-size: var(--fs-lede);
-  transition: transform 0.12s ease;
+  transition: transform 0.12s var(--ease-standard);
 }
 .ptr.ready .ptr-arrow { transform: rotate(180deg); }
 .ptr-spinner {
@@ -282,7 +306,7 @@ input, .search {
 }
 
 /* checked block */
-.checked-block { margin-top: 18px; }
+.checked-block { margin-top: var(--sp-4); }
 .checked-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
 .tidy-btn {
   border: none;
@@ -291,7 +315,7 @@ input, .search {
   font-size: var(--fs-ui);
   padding: 8px 4px;
   min-height: 32px;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.2s var(--ease-standard);
 }
 /* Clean up result briefly replaces the button label */
 .tidy-btn.fading { opacity: 0; }
@@ -312,7 +336,7 @@ input, .search {
    it reads as a section divider rather than a footnote under Sync */
 .advanced-block {
   margin-top: var(--sp-2);
-  padding-top: 14px;
+  padding-top: var(--sp-4);
   border-top: 1px solid var(--rule);
 }
 .advanced-block > .checked-toggle {
@@ -322,7 +346,7 @@ input, .search {
   padding-left: 0;
 }
 .advanced-block > .checked-toggle span:first-child { color: var(--text-dim); }
-#advancedFields { margin-top: 6px; }
+#advancedFields { margin-top: var(--sp-2); }
 
 .empty { color: var(--text-dim); text-align: center; padding: 32px 0; }
 
@@ -342,7 +366,7 @@ input, .search {
   height: 40px;
   min-height: 40px;
   border: none;
-  border-radius: var(--r-pill);
+  border-radius: var(--r-round);
   background: var(--surface-2);
   color: var(--text-dim);
   display: grid;
@@ -373,10 +397,9 @@ input, .search {
   height: 40px;
   padding: 0 12px;
   border: none;
-  border-radius: var(--r-pill);
+  border-radius: var(--r-control);
   background: var(--surface-2);
 }
-.search-field:focus-within { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
 .search-field > svg { width: 16px; height: 16px; color: var(--text-dim); flex: none; }
 .search-field input {
   flex: 1;
@@ -402,7 +425,7 @@ input, .search {
 }
 .search-field .clr svg { width: 15px; height: 15px; }
 
-.rails { margin-top: 10px; display: flex; flex-direction: column; gap: var(--sp-2); }
+.rails { margin-top: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
 .rail {
   display: flex;
   gap: var(--sp-2);
@@ -593,7 +616,7 @@ li.recipe-card {
 .coming-soon h2 { color: var(--text); }
 
 /* settings */
-.field { margin-bottom: 22px; }
+.field { margin-bottom: var(--sp-5); }
 .field > label,
 .field > .field-label {
   display: block;
@@ -612,7 +635,7 @@ li.recipe-card {
 .who-buttons button .pal-swatch {
   width: 20px;
   height: 20px;
-  border-radius: var(--r-pill);
+  border-radius: var(--r-round);
   border: 1px solid var(--rule-strong);
   flex: none;
 }
@@ -620,7 +643,7 @@ li.recipe-card {
 
 .token-row { display: flex; gap: var(--sp-2); width: 75%; min-width: 240px; }
 .token-row input { flex: 1; min-width: 0; }
-.hint { color: var(--text-dim); font-size: var(--fs-ui); margin: 6px 0 0; }
+.hint { color: var(--text-dim); font-size: var(--fs-ui); margin: var(--sp-2) 0 0; }
 
 .token-status { font-size: var(--fs-ui); margin: 8px 0 0; font-weight: var(--fw-strong); }
 .token-status.checking { color: var(--text-dim); font-weight: var(--fw-regular); }
@@ -635,7 +658,7 @@ li.recipe-card {
   background: var(--text-dim);
 }
 .sync-line.ok i { background: var(--accent); }
-.sync-line.warn i { background: #e6a700; }
+.sync-line.warn i { background: var(--sync-warn); }
 .sync-line.error i { background: var(--text); }
 .sync-line.muted { color: var(--text-dim); }
 
@@ -682,7 +705,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   border-radius: var(--r-sheet);
   padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
   transform: translate(-50%, 100%);
-  transition: transform 0.28s cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition: transform 0.28s var(--ease-sheet);
 }
 .detail.shown { transform: translate(-50%, 0); }
 @media (prefers-reduced-motion: reduce) {
@@ -695,7 +718,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   z-index: 2;
   background: var(--accent-soft);
   border-radius: var(--r-sheet);
-  padding: 18px 16px 14px;
+  padding: var(--sp-4);
   cursor: pointer;
   touch-action: none;
   user-select: none;
@@ -720,7 +743,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   letter-spacing: var(--tracking-heading);
   text-wrap: balance;
 }
-.detail-tags { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: 9px; }
+.detail-tags { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-2); }
 .detail-tag {
   padding: 2px 9px;
   border-radius: var(--r-pill);
@@ -731,7 +754,7 @@ body.readonly .add-row input { cursor: not-allowed; }
 }
 
 .detail-inner { max-width: var(--page-max); margin: 0 auto; padding: 16px; }
-.detail h3 { margin: 22px 0 10px; font-size: var(--fs-title); }
+.detail h3 { margin: var(--sp-5) 0 var(--sp-3); font-size: var(--fs-title); }
 .detail .unconfirmed {
   color: var(--text);
   font-size: var(--fs-ui);
@@ -789,9 +812,8 @@ body.readonly .add-row input { cursor: not-allowed; }
 }
 /* the base serving, when selected, stays neutral - accent means "adjusted" */
 .bubble.on.base {
-  background: var(--surface-2);
-  color: var(--text);
-  box-shadow: inset 0 0 0 1.5px var(--text);
+  background: var(--text);
+  color: var(--bg);
 }
 .bubble-custom { color: var(--text-dim); }
 .bubble-input {
@@ -799,9 +821,8 @@ body.readonly .add-row input { cursor: not-allowed; }
   height: 40px;
   padding: 0 10px;
   border: none;
-  box-shadow: inset 0 0 0 1.5px var(--accent);
-  border-radius: var(--r-pill);
-  background: var(--surface-2);
+  border-radius: var(--r-control);
+  background: var(--accent-soft);
   color: var(--text);
   font: inherit;
   text-align: center;
@@ -831,13 +852,13 @@ body.readonly .add-row input { cursor: not-allowed; }
   min-height: 0;
   padding: 0;
   border: none;
-  border-radius: var(--r-pill);
+  border-radius: var(--r-round);
   background: var(--surface-2);
   color: var(--text-dim);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background 0.15s var(--ease-standard), color 0.15s var(--ease-standard);
 }
 .cart-btn svg { width: 17px; height: 17px; display: block; }
 /* The circle is 34px because that is what sits well in a row of pills, and 34
@@ -911,7 +932,7 @@ body.readonly .add-row input { cursor: not-allowed; }
 .ing-list .ing-add svg { width: 18px; height: 18px; }
 
 .steps { padding-left: 20px; }
-.steps li { margin-bottom: 10px; }
+.steps li { margin-bottom: var(--sp-3); }
 
 /* back-to-top (shopping list, when scrolled down) */
 .to-top {
@@ -928,7 +949,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   box-shadow: var(--shadow-card);
   cursor: pointer;
   opacity: 0; transform: translateY(8px); pointer-events: none;
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  transition: opacity 0.18s var(--ease-standard), transform 0.18s var(--ease-standard);
 }
 .to-top svg { display: block; width: 18px; height: 18px; }
 .to-top.show { opacity: 1; transform: none; pointer-events: auto; }
@@ -968,7 +989,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   width: 52px;
   height: 30px;
   border-radius: var(--r-pill);
-  transition: background 0.18s ease;
+  transition: background 0.18s var(--ease-standard);
 }
 .bottom-nav button svg { width: 24px; height: 24px; }
 /* safety: an older cached index.html may still ship a second (filled) icon */
@@ -1041,7 +1062,7 @@ body.readonly .add-row input { cursor: not-allowed; }
    divide between them. Nothing overflows any more, so the row does not
    scroll and the label has nothing to mask. */
 .price-pills-row { display: flex; align-items: center; gap: var(--sp-2); }
-.price-pills-row + .price-pills-row { margin-top: 7px; }
+.price-pills-row + .price-pills-row { margin-top: var(--sp-2); }
 /* fixed width so both rows' pills start at the same x */
 .price-pills-row .rail-label,
 #priceLegend .rail-label { min-width: 62px; }
@@ -1089,7 +1110,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   background: var(--surface-2); color: var(--text-dim); font-weight: var(--fw-medium);
 }
 .pill.sel { background: var(--accent); color: var(--accent-text); font-weight: var(--fw-strong); }
-.pill.open { box-shadow: inset 0 0 0 1.5px var(--rule-strong); }
+.pill.open { background: var(--rule-strong); color: var(--text); }
 .pill-text { overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
 .pill-x {
   display: inline-flex; align-items: center; justify-content: center;
@@ -1148,7 +1169,7 @@ body.readonly .add-row input { cursor: not-allowed; }
 }
 .segment[data-on="1"] .seg-thumb { transform: translateX(100%); }
 @media (prefers-reduced-motion: no-preference) {
-  .seg-thumb { transition: transform 190ms cubic-bezier(0.3, 0.7, 0.3, 1); }
+  .seg-thumb { transition: transform 190ms var(--ease-drag); }
 }
 .segment button {
   position: relative; z-index: 1; flex: 1 1 0; min-width: 0;
@@ -1221,14 +1242,14 @@ body.readonly .add-row input { cursor: not-allowed; }
 .opp-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* same treatment as .list li .qty, so the two rows genuinely read as one row shape */
 .opp-price { flex: none; color: var(--text-dim); font-size: var(--fs-ui); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.opp-empty { padding: 14px 8px; color: var(--text-dim); font-size: var(--fs-body); }
+.opp-empty { padding: var(--sp-4) var(--sp-2); color: var(--text-dim); font-size: var(--fs-body); }
 
 /* ---- Trends ---- */
-.trends-card { background: var(--panel); border-radius: var(--r-card); padding: 14px 12px 4px; }
+.trends-card { background: var(--panel); border-radius: var(--r-card); padding: var(--sp-4) var(--sp-3) var(--sp-1); }
 
 /* the legend sits between the chart and the KPI cards, same row shape as
    Period/Product above but plain text since it isn't itself a filter */
-#priceLegend { margin: 4px 0 14px; }
+#priceLegend { margin: var(--sp-1) 0 var(--sp-4); }
 .legend-item { display: flex; align-items: center; gap: var(--sp-1); align-self: center; flex: none; padding: 6px 0; font-size: var(--fs-meta); color: var(--text-dim); white-space: nowrap; }
 .legend-dot { width: 8px; height: 8px; border-radius: var(--r-round); flex: none; }
 
@@ -1289,7 +1310,7 @@ body.readonly .add-row input { cursor: not-allowed; }
   padding: 10px 10px 10px 0;
   border-bottom: 1px solid var(--rule);
   min-width: 0;
-  transition: background 0.4s ease;
+  transition: background 0.28s var(--ease-standard);
 }
 .price-row .pt-cell:last-child { padding-right: 0; }
 .pt-head {
@@ -1301,7 +1322,7 @@ body.readonly .add-row input { cursor: not-allowed; }
 /* full-width bar naming the year that the rows below it belong to */
 .pt-year {
   grid-column: 1 / -1;
-  padding: 14px 0 6px;
+  padding: var(--sp-4) 0 var(--sp-2);
   font-size: var(--fs-meta);
   font-weight: var(--fw-strong);
   letter-spacing: var(--tracking-label);
@@ -1409,9 +1430,9 @@ body.readonly .add-row input { cursor: not-allowed; }
   color: var(--text-dim);
   font-size: var(--fs-body);
 }
-.plan-row + .plan-row { margin-top: 22px; }
+.plan-row + .plan-row { margin-top: var(--sp-5); }
 
-.plan-share { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: 9px; }
+.plan-share { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-2); }
 /* The chip carries the risk in its weight, not in a badge or a number: `high`
    is the reason the row exists, `medium` is a milder version of the same
    thing. No legend, because two levels do not need explaining. */
@@ -1452,23 +1473,42 @@ body.readonly .add-row input { cursor: not-allowed; }
    `outline: none` in two places and no focus style anywhere else. */
 :focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
 
+/* Text boxes are the exception: the focus ring is the box's own edge, coloured,
+   not a second outline standing off it. Drawn inside the box so nothing moves,
+   and a box that already has a 1px border recolours that border instead of
+   adding to it. */
+input:focus-visible, textarea:focus-visible, select:focus-visible,
+.search-field:focus-within {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.pen-input:focus-visible, .pill-search:focus-visible {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+/* the input inside a ring-carrying wrapper leaves the ring to the wrapper */
+.search-field input:focus-visible { box-shadow: none; }
+/* the add row is a ruled line, not a box: its rule is the edge that lights up */
+.add-row input:focus-visible { box-shadow: none; }
+.add-row:focus-within { border-bottom-color: var(--accent); }
+
 /* ---- Receipt data clean-up (Prices tab, after Trends) ---- */
 .cleanup-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); }
 .cleanup-kpis .metric-label { font-size: var(--fs-micro); }
-.cu-tabs { display: flex; gap: var(--sp-2); margin: 0 0 14px; }
+.cu-tabs { display: flex; gap: var(--sp-2); margin: 0 0 var(--sp-4); }
 .cu-tabs button {
   padding: 5px 12px; border-radius: var(--r-pill); background: transparent;
   color: var(--text); font-size: var(--fs-ui); border: 1px solid var(--rule-strong);
 }
 .cu-tabs button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
-.cu-card { background: var(--card); border-radius: var(--r-card); padding: 14px; margin: 0 0 12px; }
+.cu-card { background: var(--card); border-radius: var(--r-card); padding: var(--sp-4); margin: 0 0 var(--sp-3); }
 .cu-raw { font-size: var(--fs-meta); color: var(--text-dim); }
 .cu-name { font-weight: var(--fw-strong); font-size: var(--fs-title); margin: 2px 0; }
 .cu-meta { font-size: var(--fs-meta); color: var(--text-dim); }
 .cu-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
 .cu-tags .tag { background: var(--accent-soft); border-radius: var(--r-pill); padding: 2px 8px; font-size: var(--fs-micro); }
 .cu-card .ask { margin: var(--sp-3) 0 var(--sp-2); font-weight: var(--fw-medium); }
-.cu-card .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cu-card .chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .cu-card .chip {
   border: 1px solid var(--rule-strong); background: transparent; color: var(--text);
   border-radius: var(--r-pill); padding: 7px 12px; font-size: var(--fs-ui); min-height: 0;
@@ -1476,10 +1516,10 @@ body.readonly .add-row input { cursor: not-allowed; }
 .cu-card .chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 .cu-card .chip.pen { color: var(--text-dim); }
 .pen-input {
-  flex: 1 1 160px; min-width: 0; padding: 7px 12px; border-radius: var(--r-pill);
+  flex: 1 1 160px; min-width: 0; padding: 7px 12px; border-radius: var(--r-control);
   border: 1px solid var(--rule-strong); background: var(--surface); color: var(--text); font-size: var(--fs-ui);
 }
-.cu-foot { display: flex; align-items: center; gap: var(--sp-3); margin-top: 14px; }
+.cu-foot { display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-4); }
 .cu-quiet { background: none; color: var(--text-dim); font-size: var(--fs-ui); padding: 6px 4px; min-height: 0; }
 .cu-done {
   margin-left: auto; padding: 8px 20px; border-radius: var(--r-control); background: var(--accent);
