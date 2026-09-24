@@ -1,9 +1,9 @@
 # Spoon - non-negotiables
 
 Rules that are expensive to break and easy to break by accident. Everything
-else, including the whole design system, lives in the `design` plugin of the
-private `kave-hub` repo: read `design/data/household-look.md` and
-`design/data/household-tokens.css`, or invoke its `apply-household-look`
+else, including the whole design system, lives in the `brand` plugin of the
+private `kave-hub` repo: read `brand/data/household-look.md` and
+`brand/data/household-tokens.css`, or invoke its `apply-household-look`
 skill. **Do not restate the design system here.** This repo is public.
 
 ## Never rename
@@ -90,8 +90,8 @@ with nothing to show for it.
 ## `tokens.css` is generated. Never hand-edit it
 
 Adopted in v11.20. It is a verbatim copy of
-`design/data/household-tokens.css` in the hub, placed by that repo's
-`design/tools/sync-household-tokens.py`. Change a colour, a type step, a
+`brand/data/household-tokens.css` in the hub, placed by that repo's
+`brand/tools/sync-household-tokens.py`. Change a colour, a type step, a
 spacing step or a radius **there**, run the script, and bump `VERSION` here.
 Run it with `--check` before shipping: a stale copy looks exactly like a
 working one.

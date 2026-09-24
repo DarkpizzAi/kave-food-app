@@ -14,8 +14,8 @@ orphan every installed copy. Only the user-facing name changed.
 Pages can serve it for free.
 
 `tokens.css` is a **generated** verbatim copy of
-`design/data/household-tokens.css` in the hub repo, placed by that repo's
-`design/tools/sync-household-tokens.py`. Never hand-edit it: the hub is the
+`brand/data/household-tokens.css` in the hub repo, placed by that repo's
+`brand/tools/sync-household-tokens.py`. Never hand-edit it: the hub is the
 source of truth for every colour, type step, spacing step and radius, and
 `--check` in that script exists to catch a copy that has drifted.
 
