@@ -305,7 +305,7 @@ function buildPriceChartSvg(lines, width) {
 
 // what a Product pill shows when that level has nothing to offer - the same
 // em dash the metric cards already use for "no value here"
-const NO_LEVEL = "—";
+const NO_LEVEL = "-";
 // the Variant pill's answer when there genuinely is no variant to name: the
 // whole card carries no L2 at all, or the single product in view is one of
 // the bare ones under a card that otherwise has variants. Distinct from "All
@@ -651,10 +651,10 @@ export function renderTrends() {
   const maxDate = info.series.reduce((m, p) => (p.date > m ? p.date : m), "");
   const onLatest = info.series.filter((p) => p.date === maxDate);
   if (!onLatest.length) {
-    $("#priceLastValue").innerHTML = `<span class="metric-none">—</span>`;
+    $("#priceLastValue").innerHTML = `<span class="metric-none">-</span>`;
     $("#priceLastStore").innerHTML = "";
   } else if (granularity !== "store" && onLatest.length > 1) {
-    $("#priceLastValue").innerHTML = `<span class="metric-none">—</span>`;
+    $("#priceLastValue").innerHTML = `<span class="metric-none">-</span>`;
     $("#priceLastStore").innerHTML = "";
   } else {
     const last = onLatest.reduce((a, b) => (b.price < a.price ? b : a));
