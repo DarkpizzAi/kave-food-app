@@ -114,6 +114,17 @@ export function wire() {
     store.setToken(next);
     checkToken();
   });
+  /* Advanced settings > App link: copy the public address, to open Spoon on
+     another device. The label swaps to "Copied" for a moment; if the
+     clipboard is refused, the link is selected to copy by hand. */
+  $("#copyAppLink").addEventListener("click", (e) => {
+    const btn = e.currentTarget, input = $("#appLink");
+    const done = () => { btn.textContent = "Copied"; setTimeout(() => { btn.textContent = "Copy"; }, 1500); };
+    /* the older copy command often works where the clipboard API is refused
+       (an embedded frame); failing both, the link stays selected */
+    const byHand = () => { input.focus(); input.select(); try { if (document.execCommand("copy")) done(); } catch (err) { /* selected */ } };
+    if (navigator.clipboard) navigator.clipboard.writeText(input.value).then(done, byHand); else byHand();
+  });
   $("#clearToken").addEventListener("click", () => {
     $("#setToken").value = "";
     store.setToken("");
