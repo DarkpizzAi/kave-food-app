@@ -1538,3 +1538,29 @@ input:focus-visible, textarea:focus-visible, select:focus-visible,
 
 /* the sentence under a See all sheet's title: the same words the section has in place */
 .sheet-sub { margin: var(--sp-2) 0 0; color: var(--text-dim); font-size: var(--fs-meta); font-weight: var(--fw-regular); }
+
+/* ---------- the first-run gate (js/gate.js): the hub site's own screen,
+   so all three apps open alike. While it is up nothing else shows. ---------- */
+body.gated > :not(#gate) { display: none; }
+.gate { box-sizing: border-box; min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: var(--sp-4); }
+.gate[hidden] { display: none; }
+.gate-box { display: flex; flex-direction: column; align-items: center; gap: var(--sp-5); width: 100%; }
+.gate-mark { font-size: var(--fs-xl); font-weight: var(--fw-strong); letter-spacing: .06em; line-height: var(--lh-title); text-transform: uppercase; }
+.gate-field { width: min(340px, 100%); height: 48px; border-radius: var(--r-control); background: var(--surface);
+  display: flex; align-items: center; padding: 0 6px 0 var(--sp-5); gap: var(--sp-3); }
+.gate-field:focus-within { box-shadow: inset 0 0 0 2px var(--accent); }
+.gate .gate-field input { flex: 1; min-width: 0; width: auto; height: 100%; margin: 0; padding: 0; border: 0; border-radius: 0;
+  background: transparent; outline: none; box-shadow: none;
+  font: inherit; font-size: var(--fs-body); color: var(--text); letter-spacing: .2em; }
+/* the field's own ring is the focus signal; the global input ring would double it */
+.gate .gate-field input:focus-visible { box-shadow: none; outline: none; }
+.gate .gate-go { width: 36px; height: 36px; min-height: 0; min-width: 0; flex: none; padding: 0; border: 0; cursor: pointer;
+  border-radius: var(--r-round); background: var(--accent); color: var(--accent-text); display: flex; align-items: center; justify-content: center; }
+.gate .gate-go svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.gate .setup-row { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-3); }
+.gate .setup-choice { width: 140px; height: 48px; min-height: 0; border: 0; border-radius: var(--r-pill); background: var(--surface); color: var(--text);
+  font: inherit; font-size: var(--fs-body); font-weight: var(--fw-strong); letter-spacing: .06em; text-transform: lowercase; cursor: pointer; }
+.gate .setup-choice:hover { background: var(--accent); color: var(--accent-text); }
+.gate .setup-swatch { width: 48px; height: 48px; min-height: 0; padding: 0; border: 0; border-radius: var(--r-round); cursor: pointer; transition: transform 120ms var(--ease-standard); }
+.gate .setup-swatch:hover { transform: scale(1.06); }
+.gate .setup-choice:focus-visible, .gate .setup-swatch:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }

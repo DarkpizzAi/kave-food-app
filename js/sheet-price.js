@@ -241,7 +241,7 @@ function qtyText(qty, unit) {
       (a, b) => Math.abs(b[0] - (qty - whole)) < Math.abs(a[0] - (qty - whole)) ? b : a)[1];
     q = whole > 0 ? `${whole} ${label}` : label;
   }
-  return `${q}${unit ? " " + escapeHtml(unit) : ""}`;
+  return `${escapeHtml(q)}${unit ? " " + escapeHtml(unit) : ""}`;
 }
 
 // up to 3 pills for the detail header: cuisine, type, and the stub status
