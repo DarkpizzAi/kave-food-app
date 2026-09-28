@@ -4,7 +4,7 @@
    by any surface in this household: Spoon, Compass, the hub
    webpage, dashboards, artifacts.
 
-   Spec: docs/superpowers/specs/2026-09-10-household-app-conventions-design.md
+   Spec: the 2026-09-10 household-app-conventions spec, in git history
    Reasoning: brand/data/household-look.md
 
    THIS FILE IS COPIED INTO THE APP REPOS by
@@ -205,6 +205,29 @@
   :root:not([data-theme="light"]) {
     --good-bg: #143f30;
     --good-tx: #7fd9b6;
+  }
+}
+
+/* ------------------------------------------------------------
+   FREE-TIME (Compass only)
+
+   Compass's Free-time toggle (Clear/Open day states, the toggle
+   button itself) is its own thing, not the household's "this got
+   better" semantic above -- a free day isn't an outcome, so it
+   gets its own pair rather than borrowing --good-bg/--good-tx.
+   Sage, chosen against Compass's own Cobalt and Chartreuse
+   accents. Same shape as the semantic pair: -bg is the fill
+   (Clear), -tx is the border/text (Open's border, and Clear's
+   text on top of its own fill).
+   ------------------------------------------------------------ */
+:root {
+  --free-bg: #e4ecdd;
+  --free-tx: #4c6a41;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --free-bg: #293422;
+    --free-tx: #a8cf94;
   }
 }
 

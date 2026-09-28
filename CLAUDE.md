@@ -73,9 +73,19 @@ well-meant deduplication here breaks the feature.
 
 ## Check the no-token state
 
-The app with no token saved is a real screen, seen after every reinstall. It
-is invisible to a diff and to a dev run with a token present, and that blind
-spot hid three defects in the v11 release alone. Test it deliberately.
+With no token saved the app shows only the first-run gate (`js/gate.js`, the
+hub site's screen), seen after every reinstall. It is invisible to a diff
+and to a dev run with a token present, and that blind spot hid three defects
+in the v11 release alone. Test it deliberately: gate, wrong token, good
+token, who, theme. (`?dev` on localhost skips the gate for snapshot
+browsing; test without it.)
+
+## One origin, one token
+
+Spoon, Compass and the hub site are all served from `darkpizzai.github.io`
+and share one `localStorage`, so they share the token. Never publish another
+GitHub Pages site from the DarkpizzAi account: anything served there can
+read it.
 
 ## Four sync rules, all bug-driven
 
@@ -101,7 +111,7 @@ store colours, because those are data - Isa's fixed roster, which must not
 move - and they are theme-aware, so they have their own `[data-theme]` block
 in this repo rather than in the household file.
 
-## One entry point, sixteen modules
+## One entry point, ES modules in `js/`
 
 `index.html` loads `js/boot.js` and nothing else. Since v11.21 the app is ES
 modules in `js/`, split out of what was one 4240-line `app.js` on the section

@@ -13,7 +13,8 @@ import { renderList, renderListBadge } from "./view-list.js";
 import { renderPlanner } from "./view-plan.js";
 import { renderPrices } from "./view-prices.js";
 import { renderRecipes } from "./view-recipes.js";
-import { renderSettings } from "./view-settings.js";
+import { checkToken, renderSettings } from "./view-settings.js";
+import { renderGate } from "./gate.js";
 
 // show the back-to-top button once the shopping list is scrolled past ~200px
 export function updateToTop() {
@@ -24,6 +25,8 @@ export function updateToTop() {
 }
 
 export function render(state) {
+  // the gate first: no token (or no "who") and nothing else shows
+  if (renderGate({ onToken: () => checkToken() })) return;
   $("#viewTitle").textContent = VIEW_TITLES[state.view];
   $$(".view").forEach((v) => { v.hidden = v.id !== `view-${state.view}`; });
   $$(".bottom-nav button").forEach((b) => {

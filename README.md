@@ -34,10 +34,12 @@ Then open `http://localhost:8777/`. The server sends `no-store`, so a plain
 reload always shows your latest edit (`python -m http.server` caches and
 serves stale JS/CSS). The service worker does not run on `localhost`.
 
-With no token, the local server loads `recipes.dev.json` and
-`price-series.dev.json` (gitignored snapshots copied from kave-hub) so the
-Recipes and Prices tabs are browsable offline of GitHub. Neither file ever
-reaches the public repo.
+With no token the app shows only the first-run gate (`js/gate.js`, the hub
+site's screen: token, then who, then theme). To browse without a token
+locally, open `http://localhost:8777/?dev`: the gate steps aside and the
+local server loads `recipes.dev.json` and `price-series.dev.json`
+(gitignored snapshots copied from kave-hub) so the Recipes and Prices tabs
+work offline of GitHub. Neither file ever reaches the public repo.
 
 If a reload ever shows you an old version of the app, read the browser-preview
 notes in the private hub repo (`food/data/kave-food-app-browser-preview-on-pc.md`)

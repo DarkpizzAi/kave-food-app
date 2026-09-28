@@ -318,7 +318,7 @@ function cardHtml(card) {
     asks.push(`<div class="ask">Is this right?</div><div class="chips">` +
       chip("Yes, it is", `data-act="confirm" data-file="${escapeHtml(card.file)}"`, !!d.confirmed) + `</div>`);
   }
-  const tags = card.missing.map((m) => `<span class="tag">${TAGS[m] || m}</span>`).join("");
+  const tags = card.missing.map((m) => `<span class="tag">${escapeHtml(TAGS[m] || m)}</span>`).join("");
   return `<div class="cu-card" data-file="${escapeHtml(card.file)}">` +
     `<div class="cu-raw">${escapeHtml(card.store)} · ${fmtDate(last)}${n > 1 ? ` · ${n} lines this month` : ""}</div>` +
     `<div class="cu-name">${escapeHtml(cur.product || card.item_normalised || card.item_raw)}</div>` +

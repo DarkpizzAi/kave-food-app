@@ -41,7 +41,7 @@ export const own = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
    resolved --surface (the app header's background) so they never drift. */
 const HTML_ENTITIES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 export function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => HTML_ENTITIES[c]);
+  return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => HTML_ENTITIES[c]);
 }
 
 /* escapeHtml is no defence inside an href. It escapes characters, and a URL
