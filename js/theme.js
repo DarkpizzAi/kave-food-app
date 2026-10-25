@@ -43,7 +43,7 @@ export function applyPalette(palette) {
 
 export const VIEW_TITLES = {
   list: "Shopping List",
-  prices: "Price tracking",
+  prices: "Insights",
   recipes: "Recipe book",
   planner: "Meal Planner",
   settings: "Settings",
