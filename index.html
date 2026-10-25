@@ -267,6 +267,11 @@
 
     <!-- PLANNER -->
     <section id="view-planner" class="view" hidden>
+      <!-- The Plan tab is parked: title and a centred "Coming soon" only. The
+           old sections stay in the DOM, hidden, because wire.js binds their
+           buttons at boot and a missing node would throw. -->
+      <p class="plan-soon">Coming soon</p>
+      <div class="plan-parked" hidden>
       <div class="tab-section">
         <div class="tab-section-head">
           <span class="tab-section-title">Worth pairing</span>
@@ -302,6 +307,7 @@
         <p class="tab-section-lede">Videos and recipes from the people we cook along
         with, and one tap to write the ones we like into the book.</p>
         <p class="plan-empty">Coming soon</p>
+      </div>
       </div>
     </section>
 
