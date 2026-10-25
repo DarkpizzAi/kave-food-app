@@ -13,8 +13,8 @@ import { goToPriceChart } from "./view-prices.js";
 
 export let checkedOpen = false;
 
-// the chart icon (trending line + arrowhead), same mark on the list row,
-// the sheet's promo dots and the Prices nav tab - one icon, one meaning
+// the chart icon (trending line + arrowhead), same mark on the list row and
+// the sheet's promo dots; the nav tab is Insights now and uses Compass's lightbulb
 const PRICE_ICON_PATH = '<path d="M4 17l5-6 4 3 7-7"/><path d="M15 7h5v5"/>';
 // same mark, flipped: a downward trend for an Opportunities row
 export const PRICE_ICON_DOWN_PATH = '<path d="M4 7l5 6 4-3 7 7"/><path d="M15 17h5v-5"/>';
