@@ -232,6 +232,35 @@ export const store = {
     ids.forEach((id) => this.enqueue({ t: "delete", id }));
     this.saveList(); this.notify();
   },
+  /* Undo's way back, through the same queue as every other edit. Each returns
+     the exact prior state so a snackbar can restore it, not approximate it. */
+  // put a row's ticked state and touchedAt back as they were
+  restoreChecked(id, checked, touchedAt) {
+    if (this.readOnly()) return;
+    const it = this.state.list.find((x) => x.id === id);
+    if (!it) return;
+    it.checked = checked;
+    it.touchedAt = touchedAt;
+    this.enqueue({ t: "check", id, checked, touchedAt });
+    this.saveList(); this.notify();
+  },
+  // snapshot rows with their positions, for an Undo of a delete
+  snapshotItems(ids) {
+    const set = new Set(ids);
+    const out = [];
+    this.state.list.forEach((it, index) => { if (set.has(it.id)) out.push({ item: { ...it }, index }); });
+    return out;
+  },
+  // put snapshotted rows back at their old positions (ascending, so each lands exactly)
+  restoreItems(entries) {
+    if (this.readOnly()) return;
+    entries.slice().sort((a, b) => a.index - b.index).forEach(({ item, index }) => {
+      if (this.state.list.some((x) => x.id === item.id)) return;
+      this.state.list.splice(Math.min(index, this.state.list.length), 0, { ...item });
+      this.enqueue({ t: "add", id: item.id, item: { ...item } });
+    });
+    this.saveList(); this.notify();
+  },
   setWho(who) { this.state.settings.who = who; this.saveSettings(); this.notify(); },
   setToken(token) {
     this.state.settings.token = token;

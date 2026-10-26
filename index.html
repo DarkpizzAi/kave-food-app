@@ -163,24 +163,17 @@
   <main>
     <!-- LIST -->
     <section id="view-list" class="view">
-      <div class="add-row">
-        <span class="add-plus">+</span>
-        <input id="addName" type="text" placeholder="List item" autocomplete="off"
-               autocapitalize="sentences" enterkeyhint="done" />
-        <div id="suggestions" class="suggestions" hidden></div>
+      <div class="m3-list-header list-head">
+        <span class="m3-title-s">To buy</span><span id="toBuyCount" class="m3-label-m m3-variant"></span>
       </div>
-      <ul id="listItems" class="list keep"></ul>
-      <p id="listEmpty" class="empty" hidden>Nothing on the list yet.</p>
+      <div id="toBuyList" class="m3-grouped"></div>
 
-      <div id="checkedBlock" class="checked-block" hidden>
-        <div class="checked-head">
-          <button id="checkedToggle" class="checked-toggle" type="button">
-            <span id="checkedCaret">▸</span> <span id="checkedCount"></span>
-          </button>
-          <button id="tidyChecked" class="tidy-btn" type="button">Clean up</button>
-        </div>
-        <ul id="checkedItems" class="list keep checked-list" hidden></ul>
+      <div class="m3-list-header list-head list-head--bought">
+        <span class="m3-title-s">Bought</span><span id="boughtCount" class="m3-label-m m3-variant"></span>
+        <span class="app-spacer-flex"></span>
+        <button id="tidyChecked" class="m3-btn m3-btn--text" type="button">Clean up</button>
       </div>
+      <div id="boughtList" class="m3-grouped"></div>
     </section>
 
     <!-- PRICES -->
@@ -343,6 +336,20 @@
       <div id="detailBody"></div>
     </div>
   </div>
+
+  <!-- Add page: full-screen search view, one history entry (js/view-list.js) -->
+  <div id="addPage" class="m3-search-view" role="dialog" aria-modal="true" aria-label="Add an item" hidden>
+    <div class="m3-search-view__bar">
+      <button type="button" id="addBack" class="m3-icon-btn" aria-label="Back"><span class="m3-icon">arrow_back</span></button>
+      <input id="addInput" class="m3-search-view__input" type="text" placeholder="Add an item" autocomplete="off"
+             autocapitalize="sentences" enterkeyhint="done" aria-label="Add an item" />
+      <button type="button" id="addClear" class="m3-icon-btn" aria-label="Clear" hidden><span class="m3-icon">close</span></button>
+    </div>
+    <div id="addResults" class="m3-search-view__body"></div>
+  </div>
+
+  <!-- the one snackbar host: List actions and their Undo -->
+  <div id="snackHost"></div>
 
   <button id="toTop" class="to-top" type="button" aria-label="Back to top">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7-7 7 7"/></svg>

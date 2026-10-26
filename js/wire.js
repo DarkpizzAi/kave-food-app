@@ -13,7 +13,7 @@ import { setSyncState, store } from "./store.js";
 import { fullSync } from "./sync.js";
 import { applyTheme } from "./theme.js";
 import { $, $$ } from "./util.js";
-import { checkedOpen, renderSuggestions, setCheckedOpen, submitAddName, tidyChecked } from "./view-list.js";
+import { addPageIsOpen, closeAddPage, tidyChecked, wireAddPage } from "./view-list.js";
 import { pairings, renderBatchSheet, renderPairsSheet, renderPlanner, setBatchOrder, setPairOrder, shuffled, sizePlanStrips } from "./view-plan.js";
 import { pricesUiState, renderOppSheet, renderOpportunities, renderTrends, resetTrends, resizePriceChart } from "./view-prices.js";
 import { equaliseCards, updateRailFade } from "./view-recipes.js";
@@ -39,7 +39,7 @@ export function wire() {
   $("#pageBack").addEventListener("click", closePage);
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
-    if (pageIsOpen()) closePage(); else closeDrawer();
+    if (addPageIsOpen()) closeAddPage(); else if (pageIsOpen()) closePage(); else closeDrawer();
   });
 
   $$("#cuisineFilters, #mainFilters").forEach((rail) => {
@@ -56,20 +56,7 @@ export function wire() {
     setTimeout(() => { if (sc.scrollTop === start) sc.scrollTop = 0; }, 120);
   });
 
-  const addName = $("#addName");
-  addName.addEventListener("input", () => renderSuggestions(store.state));
-  addName.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") { e.preventDefault(); submitAddName(); }
-  });
-  addName.addEventListener("blur", () => {
-    setTimeout(() => { $("#suggestions").hidden = true; }, 120);
-  });
-  addName.addEventListener("focus", () => renderSuggestions(store.state));
-
-  $("#checkedToggle").addEventListener("click", () => {
-    setCheckedOpen(!checkedOpen);
-    render(store.state);
-  });
+  wireAddPage();
   $("#tidyChecked").addEventListener("click", tidyChecked);
 
   $("#oppToggle").addEventListener("click", () => openListSheet("Worth watching", "Lowest price · 6 mo", renderOppSheet));
