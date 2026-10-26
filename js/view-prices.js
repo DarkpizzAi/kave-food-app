@@ -1,29 +1,71 @@
-/* Spoon: the Price tracking tab.
+/* Ladle: the Insights tab, on Material 3.
 
-   Split out of app.js, which was one 4240-line classic script. The
-   boundaries are the section banners that file already drew, so any
-   line's history is still one git log --follow away. */
+   A feed of cards. The best deal right now is the hero, four more deals sit
+   under it, and "See all worth watching" opens the full list in a sheet. Then
+   the Trends card (filter chips, a chart with direct store labels, the Latest
+   and Best price cards, a Purchase history button) and the receipt clean-up
+   card (js/cleanup.js).
+
+   Every price tap, here or on the List tab, goes to goToTrend(): it switches
+   to this tab and points Trends at that product. Nothing here opens a price
+   popup; the only sheets are the list of deals, the Category / Product
+   pickers and the purchase history, which is a button of its own.
+
+   The series maths is in prices-data.js and is not touched. */
 "use strict";
 
+import { kaveKey, showSnackbar } from "../m3/kave-m3.js";
 import { renderCleanup } from "./cleanup.js";
-import { CONFIRM_MS, GROUPS, PERIODS, PERIOD_SHORT, bestPriceInPeriod, cartButtonHtml, computeBubble, computeOpportunities, dayAveraged, l1Options, l2Options, l3Options, lineColor, narrowPriceTarget, productEntry, purchaseKey, resolveTargetInfo, seriesForTarget, seriesInPeriod, showCartReady, soleVariant, storeColor, storeOnColor, titleCaseVariant } from "./prices-data.js";
-import { closeListSheet, refreshListSheet } from "./sheet-list.js";
-import { openPriceDetail, priceDetailState } from "./sheet-price.js";
+import { CONFIRM_MS, GROUPS, PERIODS, PERIOD_SHORT, bestPriceInPeriod, computeBubble, computeOpportunities, dayAveraged, l1Options, l2Options, l3Options, narrowPriceTarget, productEntry, purchaseKey, resolveTargetInfo, seriesForTarget, seriesInPeriod, soleVariant, titleCaseVariant } from "./prices-data.js";
+import { closeInsSheet, openInsSheet, openPriceDetail, refreshInsSheet } from "./sheet-price.js";
 import { store } from "./store.js";
 import { $, $$, deburr, escapeHtml, markJump } from "./util.js";
-import { PRICE_ICON_DOWN_PATH } from "./view-list.js";
 
 export let pricesUiState = {
   target: null,   // {level:"l3", key} | {level:"l1"|"l2", l1, l1_label, l2?} | null (nothing seen yet)
-  period: "6m",   // "6m" | "all" | a "YYYY" year
+  period: "6m",   // "6m" | "all"
   groupBy: "supermarket",  // "supermarket" (one line per store) | "product" (one line per variant/product)
-  openPill: null,  // "l1" | "l2" | "l3" | null - which pill's dropdown is open
 };
 
-// The Trends cart button's confirm. It cannot live on the button itself the
-// way the recipe rows' does: adding an item re-renders the whole Prices view,
-// which rebuilds that button. So the deadline lives here, renderPricePills
-// draws the button from it, and a timer re-renders once to clear it.
+/* ---------- colours ---------- */
+
+// The roster of shops that have a colour of their own. Which shop gets which
+// hue is Isa's and does not move; the colours are the kit's --kave-data-<key>
+// tokens, and any other shop is the neutral "other".
+const STORE_KEYS = new Set(["keisy", "mercadona", "condis", "carrefour", "alcampo", "ametller"]);
+export function storeKeyOf(name) {
+  const k = deburr(name || "").split(/\s+/)[0];
+  return STORE_KEYS.has(k) ? k : "other";
+}
+const storeStyle = (name) => kaveKey(storeKeyOf(name));
+
+// Product lines (Group by = Products) have no colour of their own, so they
+// take scheme roles and data hues in a fixed order, by the line's sorted
+// position, stable across renders.
+const LINE_TOKENS = [
+  "--md-sys-color-primary", "--md-sys-color-tertiary", "--kave-data-culture", "--kave-data-life",
+  "--kave-data-nights", "--kave-data-outdoors", "--kave-data-food", "--md-sys-color-secondary",
+];
+
+// A chart is drawn as SVG attributes, and one data colour (--kave-data-other)
+// is itself a var(): so every colour is read off the document at draw time with
+// getComputedStyle, which hands back the resolved value for the seed and the
+// light or dark scheme in force right now. It is read again whenever either
+// changes (watchColours below), never cached across a paint.
+function colourReader() {
+  const cs = getComputedStyle(document.documentElement);
+  const memo = new Map();
+  return (name) => {
+    if (!memo.has(name)) memo.set(name, cs.getPropertyValue(name).trim() || "currentColor");
+    return memo.get(name);
+  };
+}
+
+/* ---------- state helpers ---------- */
+
+// The Trends cart button's confirm. The button is rebuilt by the render its
+// own add triggers, so the deadline lives here and the render draws the button
+// from it; a timer swaps the icon back once.
 let priceCartUntil = 0;
 let priceCartTimer = null;
 
@@ -32,15 +74,12 @@ function startPriceCartConfirm() {
   clearTimeout(priceCartTimer);
   priceCartTimer = setTimeout(() => {
     priceCartUntil = 0;
-    // revert the button itself rather than re-render the tab. The add replaced
-    // it once and nothing has re-rendered since, so it is normally still
-    // there; and when it is not - another target picked, another tab - the
-    // deadline above is already clear and whatever draws it next draws a cart.
-    // Re-rendering Prices here would repaint the whole chart to swap a 17px
-    // icon. It is looked up rather than captured because the element that
-    // wears the tick is not the one that was tapped.
+    // revert the button itself rather than re-render the chart to swap an icon
     const el = $("#priceCart");
-    if (el) showCartReady(el);
+    if (el) {
+      el.querySelector(".m3-icon").textContent = "add_shopping_cart";
+      el.setAttribute("aria-label", el.dataset.label || "Add to the shopping list");
+    }
   }, CONFIRM_MS);
 }
 
@@ -49,11 +88,15 @@ function endPriceCartConfirm() {
   priceCartUntil = 0;
 }
 
-// picks a sensible first thing to show the moment real data exists and
-// nothing has been tapped yet: the top Worth-watching mover if there is
-// one, else whichever product has the deepest history. Never runs again
-// once something has actually been selected.
+// The Trends default, and what Reset goes back to: olive oil. If the data has
+// no olive oil card, the top Worth-watching mover, else the deepest history.
+function oliveTarget() {
+  const hit = l1Options().find((o) => /oliv/.test(deburr(o.l1)) || /oliv/.test(deburr(o.label)));
+  return hit ? { level: "l1", l1: hit.l1, l1_label: hit.label } : null;
+}
 function defaultPriceTarget() {
+  const olive = oliveTarget();
+  if (olive && seriesForTarget(olive).length) return olive;
   const top = computeOpportunities("6m")[0];
   if (top) return { level: "l3", key: top.key };
   const entries = Object.entries(store.state.prices.products);
@@ -68,16 +111,7 @@ function defaultPriceTarget() {
 // bubble's colour on the list row with no way to check it; and a window that
 // cannot draw a line (fewer than two points) is worth leaving for one that
 // shows more. Either way the evidence is in "all time", so open there instead.
-//
-// The second test compares against the window rather than a fixed count, so a
-// card whose only purchase predates the window - Bouillon, bought once in
-// February 2025 - opens on all time and shows it, instead of reporting
-// "nothing bought in this period" about a product that was in fact bought.
-//
-// Only ever consulted when the target changes. A period the user picked by
-// hand is left exactly as picked, even when it draws an empty chart - the
-// dropdown offers no year the target has no data in, so an empty year chart
-// is a true answer ("one purchase, no trend"), not a dead end.
+// Only ever consulted when the target changes.
 function defaultPeriodFor(series) {
   const bubbleStore = computeBubble(series);
   const in6m = seriesInPeriod(series, "6m");
@@ -86,124 +120,173 @@ function defaultPeriodFor(series) {
   return "6m";
 }
 
-// the one entry point every tap goes through, so a shopping-list tap and a
-// Worth watching tap can never drift into two different behaviours: show
-// this target's chart, and (v10 spec) scroll to it rather than silently
-// updating off-screen.
+// the one entry point every selection goes through
 function selectPriceTarget(target, opts = {}) {
-  if (!target) return;
+  if (!target) return false;
   target = narrowPriceTarget(target);
   const series = seriesForTarget(target);
-  if (!series.length) return;
+  if (!series.length) return false;
   pricesUiState.target = target;
-  pricesUiState.openPill = null;
   endPriceCartConfirm(); // the tick belonged to the old target, not this one
   pricesUiState.period = defaultPeriodFor(series);
   renderTrends();
   if (opts.scroll) {
-    const card = document.querySelector(".trends-card");
-    if (card) { markJump(1200); card.scrollIntoView({ behavior: "smooth", block: "start" }); }
+    const card = $("#trendsCard");
+    if (card) {
+      markJump(1200);
+      card.scrollIntoView({ behavior: "smooth", block: "start" });
+      card.focus({ preventScroll: true });
+    }
   }
+  return true;
 }
 
-export function goToPriceChart(target) {
+/* Every price tap lands here: a deal card, the hero, a row of the Worth
+   watching list, the price icon on a List row. `what` is a product key, or a
+   target object when the caller only knows a card or a variant (the List
+   resolves a typed name to one). Switches to Insights, points Trends at it
+   (its category chip and its product chip follow) and scrolls Trends in. */
+export function goToTrend(what) {
+  const target = typeof what === "string" ? { level: "l3", key: what } : what;
+  if (!target) return;
+  const narrowed = narrowPriceTarget(target);
+  if (!seriesForTarget(narrowed).length) return;   // a stale key: stay where we are
   store.setView("prices");
-  selectPriceTarget(target, { scroll: true });
+  selectPriceTarget(narrowed, { scroll: true });
 }
 
-// Reset (by the Trends title): back to the top Worth-watching item on the
-// default 6-month, per-supermarket view - identical to tapping that row.
+// Reset: olive oil, 6 months, one line per shop
 export function resetTrends() {
   pricesUiState.groupBy = "supermarket";
-  pricesUiState.openPill = null;
   const t = defaultPriceTarget();
-  if (t) {
-    selectPriceTarget(t, { scroll: true });
-  } else {
+  if (!(t && selectPriceTarget(t))) {
     pricesUiState.target = null;
     pricesUiState.period = "6m";
     renderTrends();
   }
 }
 
-// the three Product pills, and clearing one. Picking a variant or product
-// resets the pills below it; clearing (the x, or picking "All") drops the
-// chart one pooling level up.
-function pickPriceL1(l1, label) {
-  selectPriceTarget({ level: "l1", l1, l1_label: label });
+// picks. Picking a card, variant or product resets what sits below it;
+// choosing "All variants" / "All products" pools one level up.
+function pickPriceL1(l1, label) { selectPriceTarget({ level: "l1", l1, l1_label: label }); }
+function pickPriceL2(l1, label, l2) { selectPriceTarget({ level: "l2", l1, l1_label: label, l2 }); }
+function pickPriceL3(key) { selectPriceTarget({ level: "l3", key }); }
+function clearPriceL2(info) { selectPriceTarget({ level: "l1", l1: info.l1, l1_label: info.l1_label }); }
+
+/* ---------- dates ---------- */
+
+const MONTHS_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export function fmtFullDate(dateStr) {
+  const [y, m, d] = dateStr.split("-");
+  return `${Number(d)} ${MONTHS_ABBR[Number(m) - 1]} ${y}`;
 }
-function pickPriceL2(l1, label, l2) {
-  selectPriceTarget({ level: "l2", l1, l1_label: label, l2 });
-}
-function pickPriceL3(key) {
-  selectPriceTarget({ level: "l3", key });
-}
-function clearPriceL2(info) {
-  selectPriceTarget({ level: "l1", l1: info.l1, l1_label: info.l1_label });
-}
-function clearPriceL3(info) {
-  if (info.l2) pickPriceL2(info.l1, info.l1_label, info.l2);
-  else clearPriceL2(info);
-}
-function togglePricePill(which) {
-  pricesUiState.openPill = pricesUiState.openPill === which ? null : which;
-  renderTrends();
+function fmtMonthYear(ms) {
+  const dt = new Date(ms);
+  return `${MONTHS_ABBR[dt.getUTCMonth()]} ${String(dt.getUTCFullYear()).slice(2)}`;
 }
 
-const OPP_COLLAPSED = 5;
+/* ---------- deals: the hero, four cards, the full list ---------- */
 
-// One Worth watching row. The same markup in the page and in the See all sheet.
-function oppRowHtml(o) {
-  const entry = productEntry(o.key);
-  const bubbleStore = entry ? computeBubble(entry.series) : null;
-  const best6 = bestPriceInPeriod(entry.series, "6m");
-  // same shape as a shopping-list row: name left, then right-aligned a
-  // qty-styled number and the price icon - and the same bubble rule
-  // (v10 spec §6), so a coloured bubble means "clear cheapest store"
-  // everywhere it shows up, not just on the list
-  return `
-    <li class="opp-row" data-price-key="${escapeHtml(o.key)}">
-      <span class="opp-name">${escapeHtml(o.label)}</span>
-      <span class="opp-price">${best6 ? `€${best6.price.toFixed(2)}/kg` : ""}</span>
-      <span class="price-btn" aria-hidden="true">
-        ${bubbleStore ? `<span class="price-bubble" style="background:${storeColor(bubbleStore)}"></span>` : ""}
-        <svg viewBox="0 0 24 24" fill="none" stroke="${bubbleStore ? storeOnColor(bubbleStore) : "currentColor"}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${PRICE_ICON_DOWN_PATH}</svg>
-      </span>
-    </li>`;
+const dropText = (pct) => `-${pct}%`;
+
+// Everything a deal shows, from the product's own six-month series: where the
+// lowest price was paid, how far under the six-month high that is (the figure
+// Worth watching is ranked by), and the shape of the six months.
+function dealOf(opp) {
+  const entry = productEntry(opp.key);
+  if (!entry) return null;
+  const best = bestPriceInPeriod(entry.series, "6m");
+  if (!best) return null;
+  const spark = dayAveraged(seriesInPeriod(entry.series, "6m")).map((p) => p.price);
+  return {
+    key: opp.key, label: opp.label, price: best.price, store: best.store,
+    pct: Math.round(opp.delta * 100), spark,
+  };
 }
 
-function bindOppRows(list, pick) {
-  $$(".opp-row", list).forEach((row) => {
-    row.addEventListener("click", () => pick({ level: "l3", key: row.dataset.priceKey }));
-  });
+function sparkSvg(values, colour) {
+  const w = 72, h = 28;
+  const lo = Math.min(...values), hi = Math.max(...values), r = hi - lo || 1;
+  const pts = values.map((v, i) =>
+    `${((i * (w - 4)) / Math.max(1, values.length - 1) + 2).toFixed(1)},${(h - 3 - ((v - lo) * (h - 6)) / r).toFixed(1)}`).join(" ");
+  return `<svg class="ins-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">` +
+    `<polyline points="${pts}" fill="none" stroke="${colour}" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
 
 export function renderOpportunities() {
-  const opps = computeOpportunities("6m");
-  const list = $("#oppList");
-  if (!opps.length) {
-    list.innerHTML = `<li class="opp-empty">Nothing worth watching yet.</li>`;
-    $("#oppToggle").hidden = true;
+  const read = colourReader();
+  const deals = computeOpportunities("6m").map(dealOf).filter(Boolean);
+  const hero = $("#dealHero"), grid = $("#dealGrid"), head = $("#dealHead");
+  const empty = $("#dealEmpty"), more = $("#oppToggle");
+  if (!deals.length) {
+    hero.hidden = true; grid.hidden = true; head.hidden = true; more.hidden = true;
+    empty.hidden = false;
+    refreshInsSheet();
     return;
   }
-  list.innerHTML = opps.slice(0, OPP_COLLAPSED).map(oppRowHtml).join("");
-  bindOppRows(list, (t) => selectPriceTarget(t, { scroll: true }));
-  const toggle = $("#oppToggle");
-  toggle.hidden = opps.length <= OPP_COLLAPSED;
-  toggle.textContent = `See all · ${opps.length}`;
-  refreshListSheet();
+  empty.hidden = true; hero.hidden = false; grid.hidden = false; head.hidden = false; more.hidden = false;
+
+  const top = deals[0];
+  hero.innerHTML =
+    `<div class="ins-hero__kicker"><span class="m3-icon m3-icon--fill" aria-hidden="true">local_offer</span>` +
+    `<span class="m3-title-s">Best deal right now</span></div>` +
+    `<h2 class="m3-headline-m ins-hero__title">${escapeHtml(top.label)}</h2>` +
+    `<p class="m3-body-m ins-hero__text">€${top.price.toFixed(2)}/kg at ${escapeHtml(top.store)}, ` +
+    `${top.pct}% under its six-month high.</p>` +
+    `<div class="m3-row ins-hero__acts">` +
+    `<button type="button" class="m3-btn ins-hero__add" data-act="add"${store.readOnly() ? " disabled" : ""}>` +
+    `<span class="m3-icon" aria-hidden="true">add_shopping_cart</span>Add to list</button>` +
+    `<button type="button" class="m3-btn m3-btn--text ins-hero__more" data-act="trend">See the trend</button></div>`;
+  $("[data-act=add]", hero).addEventListener("click", () => {
+    const it = store.addItem({ name: top.label, qty: null, unit: null, note: null, source: `deal:${top.key}` });
+    if (!it) return;
+    showSnackbar($("#snackHost"), {
+      text: `Added ${top.label} to the list`, action: "Undo", onAction: () => store.deleteItem(it.id),
+    });
+  });
+  $("[data-act=trend]", hero).addEventListener("click", () => goToTrend(top.key));
+
+  grid.innerHTML = deals.slice(1, 5).map((d) =>
+    `<button type="button" class="m3-card ins-card ins-deal" data-key="${escapeHtml(d.key)}" ` +
+    `aria-label="${escapeHtml(`${d.label}, €${d.price.toFixed(2)} per kilo at ${d.store}, ${d.pct}% down. Show its trend`)}">` +
+    `<span class="m3-row ins-deal__top" style="${storeStyle(d.store)}"><span class="m3-dot"></span>` +
+    `<span class="m3-label-m m3-variant ins-deal__store">${escapeHtml(d.store)}</span>` +
+    `<span class="m3-spacer"></span><span class="m3-tag">${dropText(d.pct)}</span></span>` +
+    `<span class="m3-title-s ins-deal__name">${escapeHtml(d.label)}</span>` +
+    `<span class="ins-deal__foot"><span class="m3-headline-s m3-num">€${d.price.toFixed(2)}` +
+    `<span class="m3-body-s m3-variant">/kg</span></span>` +
+    sparkSvg(d.spark, read(`--kave-data-${storeKeyOf(d.store)}`)) + `</span></button>`).join("");
+  $$(".ins-deal", grid).forEach((b) => b.addEventListener("click", () => goToTrend(b.dataset.key)));
+  refreshInsSheet();
 }
 
-// the See all sheet: every row, and a tap closes the sheet and then takes you
-// to that product's chart, which the sheet would otherwise be covering
-export function renderOppSheet(body) {
-  const opps = computeOpportunities("6m");
-  body.innerHTML = `<div class="opp-card"><ul class="opp-list">${opps.map(oppRowHtml).join("")}</ul></div>`;
-  bindOppRows(body, (t) => closeListSheet().then(() => selectPriceTarget(t, { scroll: true })));
+// "See all worth watching": every deal, one line each, a tap goes to its trend
+export function openWorthWatching() {
+  openInsSheet({ title: "Worth watching", tall: true, render: renderOppSheet });
+}
+function renderOppSheet(body) {
+  const deals = computeOpportunities("6m").map(dealOf).filter(Boolean);
+  if (!deals.length) {
+    body.innerHTML = `<p class="m3-body-m m3-variant">Nothing worth watching yet.</p>`;
+    return;
+  }
+  body.innerHTML =
+    `<p class="m3-body-m m3-variant">The lowest price paid in the last six months, per product. Tap one to see its trend.</p>` +
+    `<div class="m3-grouped">${deals.map((d) =>
+      `<button type="button" class="m3-list-item ins-opp" data-key="${escapeHtml(d.key)}" style="${storeStyle(d.store)}">` +
+      `<span class="m3-list-item__lead ins-lead"><span class="m3-icon" aria-hidden="true">trending_down</span></span>` +
+      `<span class="m3-list-item__text m3-list-item__text--wrap"><span class="m3-body-l">${escapeHtml(d.label)}</span>` +
+      `<span class="m3-body-m m3-variant">Lowest at ${escapeHtml(d.store)} · ${dropText(d.pct)}</span></span>` +
+      `<span class="m3-title-m m3-num">€${d.price.toFixed(2)}</span></button>`).join("")}</div>`;
+  $$(".ins-opp", body).forEach((b) => b.addEventListener("click", () => {
+    closeInsSheet().then(() => goToTrend(b.dataset.key));
+  }));
 }
 
-// what each line on the chart is: a supermarket (Group by = Supermarket), or a
-// variant / product (Group by = Product). "variant" granularity gives a
+/* ---------- Trends: the chart ---------- */
+
+// what each line on the chart is: a supermarket (Group by = Shops), or a
+// variant / product (Group by = Products). "variant" granularity gives a
 // null-variant product its own line labelled by product, so they don't all
 // collapse into one nameless line.
 function lineGranularity(target) {
@@ -222,46 +305,47 @@ function chartLines(points, granularity) {
   }
   const lines = [...groups.values()].sort((a, b) => a.label.localeCompare(b.label));
   lines.forEach((ln, i) => {
-    ln.color = granularity === "store" ? storeColor(ln.id) : lineColor(i);
+    ln.token = granularity === "store"
+      ? `--kave-data-${storeKeyOf(ln.id)}` : LINE_TOKENS[i % LINE_TOKENS.length];
     ln.points = dayAveraged(ln.points);
   });
   return lines;
 }
 
-// what the chart is currently showing, kept so a resize can redraw it at the
-// new width without rebuilding the whole Prices view
+// what the chart is currently showing, kept so a resize or a change of colour
+// scheme can redraw it without rebuilding the whole tab
 let chartLinesShown = null;
 function paintChart() {
   const wrap = $("#priceChartWrap");
   if (!wrap || wrap.hidden || !chartLinesShown) return;
   wrap.innerHTML = buildPriceChartSvg(chartLinesShown, wrap.clientWidth);
   $$(".price-pt", wrap).forEach((el) => {
-    el.addEventListener("click", () =>
-      openPriceDetail({ keys: (el.dataset.keys || "").split("~").filter(Boolean) }));
+    const open = () => openPriceDetail({ keys: (el.dataset.keys || "").split("~").filter(Boolean) });
+    el.addEventListener("click", open);
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+    });
   });
 }
 export function resizePriceChart() {
   const wrap = $("#priceChartWrap");
   const svg = wrap && wrap.firstElementChild;
-  // only when the width actually changed: a redraw drops any open tooltip state
+  // only when the width actually changed: a redraw drops any focus on a dot
   if (svg && wrap.clientWidth && Math.round(wrap.clientWidth) !== Number(svg.getAttribute("width"))) paintChart();
 }
 
-// dynamic per-item y-axis (v10 spec §5): a fixed scale would flatten a
-// EUR 3/kg product to a hairline next to a EUR 60/kg one
-// The chart is drawn at the width it is shown at, not drawn small and scaled.
-// A scaled viewBox zooms the axis numbers and stroke widths with the width, so
-// on a wide window the labels balloon. Here the height is fixed, one SVG unit
-// is one CSS pixel, and a wider window just gives the lines more room to run.
-// Height is a proportion of the width, held between the phone's height and
-// twice it: 0.45 of the width, never under 148px (the phone chart) or over
-// 296px. So a phone keeps the chart it had, the 720px column gets the tall
-// one, and nothing in between is a stretched or a squashed guess.
+// The chart is drawn at the width it is shown at, not drawn small and scaled,
+// so axis numbers and strokes keep their size on a wide window. Height is a
+// proportion of the width held between the phone's and twice it.
+// Each line is named at its right-hand end, in the line's own colour: there is
+// no legend box.
 const CHART_H_MIN = 148, CHART_H_MAX = 296, CHART_ASPECT = 0.45;
-const CHART_MIN_W = 240;
+const CHART_MIN_W = 260;
+const LABEL_GAP = 14, LABEL_W = 92;
 function buildPriceChartSvg(lines, width) {
+  const read = colourReader();
   const W = Math.max(CHART_MIN_W, Math.round(width || 320));
-  const CHART_H = Math.min(CHART_H_MAX, Math.max(CHART_H_MIN, Math.round(W * CHART_ASPECT)));
+  const H = Math.min(CHART_H_MAX, Math.max(CHART_H_MIN, Math.round(W * CHART_ASPECT)));
   const points = lines.flatMap((l) => l.points);
   const dates = [...points.map((p) => p.date)].sort();
   const t0 = new Date(dates[0]).getTime();
@@ -270,320 +354,281 @@ function buildPriceChartSvg(lines, width) {
   const lo = Math.min(...prices), hi = Math.max(...prices);
   const pad = Math.max((hi - lo) * 0.15, hi * 0.05, 0.1);
   const yLo = Math.max(0, lo - pad), yHi = hi + pad;
-  const X0 = 30, X1 = W - 10, Y0 = 14, Y1 = CHART_H - 22;
+  const X0 = 38, X1 = W - LABEL_W, Y0 = 10, Y1 = H - 24;
   const xOf = (d) => (t1 === t0 ? (X0 + X1) / 2 : X0 + (X1 - X0) * ((new Date(d).getTime() - t0) / (t1 - t0)));
   const yOf = (p) => Y1 - (Y1 - Y0) * ((p - yLo) / ((yHi - yLo) || 1));
 
-  let svg = `<svg viewBox="0 0 ${W} ${CHART_H}" width="${W}" height="${CHART_H}" class="price-svg">`;
+  const summary = lines.map((ln) => {
+    const last = [...ln.points].sort((a, b) => a.date.localeCompare(b.date)).pop();
+    return `${ln.label} €${last.price.toFixed(2)}`;
+  }).join(", ");
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" class="price-svg" role="group" ` +
+    `aria-label="${escapeHtml(`Price per kilo over time. Latest: ${summary}`)}">`;
+
   [yHi, (yHi + yLo) / 2, yLo].forEach((v) => {
     const y = yOf(v);
-    svg += `<line x1="28" y1="${y.toFixed(1)}" x2="${X1}" y2="${y.toFixed(1)}" class="chart-grid"/>`;
-    svg += `<text x="0" y="${(y + 3).toFixed(1)}" class="chart-axis">${v.toFixed(v < 10 ? 1 : 0)}</text>`;
+    svg += `<line x1="${X0 - 4}" y1="${y.toFixed(1)}" x2="${X1}" y2="${y.toFixed(1)}" class="chart-grid"/>`;
+    svg += `<text x="${X0 - 8}" y="${(y + 4).toFixed(1)}" text-anchor="end" class="chart-axis">${v.toFixed(v < 10 ? 2 : 1)}</text>`;
+  });
+  // the time axis: first day, middle, last day
+  const xTicks = t1 === t0 ? [[(X0 + X1) / 2, t0, "middle"]]
+    : [[X0, t0, "start"], [(X0 + X1) / 2, (t0 + t1) / 2, "middle"], [X1, t1, "end"]];
+  xTicks.forEach(([x, t, anchor]) => {
+    svg += `<text x="${x.toFixed(1)}" y="${H - 6}" text-anchor="${anchor}" class="chart-axis">${fmtMonthYear(t)}</text>`;
   });
 
+  const ends = [];
   lines.forEach((ln) => {
     const pts = [...ln.points].sort((a, b) => a.date.localeCompare(b.date));
-    const color = ln.color;
+    const colour = read(ln.token);
     if (pts.length > 1) {
       const poly = pts.map((p) => `${xOf(p.date).toFixed(1)},${yOf(p.price).toFixed(1)}`).join(" ");
-      svg += `<polyline points="${poly}" fill="none" stroke="${color}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`;
+      svg += `<polyline points="${poly}" fill="none" stroke="${colour}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`;
     }
     pts.forEach((p) => {
       const cx = xOf(p.date).toFixed(1), cy = yOf(p.price).toFixed(1);
-      // an averaged dot can stand for several purchase rows - two stores on
-      // one day under Group by = Product, or two of the same thing in one
-      // trip - so it carries all their keys, not one identifying triple
+      // an averaged dot can stand for several purchase rows, so it carries all
+      // their keys; a tap opens the purchase history on those rows
       const keys = [...new Set(p.members.map(purchaseKey))].join("~");
-      const d = `data-keys="${escapeHtml(keys)}"`;
-      svg += p.promo
-        ? `<g class="price-pt" ${d}><circle cx="${cx}" cy="${cy}" r="8" fill="${color}"/><text x="${cx}" y="${(+cy + 3).toFixed(1)}" class="promo-mark" fill="${storeOnColor(p.store)}">€</text></g>`
-        : `<circle class="price-pt" ${d} cx="${cx}" cy="${cy}" r="4" fill="${color}"/>`;
+      const name = `€${p.price.toFixed(2)} at ${p.store}, ${fmtFullDate(p.date)}${p.promo ? ", on offer" : ""}. Open the purchase history`;
+      svg += `<g class="price-pt" data-keys="${escapeHtml(keys)}" tabindex="0" role="button" aria-label="${escapeHtml(name)}">` +
+        `<circle class="price-hit" cx="${cx}" cy="${cy}" r="14"/>` +
+        (p.promo
+          ? `<circle cx="${cx}" cy="${cy}" r="8" fill="${colour}"/><text x="${cx}" y="${(+cy + 3.5).toFixed(1)}" text-anchor="middle" class="promo-mark">€</text>`
+          : `<circle cx="${cx}" cy="${cy}" r="4" fill="${colour}"/>`) + `</g>`;
     });
+    ends.push({ ln, colour, y: yOf(pts[pts.length - 1].price) });
+  });
+
+  // direct labels at the right end, pushed apart so none sits on another
+  ends.sort((a, b) => a.y - b.y);
+  for (let i = 1; i < ends.length; i++) ends[i].y = Math.max(ends[i].y, ends[i - 1].y + LABEL_GAP);
+  const floor = Y1 + 4;
+  if (ends.length && ends[ends.length - 1].y > floor) {
+    ends[ends.length - 1].y = floor;
+    for (let i = ends.length - 2; i >= 0; i--) ends[i].y = Math.min(ends[i].y, ends[i + 1].y - LABEL_GAP);
+  }
+  ends.forEach(({ ln, colour, y }) => {
+    const text = ln.label.length > 11 ? ln.label.slice(0, 10) + "…" : ln.label;
+    svg += `<g class="chart-end"><rect x="${X1 + 10}" y="${(y - 4).toFixed(1)}" width="8" height="8" rx="2" fill="${colour}"/>` +
+      `<text x="${X1 + 22}" y="${(y + 4).toFixed(1)}" class="chart-lbl"><title>${escapeHtml(ln.label)}</title>${escapeHtml(text)}</text></g>`;
   });
   return svg + `</svg>`;
 }
 
-// what a Product pill shows when that level has nothing to offer - the same
-// em dash the metric cards already use for "no value here"
-const NO_LEVEL = "-";
-// the Variant pill's answer when there genuinely is no variant to name: the
-// whole card carries no L2 at all, or the single product in view is one of
-// the bare ones under a card that otherwise has variants. Distinct from "All
-// variants" (a real pooling choice across variants that DO exist) and from a
-// dash (a level with nothing to say) - "N/A" states that the variant
-// dimension does not apply here, which is a fact, not a missing pick.
+// the chart and the deal sparklines read their colours at draw time, so a new
+// seed or a switch between light and dark has to draw them again
+let coloursWatched = false;
+function watchColours() {
+  if (coloursWatched) return;
+  coloursWatched = true;
+  let queued = false;
+  const redraw = () => {
+    if (queued) return;
+    queued = true;
+    // a timer, not a frame: a hidden pane runs no animation frames
+    setTimeout(() => {
+      queued = false;
+      if (store.state.view !== "prices") return;
+      renderOpportunities();
+      paintChart();
+    }, 30);
+  };
+  new MutationObserver(redraw).observe(document.documentElement,
+    { attributes: true, attributeFilter: ["data-seed", "data-theme"] });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redraw);
+}
+
+/* ---------- Trends: Latest and Best price ---------- */
+
+// "Latest price" is always the most recent purchase, whatever the period chip
+// says: it answers "what did I pay", not "what did the chart just draw". Under
+// Group by = Products several products can share that date, and then there is
+// no single latest price, so it shows a dash. "Best price" follows the period
+// and is the single cheapest point in it + where it was bought.
+export function metricsHtml(info) {
+  const target = pricesUiState.target;
+  if (!target) return "";
+  const granularity = lineGranularity(target);
+  const maxDate = info.series.reduce((m, p) => (p.date > m ? p.date : m), "");
+  const onLatest = info.series.filter((p) => p.date === maxDate);
+  const card = (label, price, storeName) =>
+    `<div class="m3-card m3-card--filled ins-metric">` +
+    `<span class="m3-label-m m3-variant">${escapeHtml(label)}</span>` +
+    `<span class="m3-headline-s m3-num">${price == null ? "-" : `€${price.toFixed(2)}<span class="m3-body-s m3-variant">/kg</span>`}</span>` +
+    (storeName ? `<span class="m3-body-s m3-variant ins-store" style="${storeStyle(storeName)}"><span class="m3-dot"></span>${escapeHtml(storeName)}</span>` : "") +
+    `</div>`;
+
+  let latest;
+  if (!onLatest.length || (granularity !== "store" && onLatest.length > 1)) latest = card("Latest price", null, null);
+  else {
+    const last = onLatest.reduce((a, b) => (b.price < a.price ? b : a));
+    latest = card("Latest price", last.price, last.store);
+  }
+  const best = bestPriceInPeriod(info.series, pricesUiState.period);
+  if (!best) return "";
+  return latest + card(`Best price · ${PERIOD_SHORT[pricesUiState.period]}`, best.price, best.store);
+}
+
+/* ---------- Trends: filter chips and their pickers ---------- */
+
 const NA_VARIANT = "N/A";
-// an unset level is not empty, it pools everything under it - so the pill says
-// exactly what the dropdown's leading option says, and both are the one string
 const ALL_VARIANTS = "All variants";
 const ALL_PRODUCTS = "All products";
 
-function priceOptRows(rows, currentId) {
-  return rows.map((r) =>
-    `<button type="button" class="pill-opt${r.id === currentId ? " on" : ""}" data-opt="${escapeHtml(r.id)}">${escapeHtml(r.label)}</button>`
-  ).join("");
-}
-
-// every pill in the Trends card is this one button - the Category/Product
-// filters and the Period/Group by dropdowns alike - so they cannot drift into
-// two spellings of the same control. `opens` is the single switch: a pill that
-// opens carries the data-pill the click handlers bind to, and one that does not
-// is marked aria-disabled rather than disabled, so it stays announced and keeps
-// the .pill colours instead of the browser's greyed-out ones.
-// `trailing` is whatever sits after the label - today only a clear x.
-function pillButton({ which, text, extra = [], opens, trailing = "" }) {
-  const cls = ["pill", ...extra.filter(Boolean)];
-  // a pill that cannot open cannot be the open one, whatever openPill still
-  // says - it can name a pill that lost its choices under a new target, and
-  // the render that clears it runs after this
-  if (opens && pricesUiState.openPill === which) cls.push("open");
-  // data-lvl says which level a pill is, whether or not it opens - a hook for
-  // styling and for finding one in the DOM
-  return `<button type="button" class="${cls.join(" ")}" data-lvl="${which}"` +
-    `${opens ? ` data-pill="${which}"` : ` aria-disabled="true"`}>` +
-    `<span class="pill-text">${escapeHtml(text)}</span>${trailing}</button>`;
-}
-
-// the Category row (L1 + L2) and the Product row (L3). Each pill is described
-// by three facts and nothing else: `text`, `filled` (it names something, as
-// opposed to holding a placeholder), and `opens` (tapping drops a dropdown).
-// A pill that is filled but does not open is one there was no choice about;
-// only a pill the user could undo carries an x.
-//
-// Exactly one pill wears the accent: the deepest filled one, because that is
-// the thing on the chart. Picking a product moves the accent off the card and
-// onto the product; a card pooled across its variants keeps it on L1. The
-// levels above stay legible in grey - they still say where you are, they are
-// just not the subject.
-//
-// A level with nothing to offer at all (a card with no variants, a variant
-// with no products of its own) shows a dash rather than a placeholder naming a
-// choice that does not exist. The open dropdown renders in a full-width host
-// below both rows. Dropdowns cascade: L2 lists variants under L1, L3 lists
-// products under L1 (and L2). L1 has a search box; L2/L3 never exceed ~15 rows.
-function renderPricePills(target, info) {
-  const catHost = $("#priceCatPills");
-  const prodHost = $("#priceProdPills");
+// The levels of the product filter. Each is a dropdown filter chip that opens a
+// radio sheet; one that has no choice to make is shown as a plain selected chip.
+function filterLevels(target, info) {
   const l1s = l1Options();
   const variants = l2Options(info.l1);
   const l3scope = l3Options(info.l1, info.l2 || null);
-
-  // a variant is only shown as the forced scope when it really is the whole
-  // card (soleVariant) - a card with one variant plus products outside it is
-  // wider than that variant, and saying otherwise would misdescribe the chart
   const forcedVariant = soleVariant(info.l1);
-  const pills = {
-    l1: { text: info.l1_label, filled: true, opens: l1s.length > 1 },
-    l2: forcedVariant ? { text: titleCaseVariant(forcedVariant), filled: true, opens: false }
-      : !variants.length ? { text: NA_VARIANT, filled: true, opens: false, na: true }
-      : target.level === "l3" && !info.l2 ? { text: NA_VARIANT, filled: true, opens: false, na: true }
-      : info.l2 ? { text: titleCaseVariant(info.l2), filled: true, opens: true }
-      : { text: ALL_VARIANTS, filled: false, opens: true },
-    l3: l3scope.length === 1 ? { text: l3scope[0].label, filled: true, opens: false }
-      : !l3scope.length ? { text: NO_LEVEL, filled: false, opens: false }
-      : target.level === "l3" ? { text: info.label, filled: true, opens: true }
-      : { text: ALL_PRODUCTS, filled: false, opens: true },
-  };
-  // the deepest filled level is the subject of the chart, and the only accent -
-  // but an "N/A" variant pill names an absence, never the subject, so it is
-  // skipped and the accent falls through to the card it sits under
-  const accent = ["l3", "l2", "l1"].find((k) => pills[k].filled && !pills[k].na);
-
-  const pill = (which) => {
-    const p = pills[which];
-    // clearable exactly when the pill holds a pick that can be undone
-    const x = (p.filled && p.opens && which !== "l1")
-      ? `<span class="pill-x" data-clear="${which}" aria-hidden="true">✕</span>` : "";
-    return pillButton({
-      which, text: p.text, opens: p.opens, trailing: x,
-      extra: [which === accent && "sel", !p.filled && !p.opens && "pill-empty"],
-    });
-  };
-  // The Category row ends in the same round cart button the ingredient rows
-  // carry, so one gesture means one thing everywhere in the app: put this on
-  // the list. What it adds is what the two pills say - the card, plus the
-  // variant when one is actually named. A product selection is narrower than
-  // anything you would write on a shopping list, so an L3 target adds the card
-  // and variant that product sits under, never the product itself.
-  //
-  // Read-only greys it out rather than removing it, the way every other
-  // control that needs a token is greyed - including the recipe one it is a
-  // copy of. A button that vanishes would also reflow the pills either side of
-  // it the moment a token arrives.
-  //
-  // The Prices view re-renders on every change to the store - including the
-  // add this very button just made - so unlike the recipe rows, the confirm
-  // cannot live on the button element: it would be replaced the instant it
-  // appeared. It lives in priceCartUntil, and this renders whatever state that
-  // says the button is in.
-  //
-  // What the two pills say, and so what the cart adds: the card, plus the
-  // variant when one is actually named. Read once here, by both the button's
-  // label and its handler, so the two can never describe different things.
-  const listedVariant = info.l2 || forcedVariant || null;
-  const listedName = listedVariant
-    ? `${info.l1_label} ${titleCaseVariant(listedVariant)}` : info.l1_label;
-  catHost.innerHTML = pill("l1") + pill("l2") + cartButtonHtml({
-    id: "priceCart",
-    label: `Add ${listedName} to the shopping list`,
-    confirming: Date.now() < priceCartUntil,
-  });
-  prodHost.innerHTML = pill("l3");
-
-  const cart = $("#priceCart", catHost);
-  if (cart) {
-    cart.addEventListener("click", (e) => {
-      e.stopPropagation();
-      if (Date.now() < priceCartUntil) return; // inert while the tick is up
-      pricesUiState.openPill = null; // an open dropdown is done with
-      // before the add, not after: addItem re-renders the whole Prices view,
-      // and that render has to already know this button is confirming or it
-      // draws a fresh cart over the tick
-      startPriceCartConfirm();
-      const created = store.addItem({
-        name: info.l1_label,
-        qty: null, unit: null,
-        // the variant goes in the note, exactly where a recipe add puts it -
-        // that is the field Clean up groups on and the field you read in the
-        // aisle, so a row added here and one added from a recipe are the same
-        // kind of row
-        note: listedVariant ? titleCaseVariant(listedVariant) : null,
-        source: `trend:${info.l1}${listedVariant ? "#" + listedVariant : ""}`,
-        slug: info.l1,
-        variant: listedVariant,
-      });
-      // nothing landed (a list gone read-only between render and tap): take
-      // the tick back rather than claim an add that did not happen
-      if (!created) { endPriceCartConfirm(); renderTrends(); }
+  const levels = [{ which: "l1", title: "Category", text: info.l1_label, filled: true, opens: l1s.length > 1 }];
+  // a variant only gets a chip when there is a variant to choose between
+  if (!forcedVariant && variants.length && !(target.level === "l3" && !info.l2)) {
+    levels.push({
+      which: "l2", title: "Variant", filled: !!info.l2, opens: true,
+      text: info.l2 ? titleCaseVariant(info.l2) : ALL_VARIANTS,
     });
   }
-
-  [catHost, prodHost].forEach((h) => {
-    $$(".pill[data-pill]", h).forEach((b) => {
-      b.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (e.target.closest(".pill-x")) return;
-        togglePricePill(b.dataset.pill);
-      });
+  if (l3scope.length === 1) levels.push({ which: "l3", title: "Product", text: l3scope[0].label, filled: true, opens: false });
+  else if (l3scope.length) {
+    levels.push({
+      which: "l3", title: "Product", opens: true, filled: target.level === "l3",
+      text: target.level === "l3" ? info.label : ALL_PRODUCTS,
     });
-    $$(".pill-x", h).forEach((el) => {
-      el.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (el.dataset.clear === "l2") clearPriceL2(info);
-        else clearPriceL3(info);
-      });
-    });
-  });
-
-  // the open Product dropdown, in its own host below the pills row
-  const panelHost = $("#pricePillPanel");
-  const which = pricesUiState.openPill;
-  if (!(pills[which] && pills[which].opens)) {
-    // a pill that used to open can lose its choices under a new target
-    if (pills[which]) pricesUiState.openPill = null;
-    panelHost.hidden = true;
-    panelHost.innerHTML = "";
-    return;
   }
-  let rows, currentId, withSearch = false;
+  return { levels, l1s, variants, l3scope };
+}
+
+function chipHtml(lv) {
+  const text = escapeHtml(lv.text);
+  if (!lv.opens) {
+    return `<span class="m3-chip m3-chip--leading is-selected ins-chip"><span class="m3-icon" aria-hidden="true">check</span>` +
+      `<span class="ins-chip__text">${text}</span></span>`;
+  }
+  return `<button type="button" class="m3-chip m3-chip--dropdown${lv.filled ? " is-selected" : ""} ins-chip" data-pick="${lv.which}" ` +
+    `aria-haspopup="dialog" aria-label="${escapeHtml(`${lv.title}: ${lv.text}. Change`)}">` +
+    (lv.filled ? `<span class="m3-icon" aria-hidden="true">check</span>` : "") +
+    `<span class="ins-chip__text">${text}</span><span class="m3-icon" aria-hidden="true">arrow_drop_down</span></button>`;
+}
+
+// the radio list a dropdown chip opens
+function pickerModel(which) {
+  const target = pricesUiState.target;
+  const info = target && resolveTargetInfo(target);
+  if (!info) return null;
+  const { l1s, variants, l3scope } = filterLevels(target, info);
   if (which === "l1") {
-    rows = l1s.map((o) => ({ id: o.l1, label: o.label }));
-    currentId = info.l1;
-    withSearch = true;
-  } else if (which === "l2") {
-    rows = [{ id: "", label: ALL_VARIANTS }].concat(
-      variants.map((v) => ({ id: v, label: titleCaseVariant(v) })));
-    currentId = info.l2 || "";
-  } else {
-    rows = [{ id: "", label: ALL_PRODUCTS }].concat(
-      l3scope.map((p) => ({ id: p.key, label: p.label })));
-    currentId = target.level === "l3" ? target.key : "";
+    return {
+      title: "Category", search: true, current: info.l1,
+      rows: l1s.map((o) => ({ id: o.l1, label: o.label })),
+      apply: (id) => { if (id !== info.l1) pickPriceL1(id, l1s.find((x) => x.l1 === id).label); },
+    };
   }
-  panelHost.hidden = false;
-  panelHost.innerHTML = `<div class="pill-panel" data-panel="${which}">` +
-    (withSearch ? `<input type="text" class="pill-search" placeholder="Search">` : "") +
-    `<div class="pill-opts">${priceOptRows(rows, currentId)}</div></div>`;
-  positionPillPanel(which === "l3" ? prodHost : catHost, which);
-
-  $$(".pill-opt", panelHost).forEach((o) => {
-    o.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const id = o.dataset.opt;
-      if (which === "l1") { if (id !== info.l1) pickPriceL1(id, l1s.find((x) => x.l1 === id).label); else togglePricePill("l1"); }
-      else if (which === "l2") { id ? pickPriceL2(info.l1, info.l1_label, id) : clearPriceL2(info); }
-      else { id ? pickPriceL3(id) : (info.l2 ? pickPriceL2(info.l1, info.l1_label, info.l2) : clearPriceL2(info)); }
-    });
-  });
-  const search = $(".pill-search", panelHost);
-  if (search) {
-    search.addEventListener("input", () => {
-      const q = deburr(search.value).toLowerCase().trim();
-      $$(".pill-opt", panelHost).forEach((o) => {
-        o.hidden = q && !deburr(o.textContent).toLowerCase().includes(q);
-      });
-    });
+  if (which === "l2") {
+    return {
+      title: "Variant", current: info.l2 || "",
+      rows: [{ id: "", label: ALL_VARIANTS }].concat(variants.map((v) => ({ id: v, label: titleCaseVariant(v) }))),
+      apply: (id) => { if (id) pickPriceL2(info.l1, info.l1_label, id); else clearPriceL2(info); },
+    };
   }
-}
-
-// Put the open dropdown directly under the pill it belongs to, floating over
-// whatever is below it. The panel cannot simply live inside the pills row: that
-// row scrolls horizontally and clips, so an anchored panel would be cut off.
-// It sits instead in a host absolutely positioned within the Trends card, which
-// is also what keeps the chart still when a dropdown opens - the host is out of
-// the flow, so nothing below it moves. Left is clamped to the card so a pill
-// near the right edge does not push the panel off it.
-function positionPillPanel(host, which) {
-  const panel = $("#pricePillPanel");
-  const btn = $(`.pill[data-pill="${which}"]`, host);
-  const body = $("#priceTrendsBody");
-  if (!btn || !body) return;
-  const b = body.getBoundingClientRect();
-  const r = btn.getBoundingClientRect();
-  panel.style.top = `${r.bottom - b.top + 6}px`;
-  const maxLeft = Math.max(0, body.clientWidth - panel.offsetWidth);
-  panel.style.left = `${Math.min(Math.max(0, r.left - b.left), maxLeft)}px`;
-}
-
-// Period and Group by: two segmented controls sharing one line between the
-// chart and the legend. Two options is not enough to earn a dropdown - that
-// cost a tap to open and a tap to choose, to pick between two things that
-// both fit on screen. Both halves are always shown, and one tap switches.
-//
-// `canGroup` is false when "by product" would draw the line that is already
-// drawn (one product or variant in scope). The Products half is then still
-// named and still in place, just plainly not choosable - the same call as the
-// dash pill above: say the option exists and is empty rather than removing it
-// and letting the row change size under the reader.
-function renderPriceSubfilters(canGroup) {
-  const control = (hostId, rows, currentId, onPick, liveIndex) => {
-    const host = $(hostId);
-    const on = Math.max(0, rows.findIndex((r) => r[0] === currentId));
-    host.innerHTML =
-      `<div class="segment${liveIndex == null ? "" : " forced"}" data-on="${on}">` +
-      `<span class="seg-thumb"></span>` +
-      rows.map(([id, label], i) => {
-        const dead = liveIndex != null && i !== liveIndex;
-        return `<button type="button" data-opt="${escapeHtml(id)}"` +
-          `${dead ? ` aria-disabled="true"` : ""}` +
-          ` aria-pressed="${i === on}">${escapeHtml(label)}</button>`;
-      }).join("") + `</div>`;
-    $$("button", host).forEach((b) => {
-      if (b.getAttribute("aria-disabled") === "true") return;
-      b.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (b.dataset.opt !== currentId) onPick(b.dataset.opt);
-      });
-    });
+  return {
+    title: "Product", search: true, current: target.level === "l3" ? target.key : "",
+    rows: [{ id: "", label: ALL_PRODUCTS }].concat(l3scope.map((p) => ({ id: p.key, label: p.label }))),
+    apply: (id) => {
+      if (id) pickPriceL3(id);
+      else if (info.l2) pickPriceL2(info.l1, info.l1_label, info.l2);
+      else clearPriceL2(info);
+    },
   };
+}
 
-  control("#pricePeriod", PERIODS, pricesUiState.period, (id) => {
-    pricesUiState.period = id;
-    renderTrends();
+function openPicker(which) {
+  const m0 = pickerModel(which);
+  if (!m0) return;
+  openInsSheet({ title: m0.title, tall: !!m0.search, render: (body) => renderPicker(body, which) });
+}
+function renderPicker(body, which) {
+  const m = pickerModel(which);
+  if (!m) { body.textContent = ""; return; }
+  const search = m.search && m.rows.length > 8
+    ? `<div class="m3-field"><span class="m3-field__label">Search</span>` +
+      `<input class="m3-field__input" type="search" autocomplete="off" aria-label="Search ${escapeHtml(m.title.toLowerCase())}"></div>`
+    : "";
+  body.innerHTML = search +
+    `<div class="m3-grouped" role="radiogroup" aria-label="${escapeHtml(m.title)}">${m.rows.map((r) =>
+      `<label class="m3-list-item ins-pick"><input type="radio" class="m3-radio" name="insPick" value="${escapeHtml(r.id)}"` +
+      `${r.id === m.current ? " checked" : ""}><span class="m3-list-item__text m3-list-item__text--wrap">` +
+      `<span class="m3-body-l">${escapeHtml(r.label)}</span></span></label>`).join("")}</div>`;
+  $$("input[name=insPick]", body).forEach((inp) => inp.addEventListener("change", () => {
+    m.apply(inp.value);
+    closeInsSheet();
+  }));
+  const q = $(".m3-field__input", body);
+  if (q) {
+    q.addEventListener("input", () => {
+      const needle = deburr(q.value).trim();
+      $$(".ins-pick", body).forEach((row) => {
+        row.hidden = !!needle && !deburr(row.textContent).includes(needle);
+      });
+    });
+  }
+  const on = $("input:checked", body);
+  if (on) on.scrollIntoView({ block: "center" });
+}
+
+// a chip row for Period and Group by: filter chips, one selected. `liveIndex`
+// pins the choice when only one of them would draw anything different.
+function renderChoiceChips(hostId, rows, currentId, onPick, liveIndex) {
+  const host = $(hostId);
+  host.innerHTML = rows.map(([id, label], i) => {
+    const on = id === currentId;
+    const dead = liveIndex != null && i !== liveIndex;
+    return `<button type="button" class="m3-chip m3-chip--leading${on ? " is-selected" : ""}" data-opt="${escapeHtml(id)}"` +
+      `${dead ? ` aria-disabled="true"` : ""} aria-pressed="${on}">` +
+      `${on ? `<span class="m3-icon" aria-hidden="true">check</span>` : ""}${escapeHtml(label)}</button>`;
+  }).join("");
+  $$("button", host).forEach((b) => {
+    if (b.getAttribute("aria-disabled") === "true") return;
+    b.addEventListener("click", () => { if (b.dataset.opt !== currentId) onPick(b.dataset.opt); });
   });
-  control("#priceGroupBy", GROUPS, pricesUiState.groupBy, (id) => {
-    pricesUiState.groupBy = id;
-    renderTrends();
-  }, canGroup ? null : 0);
+}
+
+function renderFilters(target, info) {
+  const { levels } = filterLevels(target, info);
+  // The cart adds what the chips say: the card, plus the variant when one is
+  // actually named. A product is narrower than anything you would write on a
+  // shopping list, so a product target adds the card and variant it sits under.
+  // Read-only greys it out rather than removing it, so the chips either side do
+  // not reflow when a token arrives.
+  const forcedVariant = soleVariant(info.l1);
+  const listedVariant = info.l2 || forcedVariant || null;
+  const listedName = listedVariant ? `${info.l1_label} ${titleCaseVariant(listedVariant)}` : info.l1_label;
+  const confirming = Date.now() < priceCartUntil;
+  const host = $("#priceFilters");
+  host.innerHTML = levels.map(chipHtml).join("") +
+    `<button type="button" id="priceCart" class="m3-icon-btn m3-icon-btn--tonal ins-cart" data-label="${escapeHtml(`Add ${listedName} to the shopping list`)}" ` +
+    `aria-label="${confirming ? "Added to the shopping list" : escapeHtml(`Add ${listedName} to the shopping list`)}"` +
+    `${store.readOnly() ? " disabled" : ""}><span class="m3-icon" aria-hidden="true">${confirming ? "check" : "add_shopping_cart"}</span></button>`;
+  $$("[data-pick]", host).forEach((b) => b.addEventListener("click", () => openPicker(b.dataset.pick)));
+  $("#priceCart", host).addEventListener("click", () => {
+    if (Date.now() < priceCartUntil) return; // inert while the tick is up
+    // before the add, not after: addItem re-renders this tab, and that render
+    // has to already know the button is confirming
+    startPriceCartConfirm();
+    const created = store.addItem({
+      name: info.l1_label, qty: null, unit: null,
+      // the variant goes in the note, exactly where a recipe add puts it
+      note: listedVariant ? titleCaseVariant(listedVariant) : null,
+      source: `trend:${info.l1}${listedVariant ? "#" + listedVariant : ""}`,
+      slug: info.l1,
+      variant: listedVariant,
+    });
+    // nothing landed (a list gone read-only between render and tap): take the
+    // tick back rather than claim an add that did not happen
+    if (!created) { endPriceCartConfirm(); renderTrends(); }
+  });
 }
 
 export function renderTrends() {
@@ -608,31 +653,32 @@ export function renderTrends() {
   $("#priceTrendsBody").hidden = false;
   $("#priceReset").hidden = false;
 
-  // "by product" is only a real choice when it would draw more than one line -
-  // judged on what the chosen period actually shows, not on the whole history,
-  // or the dropdown offers a switch that changes nothing. Otherwise force
-  // supermarket and drop the dropdown affordance.
+  // "Products" is only a real choice when it would draw more than one line -
+  // judged on what the chosen period actually shows. Otherwise it stays
+  // Shops and the Products chip is plainly not choosable.
   const filtered = seriesInPeriod(info.series, pricesUiState.period);
   const productGranularity = target.level === "l1" ? "variant" : "product";
   const canGroupByProduct = chartLines(filtered, productGranularity).length >= 2;
   if (!canGroupByProduct) pricesUiState.groupBy = "supermarket";
 
-  renderPricePills(target, info);
-  renderPriceSubfilters(canGroupByProduct);
+  renderFilters(target, info);
+  renderChoiceChips("#pricePeriod", PERIODS, pricesUiState.period, (id) => {
+    pricesUiState.period = id;
+    renderTrends();
+  });
+  renderChoiceChips("#priceGroupBy", GROUPS, pricesUiState.groupBy, (id) => {
+    pricesUiState.groupBy = id;
+    renderTrends();
+  }, canGroupByProduct ? null : 0);
 
-  const granularity = lineGranularity(target);
-  const lines = chartLines(filtered, granularity);
-  $("#priceLegend").innerHTML = `<span class="rail-label">Legend</span>` + lines.map((ln) =>
-    `<span class="legend-item"><span class="legend-dot" style="background:${ln.color}"></span>${escapeHtml(ln.label)}</span>`
-  ).join("");
-
+  const lines = chartLines(filtered, lineGranularity(target));
   const wrap = $("#priceChartWrap");
   if (!filtered.length) {
     wrap.hidden = true;
     wrap.innerHTML = "";
-    // a hand-picked year is allowed to draw nothing - say so rather than let
-    // "No price history" contradict the metrics still showing below. One
-    // purchase is no longer nothing: it draws as a single dot, no polyline.
+    chartLinesShown = null;
+    // a hand-picked period is allowed to draw nothing - say so rather than let
+    // an empty chart contradict the cards below
     $("#priceEmpty").textContent = "Nothing bought in this period.";
     $("#priceEmpty").hidden = false;
   } else {
@@ -642,63 +688,30 @@ export function renderTrends() {
     paintChart();
   }
 
-  // "Latest price" is always the most recent purchase, whatever the period
-  // chip is set to - it answers "what did I pay", not "what did the chart
-  // just draw". Under Group by = Product several products can share that
-  // latest date; there is then no single "latest price", so it shows a dash.
-  // "Best price" follows the period chip and relabels itself, and is the
-  // single cheapest point across everything in view + where it was bought.
-  const maxDate = info.series.reduce((m, p) => (p.date > m ? p.date : m), "");
-  const onLatest = info.series.filter((p) => p.date === maxDate);
-  if (!onLatest.length) {
-    $("#priceLastValue").innerHTML = `<span class="metric-none">-</span>`;
-    $("#priceLastStore").innerHTML = "";
-  } else if (granularity !== "store" && onLatest.length > 1) {
-    $("#priceLastValue").innerHTML = `<span class="metric-none">-</span>`;
-    $("#priceLastStore").innerHTML = "";
-  } else {
-    const last = onLatest.reduce((a, b) => (b.price < a.price ? b : a));
-    $("#priceLastValue").innerHTML = `€${last.price.toFixed(2)}<span class="metric-unit">/kg</span>`;
-    $("#priceLastStore").innerHTML = `<span class="legend-dot" style="background:${storeColor(last.store)}"></span>${escapeHtml(last.store)}`;
-  }
-
-  const bestInPeriod = bestPriceInPeriod(info.series, pricesUiState.period);
-  $("#priceBestLabel").textContent = `Best price · ${PERIOD_SHORT[pricesUiState.period]}`;
-  if (bestInPeriod) {
-    $("#priceBestValue").innerHTML = `€${bestInPeriod.price.toFixed(2)}<span class="metric-unit">/kg</span>`;
-    $("#priceBestStore").innerHTML = `<span class="legend-dot" style="background:${storeColor(bestInPeriod.store)}"></span>${escapeHtml(bestInPeriod.store)}`;
-    $("#priceMetrics").hidden = false;
-  } else {
-    $("#priceMetrics").hidden = true;
-  }
-
-  $("#priceSeeAll").textContent = `See all · ${purchaseRows(info.series).length}`;
+  const metrics = metricsHtml(info);
+  $("#priceMetrics").innerHTML = metrics;
+  $("#priceMetrics").hidden = !metrics;
 }
 
 export function renderPrices(state) {
+  watchColours();
   renderOpportunities();
   renderTrends();
   renderCleanup();
 }
 
-// See-all rows show only day + month - the year is a full-width bar above each
-// year's block. Own month list because en-GB's "short" gives a 4-letter "Sept".
-const MONTHS_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-function formatDayMonth(dateStr) {
-  const [, m, d] = dateStr.split("-");
-  return `${Number(d)} ${MONTHS_ABBR[Number(m) - 1]}`;
-}
+/* ---------- purchase rows (the history sheet's lines) ---------- */
 
-// the "See all" list: one row per (date, product, store), so buying two of the
-// same thing at the same shop on one trip is a single line with a quantity, not
-// two identical rows. Newest first, then by product name, then store.
-function purchaseRows(series) {
+// one row per (date, product, store), so buying two of the same thing at the
+// same shop on one trip is a single line with a count, not two identical rows.
+// Newest first, then by product name, then store.
+export function purchaseRows(series) {
   const groups = new Map();
   for (const p of series) {
     const k = purchaseKey(p);
     if (!groups.has(k)) {
       groups.set(k, {
-        date: p.date, prodKey: p.prodKey, prodLabel: p.prodLabel,
+        key: k, date: p.date, prodKey: p.prodKey, prodLabel: p.prodLabel,
         variant: p.variant, store: p.store, pts: [],
       });
     }
@@ -708,108 +721,4 @@ function purchaseRows(series) {
     b.date.localeCompare(a.date) ||
     (a.prodLabel || "").localeCompare(b.prodLabel || "") ||
     a.store.localeCompare(b.store));
-}
-
-export function renderPriceDetail() {
-  if (!priceDetailState || !pricesUiState.target) return;
-  const { highlight } = priceDetailState;
-  const target = pricesUiState.target;
-  const info = resolveTargetInfo(target);
-  if (!info) return;
-
-  const title = target.level === "l3" ? info.label
-    : target.level === "l2" ? info.l2 : info.l1_label;
-  const tags = target.level === "l3" ? [info.l1_label, info.l2]
-    : target.level === "l2" ? [info.l1_label] : [];
-  $("#priceDetailTitle").textContent = title;
-  $("#priceDetailTags").innerHTML = tags.filter(Boolean).map((t) =>
-    `<span class="detail-tag">${escapeHtml(t)}</span>`
-  ).join("");
-
-  // same columns at every level: date (day + month only), the most-granular
-  // name, store, qty, price. One CSS grid holds the header and every row, so a
-  // column is one track shared by all of them - guaranteed alignment. Date,
-  // qty and price are max-content; product and store split what's left and
-  // clip with an ellipsis until the row is tapped open. `.price-row` is
-  // display:contents so it can still carry the row's hi / expanded state.
-  // Rows run newest first, split into per-year blocks under a full-width bar.
-  const cell = (cls, inner) => `<div class="pt-cell ${cls}">${inner}</div>`;
-  const head =
-    `<div class="price-row pt-headrow">` +
-    ["Date", "Product", "Store", "Qty", "€/kg"].map((h) => cell("pt-head", h)).join("") +
-    `</div>`;
-
-  // A dot can stand for several rows, so the highlight is a set of purchase
-  // keys rather than one date/store/product triple.
-  const hiKeys = highlight && highlight.keys ? new Set(highlight.keys) : null;
-
-  let lastYear = null;
-  const rows = purchaseRows(info.series).map((g) => {
-    // Several of the same thing in one trip is one price paid, so the row
-    // shows the average, not the cheapest - the cheapest quietly flattered
-    // every multi-buy. It reads as a sale if any one of them was on offer:
-    // the offer is the fact worth surfacing, and a row that hid it because a
-    // sibling was full price would be the more misleading of the two.
-    const avg = g.pts.reduce((sum, p) => sum + p.price, 0) / g.pts.length;
-    const anyPromo = g.pts.some((p) => p.promo);
-    const priceText = `€${avg.toFixed(2)}`;
-    const item = g.prodLabel || titleCaseVariant(g.variant) || info.l1_label;
-    const isHi = hiKeys ? hiKeys.has(purchaseKey(g)) : false;
-    const year = g.date.slice(0, 4);
-    const bar = year === lastYear ? "" : `<div class="pt-year">${year}</div>`;
-    lastYear = year;
-    const many = g.pts.length > 1;
-    const qty = many
-      ? `${g.pts.length}<span class="pt-caret">▾</span>`
-      : String(g.pts.length);
-    // The individual receipt lines behind an averaged row, revealed on a tap.
-    // One full-width strip of prices, not one five-column row each: date,
-    // product and store are what the row is grouped by, so per-column children
-    // would be three empty columns and a "1" - which read as broken rows, not
-    // as the parent's contents. Only the price differs, so only the price is
-    // shown, in the same offer pill the summary uses.
-    const subs = many
-      ? `<div class="pt-subs" hidden>` +
-        [...g.pts].sort((a, b) => a.price - b.price).map((p) => {
-          const t = `€${p.price.toFixed(2)}`;
-          return p.promo
-            ? `<span class="promo-price">${t}</span>`
-            : `<span class="pt-subitem">${t}</span>`;
-        }).join("") +
-        `</div>`
-      : "";
-    return bar +
-      `<div class="price-row${isHi ? " hi" : ""}${many ? " has-subs" : ""}">` +
-      cell("price-date", escapeHtml(formatDayMonth(g.date))) +
-      cell("price-item", escapeHtml(item)) +
-      cell("price-store", `<span class="legend-dot" style="background:${storeColor(g.store)}"></span><span class="price-store-name">${escapeHtml(g.store)}</span>`) +
-      cell("price-qty", qty) +
-      // a promo price sits in an accent pill instead of carrying a marker
-      cell("price-value", anyPromo ? `<span class="promo-price">${priceText}</span>` : priceText) +
-      `</div>` + subs;
-  }).join("");
-
-  const table = $("#priceTable");
-  table.innerHTML = head + rows;
-
-  // A tap does two things, both "show me the rest of this row": a long product
-  // or store name unclips and the row grows to fit, and a row standing for
-  // several receipt lines reveals them.
-  $$(".price-row:not(.pt-headrow)", table).forEach((r) => {
-    r.addEventListener("click", () => {
-      const open = r.classList.toggle("expanded");
-      const caret = $(".pt-caret", r);
-      if (caret) caret.textContent = open ? "▴" : "▾";
-      const subs = r.nextElementSibling;
-      if (subs && subs.classList.contains("pt-subs")) subs.hidden = !open;
-    });
-  });
-}
-
-export function scrollToHighlightedRow() {
-  requestAnimationFrame(() => {
-    // .price-row is display:contents (no box of its own) - scroll its first cell
-    const el = document.querySelector("#priceDetail .price-row.hi .pt-cell");
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-  });
 }

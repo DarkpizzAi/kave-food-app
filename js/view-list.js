@@ -15,7 +15,7 @@ import { backSheets } from "./back-sheets.js";
 import { cardLabel, computeBubble, resolvePriceTarget, seriesForTarget, storeColor, storeOnColor } from "./prices-data.js";
 import { store } from "./store.js";
 import { $, $$, deburr, escapeHtml } from "./util.js";
-import { goToPriceChart } from "./view-prices.js";
+import { goToTrend } from "./view-prices.js";
 
 export let checkedOpen = false;
 
@@ -108,8 +108,8 @@ function itemRow(it) {
   $(".row-check", row).addEventListener("click", () => tickRow(it));
   $(".del", row).addEventListener("click", () => removeRow(it));
   if (hint) {
-    // Task 4 replaces this with goToTrend(productKey); until then it opens the old chart
-    $(".price-btn", row).addEventListener("click", () => goToPriceChart(hint.target));
+    // every price tap goes to the product's trend; never a popup
+    $(".price-btn", row).addEventListener("click", () => goToTrend(hint.target));
   }
   return row;
 }

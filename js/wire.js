@@ -15,7 +15,7 @@ import { applyTheme } from "./theme.js";
 import { $, $$ } from "./util.js";
 import { addPageIsOpen, closeAddPage, tidyChecked, wireAddPage } from "./view-list.js";
 import { pairings, renderBatchSheet, renderPairsSheet, renderPlanner, setBatchOrder, setPairOrder, shuffled, sizePlanStrips } from "./view-plan.js";
-import { pricesUiState, renderOppSheet, renderOpportunities, renderTrends, resetTrends, resizePriceChart } from "./view-prices.js";
+import { openWorthWatching, resetTrends, resizePriceChart } from "./view-prices.js";
 import { equaliseCards, updateRailFade } from "./view-recipes.js";
 import { checkForUpdate, checkToken, setTokenStatus, updateState } from "./view-settings.js";
 
@@ -59,7 +59,7 @@ export function wire() {
   wireAddPage();
   $("#tidyChecked").addEventListener("click", tidyChecked);
 
-  $("#oppToggle").addEventListener("click", () => openListSheet("Worth watching", "Lowest price · 6 mo", renderOppSheet));
+  $("#oppToggle").addEventListener("click", openWorthWatching);
   $("#pairToggle").addEventListener("click", () => openListSheet("Worth pairing", "Meals that share a perishable, so the bunch gets used.", renderPairsSheet));
   $("#batchToggle").addEventListener("click", () => openListSheet("Good for leftovers", "Cook the base once, then twice more just the fast fresh part.", renderBatchSheet));
   $("#pairShuffle").addEventListener("click", () => {
@@ -72,24 +72,6 @@ export function wire() {
   });
   $("#priceSeeAll").addEventListener("click", () => openPriceDetail());
   $("#priceReset").addEventListener("click", resetTrends);
-
-  // tapping anywhere outside an open Trends dropdown closes it
-  document.addEventListener("click", (e) => {
-    if (pricesUiState.openPill &&
-        !e.target.closest("#priceCatPills, #priceProdPills, #pricePillPanel")) {
-      pricesUiState.openPill = null;
-      renderTrends();
-    }
-  });
-
-  // the price sheet's own to-top: its scroll never reaches window scroll,
-  // since .detail is its own overflow-y:auto container
-  $("#priceDetail").addEventListener("scroll", () => {
-    $("#priceToTop").classList.toggle("show", $("#priceDetail").scrollTop > 200);
-  }, { passive: true });
-  $("#priceToTop").addEventListener("click", () => {
-    $("#priceDetail").scrollTo({ top: 0, behavior: "smooth" });
-  });
 
   $$("#setWho button").forEach((b) => {
     b.addEventListener("click", () => store.setWho(b.dataset.who));

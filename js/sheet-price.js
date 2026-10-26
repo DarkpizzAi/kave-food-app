@@ -1,127 +1,229 @@
-/* Spoon: the price detail sheet, the shared sheet drag, and the recipe detail body.
+/* Ladle: the Insights sheet, the shared sheet drag, and the recipe detail body.
 
-   Split out of app.js, which was one 4240-line classic script. The
-   boundaries are the section banners that file already drew, so any
-   line's history is still one git log --follow away. */
+   The Insights sheet is one Material 3 modal sheet (a bottom sheet on a phone,
+   a side sheet on a wider window) that the Insights tab reuses for its four
+   jobs: the purchase history, the full Worth watching list, the Category /
+   Product radio pickers and the receipt clean-up. It owns one history entry,
+   so the phone's back button closes it and nothing else. */
 "use strict";
 
-import { MAIN_LABELS, cap, cartButtonHtml, confirmAdd, roundQty } from "./prices-data.js";
+import { enterLayer, exitLayer, kaveKey } from "../m3/kave-m3.js";
+import { MAIN_LABELS, cap, cartButtonHtml, confirmAdd, resolveTargetInfo, roundQty, titleCaseVariant } from "./prices-data.js";
 import { closeRecipe, detailState, setDetailState, setSheetHasHistory, setTabHasHistory, slideSheetDown, tabHasHistory } from "./sheet-recipe.js";
 import { backSheets } from "./back-sheets.js";
 import { store } from "./store.js";
 import { $, $$, escapeHtml, own, safeUrl } from "./util.js";
-import { pricesUiState, renderPriceDetail, scrollToHighlightedRow } from "./view-prices.js";
+import { fmtFullDate, metricsHtml, pricesUiState, purchaseRows, storeKeyOf } from "./view-prices.js";
 
-// { key, highlightDate, highlightStore } - the two identify one row to
-// always whatever the Trends card is currently showing (pricesUiState.target)
-// - "See all" and a chart-dot tap both open the same sheet, the dot just
-// also carries a {date, store} to scroll to and highlight
-export let priceDetailState = null;
-let priceSheetClosing = false;
-let priceCloseRequested = false;
-let priceSheetHasHistory = false;
+/* ---------- the Insights sheet ---------- */
 
+const ins = {
+  open: false, hasHistory: false, kind: "bottom", token: 0,
+  render: null, onClose: null, opener: null, owner: null, waiters: [], wired: false,
+};
+
+export const insSheetIsOpen = () => ins.open;
+
+function drawIns() {
+  const body = $("#insSheetBody");
+  body.innerHTML = "";
+  if (ins.render) ins.render(body);
+}
+
+// a sync that lands while the sheet is open redraws it from fresh state
+export function refreshInsSheet() {
+  if (ins.open) drawIns();
+}
+
+function settleWaiters() {
+  const w = ins.waiters; ins.waiters = [];
+  w.forEach((f) => f());
+}
+
+function hideIns(immediate = false) {
+  if (!ins.open) return;
+  ins.open = false;
+  ins.render = null;
+  const cb = ins.onClose; ins.onClose = null;
+  const token = ++ins.token;
+  const el = $("#insSheet"), scrim = $("#insScrim");
+  const done = () => {
+    if (token !== ins.token) return;     // reopened meanwhile
+    el.hidden = true; scrim.hidden = true;
+    settleWaiters();
+  };
+  if (immediate) done();
+  else exitLayer(el, ins.kind).then(done);
+  const o = ins.opener; ins.opener = null;
+  if (o && o.isConnected && o.offsetParent !== null) o.focus({ preventScroll: true });
+  if (cb) cb();
+}
+
+// the tap, the scrim, Escape and the phone's back button are one path.
+// Resolves once the sheet is gone, for a caller that acts on the page under it.
+export function closeInsSheet() {
+  return new Promise((resolve) => {
+    if (!ins.open) { resolve(); return; }
+    ins.waiters.push(resolve);
+    if (ins.hasHistory) { ins.hasHistory = false; history.back(); }
+    else hideIns();
+  });
+}
+
+// swipe down on the handle or the title row closes a bottom sheet
+function wireInsDrag() {
+  const el = $("#insSheet");
+  let y0 = null, dy = 0;
+  [$("#insSheetHandle"), $("#insSheetHead")].forEach((g) => {
+    g.addEventListener("pointerdown", (e) => {
+      if (ins.kind !== "bottom" || e.target.closest("button")) return;
+      y0 = e.clientY; dy = 0;
+      try { g.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointer */ }
+    });
+    g.addEventListener("pointermove", (e) => {
+      if (y0 == null) return;
+      dy = Math.max(0, e.clientY - y0);
+      el.style.transform = `translateY(${dy}px)`;
+    });
+    const end = () => {
+      if (y0 == null) return;
+      y0 = null;
+      el.style.transform = "";
+      if (dy > 80) closeInsSheet();
+    };
+    g.addEventListener("pointerup", end);
+    g.addEventListener("pointercancel", end);
+  });
+}
+
+function wireIns() {
+  if (ins.wired) return;
+  ins.wired = true;
+  $("#insSheetClose").addEventListener("click", () => closeInsSheet());
+  $("#insScrim").addEventListener("click", () => closeInsSheet());
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && ins.open) { e.stopPropagation(); closeInsSheet(); }
+  });
+  // the sheet belongs to the tab it was opened from
+  store.subscribe((s) => {
+    if (ins.open && s.view !== ins.owner) { ins.hasHistory = false; hideIns(true); }
+  });
+  wireInsDrag();
+}
+
+/* title: the sheet's heading. render(body) draws into the body and is called
+   again by refreshInsSheet. onClose runs once, however the sheet closes. */
+export function openInsSheet({ title, render, onClose = null, tall = false }) {
+  wireIns();
+  if (ins.open) { ins.hasHistory = false; hideIns(true); }
+  settleWaiters();
+  const el = $("#insSheet"), scrim = $("#insScrim");
+  const side = document.documentElement.dataset.size !== "compact";
+  ins.open = true;
+  ins.render = render; ins.onClose = onClose;
+  ins.owner = store.state.view;
+  ins.kind = side ? "side" : "bottom";
+  ins.opener = document.activeElement;
+  ins.token++;
+  el.className = side ? "m3-sheet--side" : `m3-sheet--bottom${tall ? " is-tall" : ""}`;
+  el.style.transform = "";
+  $("#insSheetHandle").hidden = side;
+  $("#insSheetTitle").textContent = title;
+  scrim.hidden = false; el.hidden = false;
+  drawIns();
+  enterLayer(el, ins.kind);
+  try { history.pushState({ insSheet: true }, ""); ins.hasHistory = true; }
+  catch (e) { ins.hasHistory = false; }
+  $("#insSheetClose").focus({ preventScroll: true });
+}
+
+/* ---------- purchase history ---------- */
+
+/* The history of whatever the Trends card is showing: its Latest and Best
+   price cards, then one line per purchase, newest first. No chart. A tap on a
+   chart dot opens it with that dot's purchases picked out (highlight.keys). */
 export function openPriceDetail(highlight = null) {
   if (!pricesUiState.target) return;
-  priceDetailState = { highlight };
-  const el = $("#priceDetail");
-  priceSheetClosing = false;
-  priceCloseRequested = false;
-  el.hidden = false;
-  el.classList.remove("shown");
-  el.style.transition = "";
-  el.style.transform = "";
-  renderPriceDetail();
-  el.scrollTop = 0;
-  void el.offsetHeight;
-  el.classList.add("shown");
-  try {
-    history.pushState({ priceSheet: true }, "");
-    priceSheetHasHistory = true;
-  } catch (e) {
-    priceSheetHasHistory = false;
-  }
-  if (highlight) scrollToHighlightedRow();
-}
-
-function slidePriceSheetDown() {
-  const el = $("#priceDetail");
-  if (el.hidden || priceSheetClosing) return;
-  priceSheetClosing = true;
-  el.style.transition = "";
-  el.style.transform = "";
-  el.classList.remove("shown");
-  let done = false;
-  const finish = () => {
-    if (done) return;
-    done = true;
-    el.removeEventListener("transitionend", onEnd);
-    el.hidden = true;
-    priceDetailState = null;
-    priceSheetClosing = false;
-    priceCloseRequested = false;
-  };
-  const onEnd = (e) => {
-    if (e.target === el && e.propertyName === "transform") finish();
-  };
-  el.addEventListener("transitionend", onEnd);
-  setTimeout(finish, 450);
-}
-
-export function parkPriceDetail() {
-  const el = $("#priceDetail");
-  if (el.hidden || priceDetailState == null) return;
-  el.style.transition = "none";
-  el.classList.remove("shown");
-  el.hidden = true;
-  el.style.transform = "";
-}
-
-export function unparkPriceDetail() {
-  const el = $("#priceDetail");
-  if (priceDetailState == null) return;
-  el.hidden = false;
-  el.style.transition = "none";
-  el.classList.add("shown");
-  el.style.transform = "translate(-50%, 0)";
-  el.scrollTop = 0;
-  void el.offsetHeight;
-  el.style.transition = "";
-}
-
-export function closePriceDetail() {
-  if ($("#priceDetail").hidden || priceSheetClosing || priceCloseRequested) return;
-  priceCloseRequested = true;
-  if (priceSheetHasHistory) {
-    priceSheetHasHistory = false;
-    history.back();
-  } else {
-    slidePriceSheetDown();
+  openInsSheet({
+    title: "Purchase history", tall: true,
+    render: (body) => renderPriceHistory(body, highlight),
+  });
+  if (highlight && highlight.keys && highlight.keys.length) {
+    requestAnimationFrame(() => {
+      const hi = $("#insSheetBody .is-hi");
+      if (hi) hi.scrollIntoView({ block: "center" });
+    });
   }
 }
 
-// Other sheets that own one history entry each (the receipt clean-up popup).
-// They register here so this one popstate handler decides, in one place,
-// whether a back press was theirs to consume - two handlers racing would let
-// the tab underneath react to a press that only closed a sheet.
+function renderPriceHistory(body, highlight) {
+  const target = pricesUiState.target;
+  const info = target && resolveTargetInfo(target);
+  if (!info) {
+    body.innerHTML = `<p class="m3-body-m m3-variant">No purchases to show.</p>`;
+    return;
+  }
+  const title = target.level === "l3" ? info.label
+    : target.level === "l2" ? titleCaseVariant(info.l2) : info.l1_label;
+  const sub = (target.level === "l3" ? [info.l1_label, info.l2 && titleCaseVariant(info.l2)]
+    : target.level === "l2" ? [info.l1_label] : []).filter(Boolean).join(" · ");
+  const rows = purchaseRows(info.series);
+  const hiKeys = highlight && highlight.keys ? new Set(highlight.keys) : null;
+  const pooled = target.level !== "l3";
+  const avgOf = (g) => g.pts.reduce((s, p) => s + p.price, 0) / g.pts.length;
+  const lowest = rows.reduce((m, g) => Math.min(m, avgOf(g)), Infinity);
+
+  const lines = rows.map((g) => {
+    // several of the same thing in one trip is one price paid: show the
+    // average, and the offer if any one of them was on offer
+    const avg = avgOf(g);
+    const anyPromo = g.pts.some((p) => p.promo);
+    const item = g.prodLabel || titleCaseVariant(g.variant) || info.l1_label;
+    const many = g.pts.length > 1;
+    const isHi = hiKeys ? hiKeys.has(g.key) : false;
+    const support = [g.store, pooled ? item : null,
+      many ? `${g.pts.length} bought` : null].filter(Boolean).join(" · ");
+    return `<div class="m3-list-item ins-purchase${isHi ? " is-hi" : ""}">` +
+      `<span class="m3-dot" style="${kaveKey(storeKeyOf(g.store))}"></span>` +
+      `<div class="m3-list-item__text m3-list-item__text--wrap">` +
+        `<div class="m3-body-l">${escapeHtml(fmtFullDate(g.date))}</div>` +
+        `<div class="m3-body-m m3-variant">${escapeHtml(support)}</div></div>` +
+      (anyPromo ? `<span class="m3-tag">Offer</span>` : "") +
+      `<span class="m3-title-m m3-num ins-price${avg === lowest ? " is-best" : ""}">€${avg.toFixed(2)}</span>` +
+      `</div>`;
+  }).join("");
+
+  body.innerHTML =
+    `<div class="m3-stack"><h3 class="m3-headline-s ins-sheet-name">${escapeHtml(title)}</h3>` +
+    (sub ? `<p class="m3-body-m m3-variant ins-sheet-sub">${escapeHtml(sub)}</p>` : "") + `</div>` +
+    `<div class="ins-metrics">${metricsHtml(info)}</div>` +
+    `<div class="m3-list-header"><span class="m3-title-s">Purchases</span>` +
+    `<span class="m3-label-m m3-variant">${rows.length}</span></div>` +
+    `<div class="m3-grouped">${lines}</div>`;
+}
+
+/* ---------- history entries and the one popstate handler ---------- */
+
+// Sheets that own one history entry each register in back-sheets.js. They
+// register here so this one popstate handler decides, in one place, whether a
+// back press was theirs to consume - two handlers racing would let the tab
+// underneath react to a press that only closed a sheet.
+backSheets.push({
+  isOpen: () => ins.open,
+  close: () => { ins.hasHistory = false; hideIns(); },
+});
 
 window.addEventListener("popstate", () => {
   setSheetHasHistory(false);
-  priceSheetHasHistory = false;
   let consumed = false;
   if (detailState != null) {
     if ($("#recipeDetail").hidden) setDetailState(null); // parked elsewhere: back just discards it
     else slideSheetDown();
     consumed = true;
   }
-  if (priceDetailState != null) {
-    if ($("#priceDetail").hidden) priceDetailState = null;
-    else slidePriceSheetDown();
-    consumed = true;
-  }
-  // A recipe or price sheet opened from one of the listed sheets sits on top of
-  // it, so it takes the press first; only when neither was open does a listed
-  // sheet close. One press, one sheet.
+  // A recipe sheet opened from one of the listed sheets sits on top of it, so
+  // it takes the press first; only when it was not open does a listed sheet
+  // close. One press, one sheet.
   if (!consumed) {
     for (const s of backSheets) {
       if (s.isOpen()) { s.close(); consumed = true; break; }
@@ -186,9 +288,6 @@ export function bindSheetDrag(barSel, elSel, onClose) {
 
 export function initSheetDrag() {
   bindSheetDrag("#detailBar", "#recipeDetail", closeRecipe);
-}
-export function initPriceSheetDrag() {
-  bindSheetDrag("#priceDetailBar", "#priceDetail", closePriceDetail);
 }
 
 function isCountUnit(unit) {

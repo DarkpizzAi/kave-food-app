@@ -10,7 +10,7 @@ import { loadCleanup, wireCleanup } from "./cleanup.js";
 import { initListSheet } from "./sheet-list.js";
 import { initPullToSync } from "./pull-to-sync.js";
 import { render } from "./render.js";
-import { initPriceSheetDrag, initSheetDrag } from "./sheet-price.js";
+import { initSheetDrag } from "./sheet-price.js";
 import { IS_LOCAL_DEV, store } from "./store.js";
 import { flushQueue, pollTick, showTapBanner, startPolling } from "./sync.js";
 import { sizeClass } from "../m3/kave-m3.js";
@@ -42,7 +42,6 @@ wireCleanup();
 initListSheet();
 initPullToSync();
 initSheetDrag();
-initPriceSheetDrag();
 render(store.state);                 // paint the cache immediately, before any network
 if (store.state.settings.token) {
   checkToken();                      // "Connected as ..."; on success it kicks fullSync

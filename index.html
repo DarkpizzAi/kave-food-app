@@ -176,86 +176,52 @@
       <div id="boughtList" class="m3-grouped"></div>
     </section>
 
-    <!-- PRICES -->
+    <!-- INSIGHTS: a feed of cards (js/view-prices.js). The hero, the deal
+         cards and the Trends chips are drawn by script. -->
     <section id="view-prices" class="view" hidden>
-      <div class="tab-section">
-        <div class="tab-section-head">
-          <span class="tab-section-title">Worth watching</span>
-          <!-- Says what the number on each row is, not just the window it
-               covers: bestPriceInPeriod() reduces the 6-month series to its
-               minimum, so the figure is the lowest price paid, not the latest
-               or an average. -->
-          <span class="tab-section-sub">Lowest price · 6 mo</span>
+      <div class="ins-feed">
+        <div id="dealHero" class="ins-hero" hidden></div>
+        <div id="dealHead" class="m3-list-header ins-head" hidden>
+          <span class="m3-title-s">Worth watching</span>
+          <span class="m3-label-m m3-variant">Lowest price in 6 months</span>
         </div>
-        <div class="opp-card">
-          <ul id="oppList" class="opp-list"></ul>
-          <button id="oppToggle" type="button" class="reveal-btn"></button>
-        </div>
-      </div>
+        <div id="dealGrid" class="ins-deals" hidden></div>
+        <p id="dealEmpty" class="m3-body-m m3-variant ins-note" hidden>Nothing worth watching yet.</p>
+        <button id="oppToggle" type="button" class="m3-btn m3-btn--text ins-seeall" hidden>See all worth watching</button>
 
-      <div class="tab-section">
-        <div class="tab-section-head">
-          <span class="tab-section-title">Trends</span>
-          <button id="priceReset" type="button" class="reset">Reset</button>
-        </div>
-        <div class="trends-card">
-          <p id="priceNoData" class="empty" hidden>Nothing synced yet.</p>
-          <div id="priceTrendsBody" class="trends-body">
-            <div class="price-pills-row">
-              <span class="rail-label">Category</span>
-              <div class="price-pills" id="priceCatPills"></div>
-            </div>
-            <div class="price-pills-row">
-              <span class="rail-label">Product</span>
-              <div class="price-pills" id="priceProdPills"></div>
-            </div>
-            <div class="pill-panel-host" id="pricePillPanel" hidden></div>
+        <section id="trendsCard" class="ins-card ins-card--wide" aria-labelledby="trendsTitle" tabindex="-1">
+          <div class="m3-card__head">
+            <h2 id="trendsTitle" class="m3-title-m">Trends</h2>
+            <span class="m3-spacer"></span>
+            <button id="priceReset" type="button" class="m3-btn m3-btn--text">Reset</button>
+          </div>
+          <p id="priceNoData" class="m3-body-m m3-variant" hidden>Nothing synced yet.</p>
+          <div id="priceTrendsBody" class="m3-stack">
+            <div id="priceFilters" class="m3-chips ins-filters" role="group" aria-label="Product"></div>
             <div id="priceChartWrap" class="price-chart-wrap"></div>
-            <p id="priceEmpty" class="empty" hidden></p>
-            <div class="price-subfilters">
-              <div class="pill-wrap" id="pricePeriod"></div>
-              <div class="pill-wrap" id="priceGroupBy"></div>
+            <p id="priceEmpty" class="m3-body-m m3-variant" hidden></p>
+            <div class="m3-stack ins-choices">
+              <div id="pricePeriod" class="m3-chips" role="group" aria-label="Period"></div>
+              <div id="priceGroupBy" class="m3-chips" role="group" aria-label="Group by"></div>
             </div>
-            <div class="rail" id="priceLegend"><span class="rail-label">Legend</span></div>
-            <div id="priceMetrics" class="price-metrics">
-              <div class="metric-card">
-                <div class="metric-label">Latest price</div>
-                <div id="priceLastValue" class="metric-value"></div>
-                <div id="priceLastStore" class="metric-store"></div>
-              </div>
-              <div class="metric-card">
-                <div id="priceBestLabel" class="metric-label">Best price · 6mo</div>
-                <div id="priceBestValue" class="metric-value"></div>
-                <div id="priceBestStore" class="metric-store"></div>
-              </div>
-            </div>
-            <button id="priceSeeAll" type="button" class="reveal-btn"></button>
+            <div id="priceMetrics" class="ins-metrics"></div>
+            <button id="priceSeeAll" type="button" class="m3-btn m3-btn--tonal ins-wide-btn"><span class="m3-icon" aria-hidden="true">receipt_long</span>Purchase history</button>
           </div>
-        </div>
-      </div>
+        </section>
 
-      <div class="tab-section">
-        <div class="tab-section-head">
-          <span class="tab-section-title">Receipt data clean-up</span>
-          <span class="tab-section-sub">Last 30 days</span>
-        </div>
-        <div class="trends-card">
-          <div class="cleanup-kpis">
-            <div class="metric-card">
-              <div class="metric-label">No ingredient</div>
-              <div id="cleanupNoIng" class="metric-value">-</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-label">No variant</div>
-              <div id="cleanupNoVar" class="metric-value">-</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-label">No pack size</div>
-              <div id="cleanupNoPack" class="metric-value">-</div>
-            </div>
+        <section id="cleanupCard" class="ins-card ins-card--wide" aria-labelledby="cleanupTitle">
+          <div class="m3-card__head">
+            <h2 id="cleanupTitle" class="m3-title-m">Receipt data clean-up</h2>
+            <span class="m3-spacer"></span>
+            <span class="m3-label-m m3-variant">Last 30 days</span>
           </div>
-          <button id="cleanupOpen" type="button" class="reveal-btn">Clean up</button>
-        </div>
+          <div class="m3-list">
+            <div class="m3-list-item ins-row"><span class="m3-list-item__lead m3-list-item__lead--square"><span class="m3-icon" aria-hidden="true">category</span></span><div class="m3-list-item__text m3-list-item__text--wrap"><div id="cleanupNoIng" class="m3-body-l">-</div></div></div>
+            <div class="m3-list-item ins-row"><span class="m3-list-item__lead m3-list-item__lead--square"><span class="m3-icon" aria-hidden="true">style</span></span><div class="m3-list-item__text m3-list-item__text--wrap"><div id="cleanupNoVar" class="m3-body-l">-</div></div></div>
+            <div class="m3-list-item ins-row"><span class="m3-list-item__lead m3-list-item__lead--square"><span class="m3-icon" aria-hidden="true">scale</span></span><div class="m3-list-item__text m3-list-item__text--wrap"><div id="cleanupNoPack" class="m3-body-l">-</div></div></div>
+          </div>
+          <button id="cleanupOpen" type="button" class="m3-btn m3-btn--tonal ins-wide-btn"><span class="m3-icon" aria-hidden="true">auto_fix_high</span>Clean up</button>
+        </section>
       </div>
     </section>
 
@@ -355,35 +321,19 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7-7 7 7"/></svg>
   </button>
 
-  <!-- PRICE DETAIL: same swoop-up sheet as a recipe, always all points, most recent first -->
-  <div id="priceDetail" class="detail" hidden>
-    <div class="detail-bar" id="priceDetailBar">
-      <div id="priceDetailTitle" class="rname"></div>
-      <div id="priceDetailTags" class="detail-tags"></div>
+  <!-- INSIGHTS SHEET: one modal sheet for the purchase history, Worth watching,
+       the Category / Product pickers and the receipt clean-up (js/sheet-price.js).
+       A bottom sheet on a phone, a side sheet on a wider window. The scrim
+       must stay the sheet's previous sibling (enterLayer animates it with it). -->
+  <div id="insScrim" class="m3-scrim" hidden></div>
+  <div id="insSheet" class="m3-sheet--bottom" role="dialog" aria-modal="true" aria-labelledby="insSheetTitle" hidden>
+    <div id="insSheetHandle" class="m3-drag-handle" aria-hidden="true"></div>
+    <div id="insSheetHead" class="m3-sheet__head">
+      <h2 id="insSheetTitle" class="m3-sheet__title"></h2>
+      <button type="button" id="insSheetClose" class="m3-icon-btn" aria-label="Close"><span class="m3-icon">close</span></button>
     </div>
-    <div class="detail-inner">
-      <div id="priceTable" class="price-table"></div>
-    </div>
+    <div id="insSheetBody" class="m3-sheet__body"></div>
   </div>
-
-  <!-- RECEIPT DATA CLEAN-UP: the same swoop-up sheet, cards to answer or a list of answers to undo -->
-  <div id="cleanupSheet" class="detail" hidden>
-    <div class="detail-bar" id="cleanupBar">
-      <div class="rname">Receipt data clean-up</div>
-      <p class="sheet-sub">Products from the last 30 days with something missing or doubtful.</p>
-    </div>
-    <div class="detail-inner">
-      <div id="cleanupTabs" class="cu-tabs">
-        <button type="button" data-tab="todo" class="on">To do</button>
-        <button type="button" data-tab="decisions">Decisions</button>
-      </div>
-      <div id="cleanupBody"></div>
-    </div>
-  </div>
-
-  <button id="priceToTop" class="to-top price-to-top" type="button" aria-label="Back to top">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7-7 7 7"/></svg>
-  </button>
 
   <!-- Navigation: a bar on compact, a rail (menu button first, no FAB) on
        medium and expanded. Which one shows follows <html data-size>. The

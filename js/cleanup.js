@@ -1,6 +1,6 @@
-/* Spoon: Receipt data clean-up (Prices tab, after Trends).
+/* Ladle: Receipt data clean-up (Insights tab, after Trends).
 
-   Three numbers and a Clean up button. The button opens a sheet of cards, one
+   Three counts and a Clean up button. The button opens a sheet of cards, one
    per receipt product from the last 30 days that has something missing or
    doubtful. Answering a card uploads one small file to
    food/data/cleanup-answers/ in kave-hub; nothing else changes. A person
@@ -14,8 +14,7 @@
 "use strict";
 
 import { github } from "../github.js";
-import { backSheets } from "./back-sheets.js";
-import { bindSheetDrag } from "./sheet-price.js";
+import { openInsSheet } from "./sheet-price.js";
 import { store } from "./store.js";
 import { $, $$, escapeHtml } from "./util.js";
 
@@ -146,62 +145,38 @@ export function visibleCards() {
           ...items.filter((c) => skipped.includes(c.file))];
 }
 
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 export function renderCleanup() {
   const q = cleanup.queue;
   const cards = visibleCards();
-  const count = (m) => (q ? String(cards.filter((c) => c.missing.includes(m)).length) : "-");
-  $("#cleanupNoIng").textContent = count("slug");
-  $("#cleanupNoVar").textContent = count("variant");
-  $("#cleanupNoPack").textContent = count("pack_size");
-  const btn = $("#cleanupOpen");
-  btn.textContent = q ? `See all · ${cards.length}` : "See all";
-  btn.disabled = !q;
-  if (cleanup.open) renderSheet();
+  const count = (m) => cards.filter((c) => c.missing.includes(m)).length;
+  const say = (id, n, what) => {
+    $(id).textContent = q ? `${plural(n, "product", "products")} without ${what}` : "Not synced yet";
+  };
+  say("#cleanupNoIng", count("slug"), "an ingredient");
+  say("#cleanupNoVar", count("variant"), "a variant");
+  say("#cleanupNoPack", count("pack_size"), "a pack size");
+  $("#cleanupOpen").disabled = !q;
+  if (cleanup.open) renderSheet($("#insSheetBody"));
 }
 
 /* ---- the sheet ---- */
-
-let sheetHasHistory = false;
 
 export function openCleanup() {
   if (!cleanup.queue) return;
   cleanup.open = true;
   cleanup.tab = "todo";
-  const el = $("#cleanupSheet");
-  el.hidden = false;
-  el.classList.remove("shown");
-  renderSheet();
-  el.scrollTop = 0;
-  void el.offsetHeight;
-  el.classList.add("shown");
-  try {
-    history.pushState({ cleanupSheet: true }, "");
-    sheetHasHistory = true;
-  } catch (e) {
-    sheetHasHistory = false;
-  }
+  openInsSheet({
+    title: "Receipt data clean-up", tall: true,
+    render: renderSheet,
+    onClose: () => { cleanup.open = false; },
+  });
 }
 
-function hideSheet() {
-  const el = $("#cleanupSheet");
-  cleanup.open = false;
-  el.classList.remove("shown");
-  setTimeout(() => { if (!cleanup.open) el.hidden = true; }, 300);
-}
-
-// let the history entry do the closing so a tap, a swipe and back are one path
-function requestClose() {
-  if (sheetHasHistory) history.back();
-  else hideSheet();
-}
-
-backSheets.push({
-  isOpen: () => cleanup.open,
-  close: () => { sheetHasHistory = false; hideSheet(); },
-});
-
+// a suggestion chip: a Material filter chip, ticked when chosen
 function chip(label, attrs, on = false, extra = "") {
-  return `<button type="button" class="chip${on ? " on" : ""}${extra}" ${attrs}>${label}</button>`;
+  return `<button type="button" class="m3-chip${on ? " m3-chip--leading is-selected" : ""}${extra}" ${attrs} aria-pressed="${on}">` +
+    `${on ? '<span class="m3-icon" aria-hidden="true">check</span>' : ""}${label}</button>`;
 }
 
 // What already exists for an ingredient, commonest first, from the history the
@@ -228,10 +203,11 @@ function draftOf(file) {
 function penOrChip(card, field, label) {
   const d = draftOf(card.file);
   if (d.pen === field) {
-    return `<input class="pen-input" data-file="${escapeHtml(card.file)}" data-field="${field}" ` +
-           `placeholder="${escapeHtml(label)}" autocomplete="off" autocapitalize="none">`;
+    return `<input class="pen-input ins-pen" data-file="${escapeHtml(card.file)}" data-field="${field}" ` +
+           `placeholder="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" autocomplete="off" autocapitalize="none">`;
   }
-  return chip("✎", `data-act="pen" data-file="${escapeHtml(card.file)}" data-field="${field}"`, false, " pen");
+  return `<button type="button" class="m3-chip pen" data-act="pen" data-file="${escapeHtml(card.file)}" data-field="${field}" aria-label="Type your own ${escapeHtml(label)}">` +
+    `<span class="m3-icon" aria-hidden="true">edit</span></button>`;
 }
 
 function slugQuestion(card) {
@@ -257,7 +233,7 @@ function slugQuestion(card) {
       `data-act="pick" data-file="${escapeHtml(card.file)}" data-field="ingredient_slug" data-value="${escapeHtml(d.ingredient_slug)}"`, true));
   }
   chips.push(penOrChip(card, "slug", "ingredient"));
-  return `<div class="ask">Which ingredient is this?</div><div class="chips">${chips.join("")}</div>`;
+  return `<div class="m3-body-m ask">Which ingredient is this?</div><div class="m3-chips">${chips.join("")}</div>`;
 }
 
 function variantQuestion(card) {
@@ -274,7 +250,7 @@ function variantQuestion(card) {
     chips.push(chip(escapeHtml(d.variant), `data-act="pick" data-file="${escapeHtml(card.file)}" data-field="variant" data-value="${escapeHtml(d.variant)}"`, true));
   }
   chips.push(penOrChip(card, "variant", "variant"));
-  return `<div class="ask">Which kind?</div><div class="chips">${chips.join("")}</div>`;
+  return `<div class="m3-body-m ask">Which kind?</div><div class="m3-chips">${chips.join("")}</div>`;
 }
 
 function packQuestion(card) {
@@ -289,7 +265,7 @@ function packQuestion(card) {
     chips.push(chip(escapeHtml(d.pack_size), `data-act="pick" data-file="${escapeHtml(card.file)}" data-field="pack_size" data-value="${escapeHtml(d.pack_size)}"`, true));
   }
   chips.push(penOrChip(card, "pack_size", "e.g. 250 g or 6 x 56 g"));
-  return `<div class="ask">Pack size</div><div class="chips">${chips.join("")}</div>`;
+  return `<div class="m3-body-m ask">Pack size</div><div class="m3-chips">${chips.join("")}</div>`;
 }
 
 const TAGS = {
@@ -315,19 +291,20 @@ function cardHtml(card) {
   if (card.missing.includes("variant")) asks.push(variantQuestion(card));
   if (card.missing.includes("pack_size")) asks.push(packQuestion(card));
   if (card.missing.length === 1 && card.missing[0] === "unconfirmed") {
-    asks.push(`<div class="ask">Is this right?</div><div class="chips">` +
+    asks.push(`<div class="m3-body-m ask">Is this right?</div><div class="m3-chips">` +
       chip("Yes, it is", `data-act="confirm" data-file="${escapeHtml(card.file)}"`, !!d.confirmed) + `</div>`);
   }
-  const tags = card.missing.map((m) => `<span class="tag">${escapeHtml(TAGS[m] || m)}</span>`).join("");
-  return `<div class="cu-card" data-file="${escapeHtml(card.file)}">` +
-    `<div class="cu-raw">${escapeHtml(card.store)} · ${fmtDate(last)}${n > 1 ? ` · ${n} lines this month` : ""}</div>` +
-    `<div class="cu-name">${escapeHtml(cur.product || card.item_normalised || card.item_raw)}</div>` +
-    `<div class="cu-meta">Printed as “${escapeHtml(card.item_raw)}”${known ? ` · ${escapeHtml(known)}` : ""}</div>` +
-    `<div class="cu-tags">${tags}</div>` +
+  // each missing piece is a tag in the error container, on its on-container text
+  const tags = card.missing.map((m) => `<span class="m3-tag ins-miss">${escapeHtml(TAGS[m] || m)}</span>`).join("");
+  return `<div class="m3-card ins-clean" data-file="${escapeHtml(card.file)}">` +
+    `<div class="m3-label-m m3-variant">${escapeHtml(card.store)} · ${fmtDate(last)}${n > 1 ? ` · ${n} lines this month` : ""}</div>` +
+    `<div class="m3-row ins-clean__tags">${tags}</div>` +
+    `<div class="m3-title-m ins-clean__name">${escapeHtml(cur.product || card.item_normalised || card.item_raw)}</div>` +
+    `<div class="m3-body-s m3-variant">Printed as “${escapeHtml(card.item_raw)}”${known ? ` · ${escapeHtml(known)}` : ""}</div>` +
     asks.join("") +
-    `<div class="cu-foot"><button type="button" class="cu-quiet" data-act="skip" data-file="${escapeHtml(card.file)}">Skip</button>` +
-    `<button type="button" class="cu-quiet" data-act="ignore" data-file="${escapeHtml(card.file)}">Ignore</button>` +
-    `<button type="button" class="cu-done" data-act="done" data-file="${escapeHtml(card.file)}"${cardReady(card) ? "" : " disabled"}>Done</button></div>` +
+    `<div class="m3-row ins-clean__foot"><button type="button" class="m3-btn m3-btn--text" data-act="skip" data-file="${escapeHtml(card.file)}">Skip</button>` +
+    `<button type="button" class="m3-btn m3-btn--text" data-act="ignore" data-file="${escapeHtml(card.file)}">Ignore</button>` +
+    `<button type="button" class="m3-btn m3-btn--filled m3-btn--small cu-done" data-act="done" data-file="${escapeHtml(card.file)}"${cardReady(card) ? "" : " disabled"}>Done</button></div>` +
     `</div>`;
 }
 
@@ -352,32 +329,40 @@ function decisions() {
 
 function decisionsHtml() {
   const list = decisions();
-  const note = `<p class="cu-note">Until it is processed overnight, an answer can be undone and the card comes back. After that it is final here; ask Claude to look at the history or change it.</p>`;
-  if (!list.length) return note + `<p class="empty">Nothing waiting to be processed.</p>`;
-  return note + list.map(({ a, waiting }) =>
-    `<div class="cu-card"><div class="cu-raw">${escapeHtml(a.store)} · ${escapeHtml((a.by || "").trim() || "someone")}${waiting ? " · not uploaded yet" : ""}</div>` +
-    `<div class="cu-name">${escapeHtml(a.item_normalised || a.item_raw)}</div>` +
-    `<div class="cu-meta">${escapeHtml(summarise(a.answers || {}))}</div>` +
-    `<div class="cu-foot"><span></span><span></span><button type="button" class="cu-done" data-act="undo" data-file="${escapeHtml(a.file)}">Undo</button></div></div>`
-  ).join("");
+  const note = `<p class="m3-body-s m3-variant cu-note">Until it is processed overnight, an answer can be undone and the card comes back. After that it is final here; ask Claude to look at the history or change it.</p>`;
+  if (!list.length) return note + `<p class="m3-body-m m3-variant">Nothing waiting to be processed.</p>`;
+  return note + `<div class="m3-grouped">` + list.map(({ a, waiting }) =>
+    `<div class="m3-list-item m3-list-item--three">` +
+    `<span class="m3-list-item__lead m3-list-item__lead--square"><span class="m3-icon" aria-hidden="true">${waiting ? "schedule" : "check"}</span></span>` +
+    `<div class="m3-list-item__text m3-list-item__text--wrap">` +
+    `<div class="m3-body-l">${escapeHtml(a.item_normalised || a.item_raw)}</div>` +
+    `<div class="m3-body-m m3-variant">${escapeHtml(summarise(a.answers || {}))}</div>` +
+    `<div class="m3-body-s m3-variant">${escapeHtml(a.store)} · ${escapeHtml((a.by || "").trim() || "someone")}${waiting ? " · not uploaded yet" : ""}</div></div>` +
+    `<button type="button" class="m3-btn m3-btn--text" data-act="undo" data-file="${escapeHtml(a.file)}">Undo</button></div>`
+  ).join("") + `</div>`;
 }
 
-function renderSheet() {
+// To do / Decisions as primary tabs over the cards. Drawn into the Insights
+// sheet's body (and again when the queue changes under it).
+function renderSheet(body) {
   const todo = visibleCards();
   const pending = decisions().length;
-  $$("#cleanupTabs button").forEach((b) => {
-    b.classList.toggle("on", b.dataset.tab === cleanup.tab);
-    if (b.dataset.tab === "todo") b.textContent = `To do · ${todo.length}`;
-    else b.textContent = `Decisions · ${pending}`;
-  });
-  $("#cleanupBody").innerHTML = cleanup.tab === "todo"
-    ? (todo.length ? todo.map(cardHtml).join("") : `<p class="empty">Nothing left to clean up.</p>`)
-    : decisionsHtml();
+  const tab = (id, label) =>
+    `<button type="button" role="tab" class="ins-tab${cleanup.tab === id ? " is-active" : ""}" data-tab="${id}" aria-selected="${cleanup.tab === id}">${label}</button>`;
+  body.innerHTML =
+    `<p class="m3-body-m m3-variant">Products from the last 30 days with something missing or doubtful.</p>` +
+    `<div class="ins-tabs" role="tablist">${tab("todo", `To do · ${todo.length}`)}${tab("decisions", `Decisions · ${pending}`)}</div>` +
+    `<div id="cleanupBody" role="tabpanel" class="m3-stack">` +
+    (cleanup.tab === "todo"
+      ? (todo.length ? todo.map(cardHtml).join("")
+        : `<div class="m3-empty-state"><div class="m3-empty-state__icon"><span class="m3-icon" aria-hidden="true">task_alt</span></div><p class="m3-title-m">All clear</p><p class="m3-body-m m3-variant">Nothing left to check from the last 30 days.</p></div>`)
+      : decisionsHtml()) +
+    `</div>`;
 }
 
 function rerenderCard(file) {
   const card = cleanup.queue.items.find((c) => c.file === file);
-  const el = $(`.cu-card[data-file="${file}"]`, $("#cleanupBody"));
+  const el = $(`.ins-clean[data-file="${file}"]`, $("#insSheetBody"));
   if (!card || !el) return;
   el.outerHTML = cardHtml(card);
 }
@@ -448,16 +433,17 @@ function commitPen(input) {
 
 export function wireCleanup() {
   $("#cleanupOpen").addEventListener("click", openCleanup);
-  // tap or swipe down on the bar, or the back button: same as the other sheets
-  bindSheetDrag("#cleanupBar", "#cleanupSheet", requestClose);
-  $("#cleanupTabs").addEventListener("click", (e) => {
-    const b = e.target.closest("button[data-tab]");
-    if (!b) return;
-    cleanup.tab = b.dataset.tab;
-    renderSheet();
-  });
-  const body = $("#cleanupBody");
+  // the sheet body is shared with the other Insights sheets, so every handler
+  // here stands down unless the clean-up is what is showing
+  const body = $("#insSheetBody");
   body.addEventListener("click", (e) => {
+    if (!cleanup.open) return;
+    const t = e.target.closest("button[data-tab]");
+    if (t) {
+      cleanup.tab = t.dataset.tab;
+      renderSheet(body);
+      return;
+    }
     const b = e.target.closest("[data-act]");
     if (!b) return;
     const file = b.dataset.file;
@@ -481,7 +467,7 @@ export function wireCleanup() {
         { const i = $(`.pen-input[data-file="${file}"]`, body); if (i) i.focus(); } break;
       case "skip":
         cleanup.skipped = [...cleanup.skipped.filter((f) => f !== file), file];
-        renderSheet();
+        renderSheet(body);
         break;
       case "ignore": if (card) submit(card, { ignore: true }); break;
       case "done": if (card && cardReady(card)) finish(card); break;
@@ -489,16 +475,13 @@ export function wireCleanup() {
     }
   });
   body.addEventListener("keydown", (e) => {
-    if (e.target.classList.contains("pen-input") && e.key === "Enter") {
+    if (cleanup.open && e.target.classList.contains("pen-input") && e.key === "Enter") {
       e.preventDefault();
       commitPen(e.target);
     }
   });
   body.addEventListener("focusout", (e) => {
-    if (e.target.classList.contains("pen-input")) commitPen(e.target);
+    if (cleanup.open && e.target.classList.contains("pen-input")) commitPen(e.target);
   });
-  // leaving the Prices tab closes the sheet: it belongs to that tab
-  store.subscribe((s) => {
-    if (cleanup.open && s.view !== "prices") { sheetHasHistory = false; hideSheet(); }
-  });
+  // leaving the Insights tab closes the sheet (sheet-price.js owns that)
 }

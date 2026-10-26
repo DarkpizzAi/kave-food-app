@@ -6,7 +6,6 @@
 "use strict";
 
 import { github } from "../github.js";
-import { closePriceDetail, parkPriceDetail, priceDetailState, unparkPriceDetail } from "./sheet-price.js";
 import { closeRecipe, detailState, parkRecipe, setTabHasHistory, tabHasHistory, unparkRecipe } from "./sheet-recipe.js";
 import { scheduleFlush } from "./sync.js";
 import { applySeed, toSeed } from "./theme.js";
@@ -138,7 +137,6 @@ export const store = {
       }
     }
     const sheetOpen = detailState != null;
-    const priceSheetOpen = priceDetailState != null;
     // The recipe sheet can be opened from more than one tab (Recipes, and the
     // Plan tab's recipe-facing sections), so the tab it belongs to is whichever
     // one it was opened from - detailState.owner, set in openRecipe. Comparing
@@ -150,18 +148,12 @@ export const store = {
       closeRecipe();
       return;
     }
-    if (priceSheetOpen && v === "prices" && this.state.view === "prices") {
-      closePriceDetail();
-      return;
-    }
     // leaving a tab with its sheet open: stash it, no swoop-down
     if (sheetOpen && v !== owner) parkRecipe();
-    if (priceSheetOpen && v !== "prices") parkPriceDetail();
     this.state.view = v;
     this.notify();
     // coming back: bring the stashed sheet straight back
     if (sheetOpen && v === owner) unparkRecipe();
-    if (priceSheetOpen && v === "prices") unparkPriceDetail();
   },
   addItem({ name, qty, unit, note, source = "manual", slug = null, variant = null }) {
     if (this.readOnly()) return null;
