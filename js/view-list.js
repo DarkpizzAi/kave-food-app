@@ -192,6 +192,7 @@ export function renderList(state) {
   }
   $("#boughtCount").textContent = String(bought.length);
   $("#tidyChecked").hidden = bought.length === 0;
+  $("#tidyChecked").disabled = ro;
 }
 
 /* ---------- the add page ---------- */
@@ -312,6 +313,11 @@ function hideAddPage() {
   sharedAxisOut(el, -1).then(() => { if (token === addToken) el.hidden = true; });
   const o = addOpener; addOpener = null;
   if (o && o.isConnected && o.offsetParent !== null) o.focus({ preventScroll: true });
+  else {
+    // renderList replaced the opener: land on the add row, or the empty-state button
+    const f = $("#view-list .add-row:not(:disabled)") || $("#view-list .empty-row button:not(:disabled)");
+    if (f) f.focus({ preventScroll: true });
+  }
 }
 
 // the back arrow, Escape and the phone's back button are one path
