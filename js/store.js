@@ -9,7 +9,7 @@ import { github } from "../github.js";
 import { closePriceDetail, parkPriceDetail, priceDetailState, unparkPriceDetail } from "./sheet-price.js";
 import { closeRecipe, detailState, parkRecipe, setTabHasHistory, tabHasHistory, unparkRecipe } from "./sheet-recipe.js";
 import { scheduleFlush } from "./sync.js";
-import { PALETTES, applyPalette } from "./theme.js";
+import { applySeed, toSeed } from "./theme.js";
 import { uid } from "./util.js";
 
 const LS_LIST = "foodapp.list";        // the shopping list, optimistic working copy
@@ -31,7 +31,7 @@ export const store = {
   state: {
     view: "list",
     list: [],
-    settings: { token: "", who: "", theme: "system", palette: "cobalt" },
+    settings: { token: "", who: "", theme: "system", palette: "blue" },
     recipes: [],
     // {products: {key: {l1,l1_label,l2,label,series}}, resolve: {name: {level,l1,l1_label,l2?}}}
     // - see build_price_series.py in kave-hub for exactly what these mean
@@ -73,7 +73,7 @@ export const store = {
           token: s.token || "",
           who: s.who || "",
           theme: "system",  // no longer a choice; see setPalette/applyTheme
-          palette: PALETTES[s.palette] ? s.palette : "cobalt",
+          palette: toSeed(s.palette),
         };
       }
     } catch (e) { /* ignore */ }
@@ -240,10 +240,10 @@ export const store = {
     this.notify();
   },
   setPalette(palette) {
-    if (!PALETTES[palette]) return;
+    palette = toSeed(palette);
     this.state.settings.palette = palette;
     this.saveSettings();
-    applyPalette(palette);
+    applySeed(palette);
     this.notify();
   },
 };

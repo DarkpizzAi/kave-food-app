@@ -34,16 +34,16 @@ export function gateStep() {
 }
 
 const ARROW = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
-const MARK = '<span class="gate-mark">Spoon</span>';
+const MARK = '<span class="gate-mark">Ladle</span>';
 
-/* Each palette's accent, read from tokens.css rather than copied here. */
+/* Each seed's primary, read from the kit tokens rather than copied here. */
 function accents() {
-  const root = document.documentElement, prev = root.getAttribute("data-palette"), out = {};
+  const root = document.documentElement, prev = root.getAttribute("data-seed"), out = {};
   for (const id of Object.keys(PALETTES)) {
-    if (id === "cobalt") root.removeAttribute("data-palette"); else root.setAttribute("data-palette", id);
-    out[id] = getComputedStyle(root).getPropertyValue("--accent").trim();
+    root.setAttribute("data-seed", id);
+    out[id] = getComputedStyle(root).getPropertyValue("--md-sys-color-primary").trim();
   }
-  if (prev === null) root.removeAttribute("data-palette"); else root.setAttribute("data-palette", prev);
+  if (prev === null) root.removeAttribute("data-seed"); else root.setAttribute("data-seed", prev);
   return out;
 }
 

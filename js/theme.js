@@ -1,4 +1,4 @@
-/* Spoon: the three palettes, light and dark.
+/* Ladle: the five seeds, light and dark.
 
    Split out of app.js, which was one 4240-line classic script. The
    boundaries are the section banners that file already drew, so any
@@ -6,11 +6,22 @@
 "use strict";
 
 
+/* The five seeds. A stored palette from before Material 3 maps across
+   (the same table #theme-preload in index.html uses): cobalt and chartreuse
+   become blue, amber becomes yellow. Anything unknown is blue. */
 export const PALETTES = {
-  cobalt:     { name: "Cobalt"     },
-  amber:      { name: "Amber"      },
-  chartreuse: { name: "Chartreuse" },
+  blue:       { name: "Blue"       },
+  teal:       { name: "Teal"       },
+  yellow:     { name: "Yellow"     },
+  periwinkle: { name: "Periwinkle" },
+  terracotta: { name: "Terracotta" },
 };
+const LEGACY = { cobalt: "blue", amber: "yellow", chartreuse: "blue" };
+const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+export function toSeed(id) {
+  if (has(PALETTES, id)) return id;
+  return has(LEGACY, id) ? LEGACY[id] : "blue";
+}
 
 /* Tell the browser which way the page is leaning. This is what darkens the
    Android gesture bar at the bottom; the status bar at the top is the phone's
@@ -34,10 +45,8 @@ export function applyTheme(theme) {
   syncColorScheme();
 }
 
-export function applyPalette(palette) {
-  const root = document.documentElement;
-  if (palette && palette !== "cobalt") root.setAttribute("data-palette", palette);
-  else root.removeAttribute("data-palette");
+export function applySeed(seed) {
+  document.documentElement.setAttribute("data-seed", toSeed(seed));
   syncColorScheme();
 }
 

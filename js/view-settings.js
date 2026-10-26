@@ -53,7 +53,7 @@ export function renderSettings(state) {
     b.classList.toggle("on", b.dataset.who === state.settings.who);
   });
   $$("#setPalette button").forEach((b) => {
-    b.classList.toggle("on", b.dataset.palette === (state.settings.palette || "cobalt"));
+    b.classList.toggle("on", b.dataset.palette === (state.settings.palette || "blue"));
   });
 
   const t = $("#setToken");

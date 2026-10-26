@@ -16,18 +16,20 @@ import { stripQty } from "./view-list.js";
    docstring for exactly what "products" and "resolve" mean and why. */
 
 // fixed roster (v10 spec): a store outside this list renders greyscale, never
-// a made-up colour. Ametller needs a theme-aware pair, so it is read from a
-// CSS custom property instead of a literal hex.
-const STORE_COLORS = {
-  "Keisy": "#F27D16",
-  "Mercadona": "#289148",
-  "Condis": "#2EA684",
-  "Carrefour": "#0E5299",
-  "Alcampo": "#D92929",
+// a made-up colour. Which store gets which hue is Isa's roster and does not
+// move; the colours themselves are the kit's --kave-data-<store> tokens, which
+// carry their own light and dark values.
+const STORE_KEYS = {
+  "Keisy": "keisy",
+  "Mercadona": "mercadona",
+  "Condis": "condis",
+  "Carrefour": "carrefour",
+  "Alcampo": "alcampo",
+  "Ametller Origen": "ametller",
 };
 export function storeColor(store) {
-  if (store === "Ametller Origen") return "var(--store-ametller)";
-  return own(STORE_COLORS, store) ? STORE_COLORS[store] : "var(--text-dim)";
+  return own(STORE_KEYS, store)
+    ? `var(--kave-data-${STORE_KEYS[store]})` : "var(--md-sys-color-on-surface-variant)";
 }
 // lines that aren't a supermarket (Group by = Product: one line per variant or
 // product) have no established colour of their own - Isa's store colours must
@@ -38,10 +40,10 @@ const LINE_PALETTE = [
   "#7C3AED", "#0891B2", "#DC2626", "#4D7C0F",
 ];
 export function lineColor(i) { return LINE_PALETTE[i % LINE_PALETTE.length]; }
-// the icon drawn on top of a store-coloured bubble: white everywhere except
-// Ametller, whose pair goes light in dark mode and would vanish under white
-export function storeOnColor(store) {
-  return store === "Ametller Origen" ? "var(--store-ametller-on)" : "#fff";
+// the icon drawn on top of a store-coloured bubble: the surface colour, which
+// is light where the store colour is dark and the reverse
+export function storeOnColor() {
+  return "var(--md-sys-color-surface)";
 }
 
 // The one way into the products map. Guarded, because `key` reaches here from
