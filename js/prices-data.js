@@ -19,17 +19,16 @@ import { stripQty } from "./view-list.js";
 // a made-up colour. Which store gets which hue is Isa's roster and does not
 // move; the colours themselves are the kit's --kave-data-<store> tokens, which
 // carry their own light and dark values.
-const STORE_KEYS = {
-  "Keisy": "keisy",
-  "Mercadona": "mercadona",
-  "Condis": "condis",
-  "Carrefour": "carrefour",
-  "Alcampo": "alcampo",
-  "Ametller Origen": "ametller",
+const STORE_COLORS = {
+  "Keisy": "var(--kave-data-keisy)",
+  "Mercadona": "var(--kave-data-mercadona)",
+  "Condis": "var(--kave-data-condis)",
+  "Carrefour": "var(--kave-data-carrefour)",
+  "Alcampo": "var(--kave-data-alcampo)",
+  "Ametller Origen": "var(--kave-data-ametller)",
 };
 export function storeColor(store) {
-  return own(STORE_KEYS, store)
-    ? `var(--kave-data-${STORE_KEYS[store]})` : "var(--md-sys-color-on-surface-variant)";
+  return own(STORE_COLORS, store) ? STORE_COLORS[store] : "var(--md-sys-color-on-surface-variant)";
 }
 // lines that aren't a supermarket (Group by = Product: one line per variant or
 // product) have no established colour of their own - Isa's store colours must
