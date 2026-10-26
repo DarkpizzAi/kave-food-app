@@ -73,7 +73,7 @@ export function initPullToSync() {
   // under them: they have no data of their own, so a pull there could only
   // ever spin and fetch nothing - and "Sync now" is already on Settings.
   const canPull = () =>
-    $("#page").hidden
+    $("#page").hidden && $("#drawer").hidden
     && scroller.scrollTop <= 0 && $("#recipeDetail").hidden && $("#suggestions").hidden;
 
   document.addEventListener("touchstart", (e) => {

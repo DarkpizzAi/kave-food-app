@@ -80,6 +80,12 @@ function initTopBar() {
 }
 
 /* ---------- drawer ---------- */
+// the control that opened the drawer or a page, so closing hands focus back
+let opener = null;
+function restoreFocus() {
+  const o = opener; opener = null;
+  if (o && o.isConnected && o.offsetParent !== null) o.focus({ preventScroll: true });
+}
 let drawerOpen = false;
 let drawerHasHistory = false;
 let drawerToken = 0;
@@ -89,22 +95,24 @@ export function openDrawer() {
   drawerOpen = true;
   const d = $("#drawer"), scrim = $("#drawerScrim");
   drawerToken++;
+  opener = document.activeElement;
   scrim.hidden = false; d.hidden = false;
-  enterLayer(d, "side");
+  enterLayer(d, "drawer");
   try { history.pushState({ drawer: true }, ""); drawerHasHistory = true; }
   catch (e) { drawerHasHistory = false; }
   const first = d.querySelector(".m3-drawer__item");
   if (first) first.focus({ preventScroll: true });
 }
-function hideDrawer() {
+function hideDrawer(keepOpener = false) {
   if (!drawerOpen) return;
   drawerOpen = false;
   const d = $("#drawer"), scrim = $("#drawerScrim");
   const token = ++drawerToken;
-  exitLayer(d, "side").then(() => {
+  exitLayer(d, "drawer").then(() => {
     if (token !== drawerToken) return;   // reopened meanwhile
     d.hidden = true; scrim.hidden = true;
   });
+  if (!keepOpener) restoreFocus();
 }
 // the tap, the scrim and the phone's back button are one path
 export function closeDrawer() {
@@ -131,8 +139,9 @@ export function openPage(name) {
   const inherit = drawerOpen && drawerHasHistory;
   if (drawerOpen) {
     drawerHasHistory = false;
-    hideDrawer();
+    hideDrawer(true);            // focus goes back to the opener when the page closes
   }
+  if (!pageName && !inherit && !drawerOpen) opener = document.activeElement;
   pageName = name;
   pageToken++;
   $("#pageTitle").textContent = PAGE_TITLES[name];
@@ -156,6 +165,7 @@ function hidePage() {
   const host = $("#page");
   const token = ++pageToken;
   sharedAxisOut(host, -1).then(() => { if (token === pageToken) host.hidden = true; });
+  restoreFocus();
 }
 export function closePage() {
   if (!pageName) return;

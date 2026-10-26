@@ -71,13 +71,13 @@ export function buildSettings() {
   const host = $("#pageSettings");
   if (!host) return;
   const swatches = Object.keys(PALETTES).map((id) => `
-    <button type="button" class="set-swatch" data-palette="${id}" role="radio" aria-checked="false" aria-label="${PALETTES[id].name}">
+    <button type="button" class="set-swatch" data-palette="${id}" aria-pressed="false" aria-label="${PALETTES[id].name}">
       <span class="m3-swatch" style="--kave-k:${SEED_HEX[id]}"><span class="m3-swatch__check m3-icon" hidden>check</span></span>
       <span class="m3-label-m">${PALETTES[id].name}</span>
     </button>`).join("");
   host.innerHTML = `
     <div class="m3-list-header m3-title-s">Theme</div>
-    <div id="setPalette" class="set-swatches" role="radiogroup" aria-label="Theme colour">${swatches}</div>
+    <div id="setPalette" class="set-swatches" role="group" aria-label="Theme colour">${swatches}</div>
     <p class="m3-body-s m3-variant set-note">Light and dark follow the phone.</p>
 
     <div class="m3-list-header m3-title-s">Sync</div>
@@ -89,8 +89,8 @@ export function buildSettings() {
     <div class="m3-list-header m3-title-s">Advanced</div>
     <div class="m3-grouped">
       ${row("person", "User", '<div class="m3-body-m m3-variant">Stamps every edit you make</div>'
-        + '<div id="setWho" class="m3-chips set-who"><button type="button" class="m3-chip" data-who="isa">Isa</button>'
-        + '<button type="button" class="m3-chip" data-who="hugo">Hugo</button></div>')}
+        + '<div id="setWho" class="m3-chips set-who"><button type="button" class="m3-chip" data-who="isa" aria-pressed="false">Isa</button>'
+        + '<button type="button" class="m3-chip" data-who="hugo" aria-pressed="false">Hugo</button></div>')}
       ${row("link", "App link",
         '<input id="appLink" class="set-bare m3-body-m m3-variant" type="text" value="https://darkpizzai.github.io/kave-food-app/" readonly aria-label="App link" />'
         + '<div class="m3-body-s m3-variant">Open Ladle on another device: copy this and send it to your phone.</div>',
@@ -109,12 +109,14 @@ export function buildSettings() {
 export function renderSettings(state) {
   if ($("#page").hidden) return;   // built once, painted when the page is open
   $$("#setWho button").forEach((b) => {
-    b.classList.toggle("is-selected", b.dataset.who === state.settings.who);
+    const on = b.dataset.who === state.settings.who;
+    b.classList.toggle("is-selected", on);
+    b.setAttribute("aria-pressed", String(on));
   });
   const seed = state.settings.palette || "blue";
   $$("#setPalette .set-swatch").forEach((b) => {
     const on = b.dataset.palette === seed;
-    b.setAttribute("aria-checked", String(on));
+    b.setAttribute("aria-pressed", String(on));
     b.querySelector(".m3-swatch").classList.toggle("is-selected", on);
     b.querySelector(".m3-swatch__check").hidden = !on;
   });

@@ -46,14 +46,15 @@ const scrimOf = (el) => {
   return s && s.classList.contains("m3-scrim") ? s : null;
 };
 
-/* kind: "bottom" | "side" | "dialog" | "menu" | "page". fromRect {x,y,w,h} turns a sheet into a container transform. */
+/* kind: "bottom" | "side" | "drawer" | "dialog" | "menu" | "page". "side" is a sheet from the right, "drawer" the modal navigation drawer from the left. fromRect {x,y,w,h} turns a sheet into a container transform. */
 export function enterLayer(el, kind, fromRect) {
   reset(el); reset(scrimOf(el));
   play(scrimOf(el), [{ opacity: 0 }, { opacity: 1 }], 200, "linear");
-  if (fromRect && (kind === "bottom" || kind === "side")) return containerTransform(el, fromRect);
+  if (fromRect && (kind === "bottom" || kind === "side" || kind === "drawer")) return containerTransform(el, fromRect);
   const D = EASE.decelerate;
   if (kind === "bottom") return play(el, [{ transform: "translateY(100%)" }, { transform: "none" }], 400, D);
   if (kind === "side") return play(el, [{ transform: "translateX(100%)" }, { transform: "none" }], 400, D);
+  if (kind === "drawer") return play(el, [{ transform: "translateX(-100%)" }, { transform: "none" }], 400, D);
   if (kind === "dialog") return play(el, [{ opacity: 0, transform: DIALOG_REST + " scale(.85)" }, { opacity: 1, transform: DIALOG_REST + " scale(1)" }], 250, D);
   if (kind === "menu") {
     if (el && !el.style.transformOrigin) el.style.transformOrigin = "top left";
@@ -69,6 +70,7 @@ export function exitLayer(el, kind) {
   play(scrimOf(el), [{ opacity: 1 }, { opacity: 0 }], 200, "linear", o);
   if (kind === "bottom") return play(el, [{ transform: "none" }, { transform: "translateY(100%)" }], 250, A, o);
   if (kind === "side") return play(el, [{ transform: "none" }, { transform: "translateX(100%)" }], 250, A, o);
+  if (kind === "drawer") return play(el, [{ transform: "none" }, { transform: "translateX(-100%)" }], 250, A, o);
   if (kind === "dialog") return play(el, [{ opacity: 1, transform: DIALOG_REST }, { opacity: 0, transform: DIALOG_REST + " scale(.92)" }], 150, A, o);
   if (kind === "menu") return play(el, [{ opacity: 1 }, { opacity: 0 }], 120, "linear", o);
   if (kind === "page") return play(el, [{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(32px)" }], 200, A, o);
