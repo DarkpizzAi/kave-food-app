@@ -143,9 +143,13 @@
   <!-- the first-run gate (js/gate.js): shown alone while there is no token -->
   <div id="gate" class="gate" hidden></div>
 
-  <header class="app-header">
-    <h1 id="viewTitle">Shopping List</h1>
+  <!-- Top bar: centred tab name, the menu button on compact only (the rail
+       carries it on wider windows), search on every tab. It scrolls away. -->
+  <header class="m3-top-bar m3-top-bar--center app-header" id="topBar">
+    <button type="button" id="menuBtn" class="m3-icon-btn app-menu-btn" aria-label="Menu"><span class="m3-icon">menu</span></button>
+    <h1 id="viewTitle" class="m3-top-bar__title m3-title-l">List</h1>
     <span id="syncDot" class="sync-dot" aria-hidden="true"></span>
+    <button type="button" id="searchBtn" class="m3-icon-btn" aria-label="Search"><span class="m3-icon">search</span></button>
   </header>
 
   <div id="banner" class="banner" hidden></div>
@@ -321,70 +325,6 @@
       </div>
     </section>
 
-    <!-- SETTINGS -->
-    <section id="view-settings" class="view" hidden>
-      <div class="field">
-        <p class="field-label">Seed</p>
-        <div id="setPalette" class="who-buttons">
-          <button type="button" data-palette="blue">Blue</button>
-          <button type="button" data-palette="teal">Teal</button>
-          <button type="button" data-palette="yellow">Yellow</button>
-          <button type="button" data-palette="periwinkle">Periwinkle</button>
-          <button type="button" data-palette="terracotta">Terracotta</button>
-        </div>
-      </div>
-
-      <div class="field">
-        <p class="field-label">Sync</p>
-        <div id="syncStatus" class="sync-status"></div>
-        <button type="button" id="refreshBtn" disabled>Sync now</button>
-      </div>
-
-      <div class="advanced-block">
-        <button id="advancedToggle" class="checked-toggle" type="button"
-                aria-expanded="false" aria-controls="advancedFields">
-          <span id="advancedCaret">&#9656;</span> <span>Advanced settings</span>
-        </button>
-        <div id="advancedFields" hidden>
-        <div class="field">
-          <label for="appLink">App link</label>
-          <div class="token-row">
-            <input id="appLink" type="text" value="https://darkpizzai.github.io/kave-food-app/" readonly />
-            <button type="button" id="copyAppLink">Copy</button>
-          </div>
-          <p class="hint">Open Spoon on another device: copy this and send it to your phone.</p>
-        </div>
-        <div class="field">
-          <p class="field-label">User</p>
-          <div id="setWho" class="who-buttons">
-            <button type="button" data-who="hugo">Hugo</button>
-            <button type="button" data-who="isa">Isa</button>
-          </div>
-        </div>
-        <div class="field">
-          <label for="setToken">GitHub token</label>
-          <div class="token-row">
-            <input id="setToken" type="password" placeholder="github_pat_..."
-                   autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
-                   enterkeyhint="done" />
-            <button type="button" id="clearToken">Clear</button>
-          </div>
-          <p id="tokenStatus" class="token-status" hidden></p>
-          <p class="hint">Stored on this device only, sent only to GitHub. It
-          unlocks your shared list and recipes.</p>
-        </div>
-        <div class="field">
-          <p class="field-label">Update</p>
-          <div id="updateStatus" class="sync-status"></div>
-          <button type="button" id="updateBtn">Check for updates</button>
-        </div>
-        <div class="field">
-          <p class="field-label">Display</p>
-          <div id="displayDiag" class="sync-status"></div>
-        </div>
-        </div>
-      </div>
-    </section>
   </main>
 
   <!-- RECIPE DETAIL -->
@@ -438,40 +378,63 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7-7 7 7"/></svg>
   </button>
 
-  <nav class="bottom-nav">
-    <button data-view="list" class="active" aria-label="List">
-      <span class="nav-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/><path d="M3 4h2l2.3 11.4a1 1 0 0 0 1 .8h8.5a1 1 0 0 0 1-.8L20.5 8H6"/></svg>
-        <span id="listBadge" class="nav-badge" hidden></span>
-      </span>
-      <span class="nav-label">List</span>
-    </button>
-    <button data-view="prices" aria-label="Insights">
-      <span class="nav-icon">
-        <!-- the Insights lightbulb, same path as ICON.insights in Compass's js/chrome-icons.js (the List's price buttons keep PRICE_ICON_PATH) -->
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2Z"/></svg>
-      </span>
-      <span class="nav-label">Insights</span>
-    </button>
-    <button data-view="recipes" aria-label="Recipes">
-      <span class="nav-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="18" rx="2"/><path d="M9 4V3a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1"/><path d="M9 4h6v2a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1Z"/><path d="M9 12h6M9 16h4"/></svg>
-      </span>
-      <span class="nav-label">Recipes</span>
-    </button>
-    <button data-view="planner" aria-label="Plan">
-      <span class="nav-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>
-      </span>
-      <span class="nav-label">Plan</span>
-    </button>
-    <button data-view="settings" aria-label="Settings">
-      <span class="nav-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.09a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
-      </span>
-      <span class="nav-label">Settings</span>
-    </button>
+  <!-- Navigation: a bar on compact, a rail (menu button first, no FAB) on
+       medium and expanded. Which one shows follows <html data-size>. The
+       Plan tab is gone from here: it is a Roadmap line (js/view-plan.js stays). -->
+  <nav class="m3-nav-bar app-nav-bar" aria-label="Tabs">
+      <button type="button" class="m3-nav-item" data-view="list" aria-label="List">
+        <span class="m3-nav-item__pill"><span class="m3-icon">shopping_cart</span><span class="m3-badge list-badge" hidden></span></span>
+        <span class="m3-label-m">List</span>
+      </button>
+      <button type="button" class="m3-nav-item" data-view="insights" aria-label="Insights">
+        <span class="m3-nav-item__pill"><span class="m3-icon">lightbulb</span></span>
+        <span class="m3-label-m">Insights</span>
+      </button>
+      <button type="button" class="m3-nav-item" data-view="recipes" aria-label="Recipes">
+        <span class="m3-nav-item__pill"><span class="m3-icon">menu_book</span></span>
+        <span class="m3-label-m">Recipes</span>
+      </button>
   </nav>
+  <nav class="m3-rail app-rail" aria-label="Tabs">
+    <button type="button" id="railMenuBtn" class="m3-icon-btn" aria-label="Menu"><span class="m3-icon">menu</span></button>
+    <div class="m3-rail__items">
+      <button type="button" class="m3-rail__item" data-view="list" aria-label="List">
+        <span class="m3-rail__pill"><span class="m3-icon">shopping_cart</span><span class="m3-badge list-badge" hidden></span></span>
+        <span class="m3-label-m">List</span>
+      </button>
+      <button type="button" class="m3-rail__item" data-view="insights" aria-label="Insights">
+        <span class="m3-rail__pill"><span class="m3-icon">lightbulb</span></span>
+        <span class="m3-label-m">Insights</span>
+      </button>
+      <button type="button" class="m3-rail__item" data-view="recipes" aria-label="Recipes">
+        <span class="m3-rail__pill"><span class="m3-icon">menu_book</span></span>
+        <span class="m3-label-m">Recipes</span>
+      </button>
+    </div>
+  </nav>
+  <!-- Menu drawer: modal, holds Settings and Roadmap. The scrim must stay the
+       drawer's previous sibling (enterLayer animates it with the drawer). -->
+  <div id="drawerScrim" class="m3-scrim" hidden></div>
+  <nav id="drawer" class="m3-drawer" aria-label="Menu" hidden>
+    <div class="m3-drawer__head">
+      <span class="m3-app-mark"><span class="m3-icon m3-icon--fill">soup_kitchen</span></span>
+      <span class="m3-title-l">Kave Ladle</span>
+    </div>
+    <button type="button" class="m3-drawer__item" data-page="settings"><span class="m3-icon">settings</span><span class="m3-drawer__label">Settings</span></button>
+    <button type="button" class="m3-drawer__item" data-page="roadmap"><span class="m3-icon">route</span><span class="m3-drawer__label">Roadmap</span></button>
+  </nav>
+  <!-- Pages (Settings, Roadmap): full screen, back arrow, one history entry -->
+  <div id="page" class="m3-page" hidden>
+    <header class="m3-top-bar m3-top-bar--center">
+      <button type="button" id="pageBack" class="m3-icon-btn" aria-label="Back"><span class="m3-icon">arrow_back</span></button>
+      <h1 id="pageTitle" class="m3-top-bar__title m3-title-l"></h1>
+      <span class="app-spacer"></span>
+    </header>
+    <div class="m3-sheet__body page-body">
+      <div id="pageSettings" class="page-col" hidden></div>
+      <div id="pageRoadmap" class="page-col" hidden></div>
+    </div>
+  </div>
 
   <!-- One entry point. js/boot.js imports the other fifteen modules, and
        github.js and pixel-icons.js through them. type="module" is deferred

@@ -1,18 +1,22 @@
-/* Spoon: top-level render. Every interaction ends here.
+/* Ladle: top-level render. Every interaction ends here, and so do the shell's
+   moving parts: tab switches, the menu drawer and the full pages.
 
    Split out of app.js, which was one 4240-line classic script. The
    boundaries are the section banners that file already drew, so any
    line's history is still one git log --follow away. */
 "use strict";
 
+import { enterLayer, exitLayer, fadeThrough, sharedAxisIn, sharedAxisOut } from "../m3/kave-m3.js";
+import { backSheets } from "./back-sheets.js";
 import { store, syncState } from "./store.js";
 import { flushing, syncing } from "./sync.js";
 import { VIEW_TITLES } from "./theme.js";
-import { $, $$ } from "./util.js";
+import { $, $$, markJump } from "./util.js";
 import { renderList, renderListBadge } from "./view-list.js";
 import { renderPlanner } from "./view-plan.js";
 import { renderPrices } from "./view-prices.js";
 import { renderRecipes } from "./view-recipes.js";
+import { renderRoadmap } from "./view-roadmap.js";
 import { checkToken, renderSettings } from "./view-settings.js";
 import { renderGate } from "./gate.js";
 
@@ -24,13 +28,158 @@ export function updateToTop() {
   btn.classList.toggle("show", store.state.view === "list" && sc.scrollTop > 200);
 }
 
+/* ---------- tabs ---------- */
+// the nav says "insights"; the store has always called that view "prices"
+const VIEW_OF = { list: "list", insights: "prices", recipes: "recipes" };
+export function setView(name) { store.setView(VIEW_OF[name] || name); }
+
+let shownView = null;      // the tab currently on screen, to spot a switch
+let tabToken = 0;
+
+// every tab hidden but `current`, nothing left mid-fade
+function settleViews(current) {
+  $$(".view").forEach((v) => {
+    v.hidden = v.id !== `view-${current}`;
+    v.classList.remove("view-leaving");
+    v.style.opacity = "";
+  });
+}
+
+function showView(view) {
+  const prev = shownView;
+  shownView = view;
+  const token = ++tabToken;
+  if (prev === null || !$(`#view-${prev}`) || !$(`#view-${view}`)) {
+    settleViews(view);
+    return;
+  }
+  settleViews(prev);
+  // a tab switch lands at the top with the bar showing; not a scroll the user made
+  markJump(); window.scrollTo(0, 0); showTopBar();
+  const oldEl = $(`#view-${prev}`), newEl = $(`#view-${view}`);
+  oldEl.classList.add("view-leaving");   // lifted out of the flow while it fades
+  newEl.style.opacity = "0";
+  newEl.hidden = false;
+  fadeThrough(oldEl, newEl).then(() => { if (token === tabToken) settleViews(view); });
+}
+
+/* ---------- top bar that scrolls away ---------- */
+export function showTopBar() { $("#topBar").classList.remove("is-hidden"); }
+let topBarWired = false;
+function initTopBar() {
+  const bar = $("#topBar");
+  let lastY = window.scrollY;
+  window.addEventListener("scroll", () => {
+    const y = window.scrollY;
+    // a programmatic jump never hides the bar (see markJump in util.js)
+    if (document.documentElement.dataset.jump) { lastY = y; return; }
+    if (y <= 0 || y < lastY) bar.classList.remove("is-hidden");
+    else if (y > 64 && y > lastY) bar.classList.add("is-hidden");
+    lastY = y;
+  }, { passive: true });
+}
+
+/* ---------- drawer ---------- */
+let drawerOpen = false;
+let drawerHasHistory = false;
+let drawerToken = 0;
+
+export function openDrawer() {
+  if (drawerOpen) return;
+  drawerOpen = true;
+  const d = $("#drawer"), scrim = $("#drawerScrim");
+  drawerToken++;
+  scrim.hidden = false; d.hidden = false;
+  enterLayer(d, "side");
+  try { history.pushState({ drawer: true }, ""); drawerHasHistory = true; }
+  catch (e) { drawerHasHistory = false; }
+  const first = d.querySelector(".m3-drawer__item");
+  if (first) first.focus({ preventScroll: true });
+}
+function hideDrawer() {
+  if (!drawerOpen) return;
+  drawerOpen = false;
+  const d = $("#drawer"), scrim = $("#drawerScrim");
+  const token = ++drawerToken;
+  exitLayer(d, "side").then(() => {
+    if (token !== drawerToken) return;   // reopened meanwhile
+    d.hidden = true; scrim.hidden = true;
+  });
+}
+// the tap, the scrim and the phone's back button are one path
+export function closeDrawer() {
+  if (!drawerOpen) return;
+  if (drawerHasHistory) { drawerHasHistory = false; history.back(); }
+  else hideDrawer();
+}
+backSheets.push({
+  isOpen: () => drawerOpen,
+  close: () => { drawerHasHistory = false; hideDrawer(); },
+});
+
+/* ---------- pages (Settings, Roadmap) ---------- */
+const PAGE_TITLES = { settings: "Settings", roadmap: "Roadmap" };
+let pageName = null;
+let pageHasHistory = false;
+let pageToken = 0;
+
+export function openPage(name) {
+  if (!PAGE_TITLES[name] || pageName === name) return;
+  const host = $("#page");
+  // opened from the drawer: the drawer's history entry becomes the page's, so
+  // the phone's back is one press from the tab either way
+  const inherit = drawerOpen && drawerHasHistory;
+  if (drawerOpen) {
+    drawerHasHistory = false;
+    hideDrawer();
+  }
+  pageName = name;
+  pageToken++;
+  $("#pageTitle").textContent = PAGE_TITLES[name];
+  $("#pageSettings").hidden = name !== "settings";
+  $("#pageRoadmap").hidden = name !== "roadmap";
+  if (name === "roadmap") $("#pageRoadmap").innerHTML = renderRoadmap();
+  host.hidden = false;
+  host.querySelector(".page-body").scrollTop = 0;
+  sharedAxisIn(host, 1);
+  if (inherit) pageHasHistory = true;
+  else {
+    try { history.pushState({ page: name }, ""); pageHasHistory = true; }
+    catch (e) { pageHasHistory = false; }
+  }
+  render(store.state);
+  $("#pageBack").focus({ preventScroll: true });
+}
+function hidePage() {
+  if (!pageName) return;
+  pageName = null;
+  const host = $("#page");
+  const token = ++pageToken;
+  sharedAxisOut(host, -1).then(() => { if (token === pageToken) host.hidden = true; });
+}
+export function closePage() {
+  if (!pageName) return;
+  if (pageHasHistory) { pageHasHistory = false; history.back(); }
+  else hidePage();
+}
+export const pageIsOpen = () => pageName !== null;
+backSheets.push({
+  isOpen: () => pageName !== null,
+  close: () => { pageHasHistory = false; hidePage(); },
+});
+
 export function render(state) {
   // the gate first: no token (or no "who") and nothing else shows
   if (renderGate({ onToken: () => checkToken() })) return;
+  if (!topBarWired) { topBarWired = true; initTopBar(); }
   $("#viewTitle").textContent = VIEW_TITLES[state.view];
-  $$(".view").forEach((v) => { v.hidden = v.id !== `view-${state.view}`; });
-  $$(".bottom-nav button").forEach((b) => {
-    b.classList.toggle("active", b.dataset.view === state.view);
+  if (shownView !== state.view) showView(state.view);
+  $$("[data-view]").forEach((b) => {
+    const on = (VIEW_OF[b.dataset.view] || b.dataset.view) === state.view;
+    b.classList.toggle("is-active", on);
+    b.setAttribute("aria-current", on ? "page" : "false");
+    const ic = b.querySelector(".m3-icon");
+    if (ic) ic.classList.toggle("m3-icon--fill", on);
   });
 
   document.body.classList.toggle("readonly", store.readOnly());
@@ -49,6 +198,6 @@ export function render(state) {
   if (state.view === "prices") renderPrices(state);
   if (state.view === "recipes") renderRecipes(state);
   if (state.view === "planner") renderPlanner(state);
-  if (state.view === "settings") renderSettings(state);
+  if (pageName === "settings") renderSettings(state);
   updateToTop();
 }

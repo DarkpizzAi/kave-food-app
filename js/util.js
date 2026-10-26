@@ -65,3 +65,13 @@ export function safeUrl(u) {
     return null;                      // not an absolute URL at all
   }
 }
+
+/* A programmatic scroll (a tab switch, a jump to a chart) must not hide the
+   top bar, which hides on the user's own downward scroll. Anything that moves
+   the page by itself calls this first; the flag clears after the glide. */
+let jumpTimer;
+export function markJump(ms = 900) {
+  document.documentElement.dataset.jump = "1";
+  clearTimeout(jumpTimer);
+  jumpTimer = setTimeout(() => { delete document.documentElement.dataset.jump; }, ms);
+}

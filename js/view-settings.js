@@ -1,4 +1,4 @@
-/* Spoon: the Settings tab: token, update, diagnostics.
+/* Ladle: the Settings page: theme, sync, user, token, update, diagnostics.
 
    Split out of app.js, which was one 4240-line classic script. The
    boundaries are the section banners that file already drew, so any
@@ -9,6 +9,7 @@ import { github } from "../github.js";
 import { render } from "./render.js";
 import { IS_LOCAL_DEV, setSyncState, store, syncState } from "./store.js";
 import { flushing, fullSync, hhmm, syncRecipes, syncing, timeAgo } from "./sync.js";
+import { PALETTES } from "./theme.js";
 import { $, $$, escapeHtml } from "./util.js";
 
 // { state: "idle"|"checking"|"ok"|"error", text, login }  (not persisted)
@@ -48,12 +49,74 @@ export async function checkToken() {
 }
 
 
+/* The five seeds as plain solid swatches. These hexes are the seeds' identities
+   (the same five the kit's data-seed blocks are built from); the fill is only
+   the swatch, every other colour on the page comes from the kit. */
+const SEED_HEX = {
+  blue: "#4285f4", teal: "#009688", yellow: "#ffc107", periwinkle: "#5c6bc0", terracotta: "#c05c46",
+};
+
+const row = (icon, title, body, trail = "") => `
+  <div class="m3-list-item set-row">
+    <span class="m3-list-item__lead"><span class="m3-icon">${icon}</span></span>
+    <div class="m3-list-item__text m3-list-item__text--wrap"><div class="m3-title-m">${title}</div>${body}</div>
+    ${trail}
+  </div>`;
+
+/* Option D: grouped rows like Android Settings. Built once into the Settings
+   page (every id below is bound once, in wire.js) and only updated in place
+   after that, so a half-typed token is never thrown away by a re-render.
+   Nothing here comes from the sync: it is all fixed markup. */
+export function buildSettings() {
+  const host = $("#pageSettings");
+  if (!host) return;
+  const swatches = Object.keys(PALETTES).map((id) => `
+    <button type="button" class="set-swatch" data-palette="${id}" role="radio" aria-checked="false" aria-label="${PALETTES[id].name}">
+      <span class="m3-swatch" style="--kave-k:${SEED_HEX[id]}"><span class="m3-swatch__check m3-icon" hidden>check</span></span>
+      <span class="m3-label-m">${PALETTES[id].name}</span>
+    </button>`).join("");
+  host.innerHTML = `
+    <div class="m3-list-header m3-title-s">Theme</div>
+    <div id="setPalette" class="set-swatches" role="radiogroup" aria-label="Theme colour">${swatches}</div>
+    <p class="m3-body-s m3-variant set-note">Light and dark follow the phone.</p>
+
+    <div class="m3-list-header m3-title-s">Sync</div>
+    <div class="m3-grouped">
+      ${row("sync", "Sync", '<div id="syncStatus" class="sync-status m3-body-m m3-variant"></div>',
+        '<button type="button" id="refreshBtn" class="m3-btn m3-btn--tonal m3-btn--small" disabled>Sync now</button>')}
+    </div>
+
+    <div class="m3-list-header m3-title-s">Advanced</div>
+    <div class="m3-grouped">
+      ${row("person", "User", '<div class="m3-body-m m3-variant">Stamps every edit you make</div>'
+        + '<div id="setWho" class="m3-chips set-who"><button type="button" class="m3-chip" data-who="isa">Isa</button>'
+        + '<button type="button" class="m3-chip" data-who="hugo">Hugo</button></div>')}
+      ${row("link", "App link",
+        '<input id="appLink" class="set-bare m3-body-m m3-variant" type="text" value="https://darkpizzai.github.io/kave-food-app/" readonly aria-label="App link" />'
+        + '<div class="m3-body-s m3-variant">Open Ladle on another device: copy this and send it to your phone.</div>',
+        '<button type="button" id="copyAppLink" class="m3-icon-btn" aria-label="Copy link"><span class="m3-icon">content_copy</span></button>')}
+      ${row("key", "GitHub token",
+        '<input id="setToken" class="set-bare m3-body-m" type="password" placeholder="github_pat_..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" aria-label="GitHub token" />'
+        + '<p id="tokenStatus" class="token-status m3-body-s" hidden></p>'
+        + '<div class="m3-body-s m3-variant">Stored on this device only, sent only to GitHub. It unlocks your shared list and recipes.</div>',
+        '<button type="button" id="clearToken" class="m3-btn m3-btn--text">Clear</button>')}
+      ${row("system_update", "Updates", '<div id="updateStatus" class="sync-status m3-body-m m3-variant"></div>',
+        '<button type="button" id="updateBtn" class="m3-btn m3-btn--text">Check for updates</button>')}
+      ${row("monitor_heart", "Display", '<div id="displayDiag" class="sync-status m3-body-m m3-variant"></div>')}
+    </div>`;
+}
+
 export function renderSettings(state) {
+  if ($("#page").hidden) return;   // built once, painted when the page is open
   $$("#setWho button").forEach((b) => {
-    b.classList.toggle("on", b.dataset.who === state.settings.who);
+    b.classList.toggle("is-selected", b.dataset.who === state.settings.who);
   });
-  $$("#setPalette button").forEach((b) => {
-    b.classList.toggle("on", b.dataset.palette === (state.settings.palette || "blue"));
+  const seed = state.settings.palette || "blue";
+  $$("#setPalette .set-swatch").forEach((b) => {
+    const on = b.dataset.palette === seed;
+    b.setAttribute("aria-checked", String(on));
+    b.querySelector(".m3-swatch").classList.toggle("is-selected", on);
+    b.querySelector(".m3-swatch__check").hidden = !on;
   });
 
   const t = $("#setToken");
@@ -62,18 +125,11 @@ export function renderSettings(state) {
   const st = $("#tokenStatus");
   st.hidden = tokenStatus.state === "idle";
   st.textContent = tokenStatus.text;
-  st.className = "token-status " + tokenStatus.state;
+  st.className = "token-status m3-body-s " + tokenStatus.state;
 
   renderSyncStatus();
-  renderAdvanced();
-  // Both live inside the Advanced disclosure. renderDisplayDiag in particular
-  // appends a probe element and forces a synchronous layout to read the safe
-  // -area insets; doing that on every store change, collapsed and unseen, was
-  // pure waste.
-  if (advancedOpen) {
-    renderUpdateStatus();
-    renderDisplayDiag();
-  }
+  renderUpdateStatus();
+  renderDisplayDiag();
 
   const rb = $("#refreshBtn");
   if (rb.textContent !== "Syncing...") {
@@ -81,20 +137,6 @@ export function renderSettings(state) {
     rb.textContent = "Sync now";
     rb.removeAttribute("title");
   }
-}
-
-/* the sync section: connection, queue depth, last-synced. rebuilt on each
-   render and by a slow timer so "5 minutes ago" keeps advancing. */
-export let advancedOpen = false;   // Settings > Advanced settings disclosure
-
-function renderAdvanced() {
-  const fields = $("#advancedFields");
-  const caret = $("#advancedCaret");
-  const btn = $("#advancedToggle");
-  if (!fields || !caret || !btn) return;
-  fields.hidden = !advancedOpen;
-  caret.textContent = advancedOpen ? "▾" : "▸";
-  btn.setAttribute("aria-expanded", String(advancedOpen));
 }
 
 /* ---------- app update (Settings > Update) ---------- */
@@ -310,5 +352,4 @@ export function renderSyncStatus() {
 /* An imported binding is read-only, so a module that does not declare
    one of these cannot assign to it. These are the writes that used to
    happen across what was a single shared scope. */
-export function setAdvancedOpen(v) { advancedOpen = v; }
 export function setTokenStatus(v) { tokenStatus = v; }

@@ -51,9 +51,9 @@ export function applySeed(seed) {
 }
 
 export const VIEW_TITLES = {
-  list: "Shopping List",
+  list: "List",
   prices: "Insights",
-  recipes: "Recipe book",
-  planner: "Meal Planner",
+  recipes: "Recipes",
+  planner: "Plan",
   settings: "Settings",
 };

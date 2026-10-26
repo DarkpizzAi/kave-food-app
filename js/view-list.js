@@ -8,7 +8,7 @@
 import { cardLabel, computeBubble, resolvePriceTarget, seriesForTarget, storeColor, storeOnColor } from "./prices-data.js";
 import { store } from "./store.js";
 import { flashBanner } from "./sync.js";
-import { $, deburr, escapeHtml } from "./util.js";
+import { $, $$, deburr, escapeHtml } from "./util.js";
 import { goToPriceChart } from "./view-prices.js";
 
 export let checkedOpen = false;
@@ -77,9 +77,11 @@ function itemRow(it) {
    when the list itself is not on screen. */
 export function renderListBadge(state) {
   const n = state.list.reduce((a, x) => a + (x.checked ? 0 : 1), 0);
-  const badge = $("#listBadge");
-  badge.textContent = n > 99 ? "99+" : String(n);
-  badge.hidden = n === 0;
+  // one badge on the nav bar, one on the rail; only one of them is displayed
+  $$(".list-badge").forEach((badge) => {
+    badge.textContent = n > 99 ? "99+" : String(n);
+    badge.hidden = n === 0;
+  });
 }
 
 /* Only called when the list view is actually on screen. It rebuilds every row

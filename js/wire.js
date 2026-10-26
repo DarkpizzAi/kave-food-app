@@ -6,7 +6,7 @@
 "use strict";
 
 import { syncHeaderHeight } from "./pull-to-sync.js";
-import { render, updateToTop } from "./render.js";
+import { closeDrawer, closePage, openDrawer, openPage, pageIsOpen, render, setView, updateToTop } from "./render.js";
 import { openListSheet } from "./sheet-list.js";
 import { openPriceDetail } from "./sheet-price.js";
 import { setSyncState, store } from "./store.js";
@@ -17,11 +17,29 @@ import { checkedOpen, renderSuggestions, setCheckedOpen, submitAddName, tidyChec
 import { pairings, renderBatchSheet, renderPairsSheet, renderPlanner, setBatchOrder, setPairOrder, shuffled, sizePlanStrips } from "./view-plan.js";
 import { pricesUiState, renderOppSheet, renderOpportunities, renderTrends, resetTrends, resizePriceChart } from "./view-prices.js";
 import { equaliseCards, updateRailFade } from "./view-recipes.js";
-import { advancedOpen, checkForUpdate, checkToken, renderSettings, setAdvancedOpen, setTokenStatus, updateState } from "./view-settings.js";
+import { checkForUpdate, checkToken, setTokenStatus, updateState } from "./view-settings.js";
+
+/* The top bar's search magnifier. PLACEHOLDER: Task 6 builds js/search.js and
+   replaces this no-op with the real search. */
+export function openSearch() {}
 
 export function wire() {
-  $$(".bottom-nav button").forEach((b) => {
-    b.addEventListener("click", () => store.setView(b.dataset.view));
+  // tabs: the navigation bar (compact) and the rail (medium, expanded)
+  $$("[data-view]").forEach((b) => {
+    b.addEventListener("click", () => setView(b.dataset.view));
+  });
+  // menu: the top bar's button on compact, the rail's on wider windows
+  $("#menuBtn").addEventListener("click", openDrawer);
+  $("#railMenuBtn").addEventListener("click", openDrawer);
+  $("#searchBtn").addEventListener("click", openSearch);
+  $("#drawerScrim").addEventListener("click", closeDrawer);
+  $$("#drawer [data-page]").forEach((b) => {
+    b.addEventListener("click", () => openPage(b.dataset.page));
+  });
+  $("#pageBack").addEventListener("click", closePage);
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (pageIsOpen()) closePage(); else closeDrawer();
   });
 
   $$("#cuisineFilters, #mainFilters").forEach((rail) => {
@@ -89,7 +107,7 @@ export function wire() {
   $$("#setWho button").forEach((b) => {
     b.addEventListener("click", () => store.setWho(b.dataset.who));
   });
-  $$("#setPalette button").forEach((b) => {
+  $$("#setPalette [data-palette]").forEach((b) => {
     b.addEventListener("click", () => store.setPalette(b.dataset.palette));
   });
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
@@ -119,7 +137,8 @@ export function wire() {
      clipboard is refused, the link is selected to copy by hand. */
   $("#copyAppLink").addEventListener("click", (e) => {
     const btn = e.currentTarget, input = $("#appLink");
-    const done = () => { btn.textContent = "Copied"; setTimeout(() => { btn.textContent = "Copy"; }, 1500); };
+    const icon = btn.querySelector(".m3-icon");
+    const done = () => { icon.textContent = "check"; setTimeout(() => { icon.textContent = "content_copy"; }, 1500); };
     /* the older copy command often works where the clipboard API is refused
        (an embedded frame); failing both, the link stays selected */
     const byHand = () => { input.focus(); input.select(); try { if (document.execCommand("copy")) done(); } catch (err) { /* selected */ } };
@@ -132,13 +151,6 @@ export function wire() {
     setTokenStatus({ state: "idle", text: "" });
     setSyncState({ kind: "idle", resetAt: null });
     render(store.state);
-  });
-
-  $("#advancedToggle").addEventListener("click", () => {
-    setAdvancedOpen(!advancedOpen);
-    // full settings render, not just the disclosure: Update and Display are
-    // only rendered while the block is open, so opening it has to fill them
-    renderSettings(store.state);
   });
 
   $("#updateBtn").addEventListener("click", () => {

@@ -1,4 +1,4 @@
-/* Spoon: the first-run gate. The hub site's own pattern, so all three
+/* Ladle: the first-run gate. The hub site's own pattern, so all three
    household apps open the same way: the wordmark, one masked pill field and
    a round arrow button. No labels, no placeholder, no error text; a token
    that cannot read the shopping list just clears the field. After a fresh
@@ -33,8 +33,8 @@ export function gateStep() {
   return fresh ? "theme" : null;
 }
 
-const ARROW = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
-const MARK = '<span class="gate-mark">Ladle</span>';
+const ARROW = '<span class="m3-icon" aria-hidden="true">arrow_forward</span>';
+const MARK = '<h2 class="gate-mark m3-headline-s">Ladle</h2>';
 
 /* Each seed's primary, read from the kit tokens rather than copied here. */
 function accents() {
@@ -47,20 +47,24 @@ function accents() {
   return out;
 }
 
+/* A Material basic dialog on the surface: the wordmark as its title, the
+   control, and the action. Same three steps, same ids, same behaviour. */
 function html(step) {
+  const open = '<div class="gate-box m3-dialog m3-dialog--basic" role="dialog" aria-modal="true" aria-label="Ladle">';
   if (step === "token") {
-    return `<div class="gate-box">${MARK}<div class="gate-field">`
-      + '<input id="gateToken" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Access" data-1p-ignore data-lpignore="true">'
-      + `<button type="button" class="gate-go" id="gateGo" aria-label="Connect">${ARROW}</button></div></div>`;
+    return `${open}${MARK}<div class="gate-field m3-field">`
+      + '<span class="m3-field__label">Access</span>'
+      + '<input id="gateToken" class="m3-field__input" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Access" data-1p-ignore data-lpignore="true"></div>'
+      + `<div class="m3-dialog__actions"><button type="button" class="gate-go m3-btn m3-btn--filled" id="gateGo" aria-label="Connect">${ARROW}</button></div></div>`;
   }
   if (step === "who") {
-    return `<div class="gate-box">${MARK}<div class="setup-row">`
-      + '<button type="button" class="setup-choice" data-gate-who="isa">Isa</button>'
-      + '<button type="button" class="setup-choice" data-gate-who="hugo">Hugo</button></div></div>';
+    return `${open}${MARK}<div class="setup-row">`
+      + '<button type="button" class="setup-choice m3-btn m3-btn--tonal" data-gate-who="isa">Isa</button>'
+      + '<button type="button" class="setup-choice m3-btn m3-btn--tonal" data-gate-who="hugo">Hugo</button></div></div>';
   }
   const acc = accents();
-  return `<div class="gate-box">${MARK}<div class="setup-row">${Object.keys(PALETTES).map((id) =>
-    `<button type="button" class="setup-swatch" data-gate-palette="${escapeHtml(id)}" aria-label="${escapeHtml(id)}" style="background:${escapeHtml(acc[id] || "")}"></button>`).join("")}</div></div>`;
+  return `${open}${MARK}<div class="setup-row">${Object.keys(PALETTES).map((id) =>
+    `<button type="button" class="setup-swatch m3-swatch" data-gate-palette="${escapeHtml(id)}" aria-label="${escapeHtml(id)}" style="--kave-k:${escapeHtml(acc[id] || "")}"></button>`).join("")}</div></div>`;
 }
 
 /* Draws the gate (or hides it). Returns true while the app is gated.

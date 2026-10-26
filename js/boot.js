@@ -15,7 +15,7 @@ import { IS_LOCAL_DEV, store } from "./store.js";
 import { flushQueue, pollTick, showTapBanner, startPolling } from "./sync.js";
 import { sizeClass } from "../m3/kave-m3.js";
 import { applySeed, applyTheme } from "./theme.js";
-import { checkToken, renderSyncStatus, themeBootRan } from "./view-settings.js";
+import { buildSettings, checkToken, renderSyncStatus, themeBootRan } from "./view-settings.js";
 import { wire } from "./wire.js";
 
 store.load();
@@ -34,10 +34,9 @@ applySeed(store.state.settings.palette || "blue");
 const stampSize = () => { document.documentElement.dataset.size = sizeClass(innerWidth); };
 stampSize();
 addEventListener("resize", stampSize);
-// Settings is reachable by URL hash until the drawer exists (plan 2, task 2)
-if (location.hash === "#settings") store.setView("settings");
 applyTheme(store.state.settings.theme || "system");
 store.subscribe(render);
+buildSettings();                     // the Settings page body, before wire() binds it
 wire();
 wireCleanup();
 initListSheet();
@@ -88,7 +87,7 @@ document.addEventListener("visibilitychange", () => {
 
 // keep the Settings sync section live ("2 minutes ago" -> "3 minutes ago")
 setInterval(() => {
-  if (!document.hidden && store.state.view === "settings") renderSyncStatus();
+  if (!document.hidden && !document.getElementById("page").hidden) renderSyncStatus();
 }, 20000);
 window.addEventListener("online", () => {
   flushQueue();

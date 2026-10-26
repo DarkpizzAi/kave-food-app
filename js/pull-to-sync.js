@@ -69,11 +69,11 @@ export function initPullToSync() {
   let dist = 0;
   let busy = false;
 
-  // Settings is the one tab the gesture does not arm on. It has no data of its
-  // own, so a pull there could only ever spin and fetch nothing - and "Sync
-  // now", which does sync everything, is already on that tab.
+  // Settings and Roadmap are pages over the tabs, and the gesture does not arm
+  // under them: they have no data of their own, so a pull there could only
+  // ever spin and fetch nothing - and "Sync now" is already on Settings.
   const canPull = () =>
-    store.state.view !== "settings"
+    $("#page").hidden
     && scroller.scrollTop <= 0 && $("#recipeDetail").hidden && $("#suggestions").hidden;
 
   document.addEventListener("touchstart", (e) => {

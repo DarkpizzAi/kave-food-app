@@ -10,7 +10,7 @@ import { CONFIRM_MS, GROUPS, PERIODS, PERIOD_SHORT, bestPriceInPeriod, cartButto
 import { closeListSheet, refreshListSheet } from "./sheet-list.js";
 import { openPriceDetail, priceDetailState } from "./sheet-price.js";
 import { store } from "./store.js";
-import { $, $$, deburr, escapeHtml } from "./util.js";
+import { $, $$, deburr, escapeHtml, markJump } from "./util.js";
 import { PRICE_ICON_DOWN_PATH } from "./view-list.js";
 
 export let pricesUiState = {
@@ -102,7 +102,7 @@ function selectPriceTarget(target, opts = {}) {
   renderTrends();
   if (opts.scroll) {
     const card = document.querySelector(".trends-card");
-    if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (card) { markJump(1200); card.scrollIntoView({ behavior: "smooth", block: "start" }); }
   }
 }
 
