@@ -114,11 +114,14 @@ self.addEventListener("install", (e) => {
 // stale-while-revalidate does caches.open(<its own CACHE>) - which recreates
 // the cache we just deleted. Observed on the v8 deploy: kave-food-v7 came back
 // from the dead moments after activate cleaned it up.
+// Only this app's own old caches go: Compass and the hub site share the
+// darkpizzai.github.io origin and so its Cache Storage, and Compass keeps the
+// stored tickets there.
 self.addEventListener("activate", (e) => {
   e.waitUntil(
     self.clients.claim()
       .then(() => caches.keys())
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith("kave-food-") && k !== CACHE).map((k) => caches.delete(k))))
   );
 });
 
