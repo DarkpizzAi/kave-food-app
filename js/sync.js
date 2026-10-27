@@ -48,9 +48,26 @@ export function reportStart(manual) {
 export function reportEnd() {
   const c = reportCycle;
   reportCycle = null;
-  if (!c) return;
+  syncBarOn = false;
+  const done = waiters.splice(0);
+  if (!c) { done.forEach((r) => r()); return; }
   const f = c.failure;
-  emit(!f ? "ok" : f.gh === "offline" ? "offline" : "failed", { manual: c.manual });
+  try {
+    emit(!f ? "ok" : f.gh === "offline" ? "offline" : "failed", { manual: c.manual });
+  } finally { done.forEach((r) => r()); }
+}
+
+/* A manual sync asked for while another is in flight does not start a second
+   one (the latch still means one at a time). It attaches to the running cycle
+   instead: that cycle becomes manual, so its result announces itself, and the
+   returned promise settles when it ends. null when nothing is reporting. */
+const waiters = [];
+export function joinManualSync({ bar = false } = {}) {
+  if (!syncing || !reportCycle) return null;
+  reportCycle.manual = true;
+  if (bar) syncBarOn = true;
+  render(store.state);
+  return new Promise((r) => waiters.push(r));
 }
 
 // a sync attempt finished cleanly: clear any lingering error state
@@ -239,7 +256,11 @@ export async function syncList() {
 
 // full read: recipes + list, then push anything pending
 export async function fullSync(opts = {}) {
-  if (syncing || !store.state.settings.token) return;
+  if (!store.state.settings.token) return;
+  if (syncing) {
+    if (opts.manual) await joinManualSync({ bar: true });
+    return;
+  }
   syncing = true;
   syncBarOn = !!opts.manual;
   reportStart(opts.manual);

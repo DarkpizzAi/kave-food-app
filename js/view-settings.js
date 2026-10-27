@@ -171,11 +171,36 @@ export async function restartForUpdate() {
   reload();
 }
 
-export function offerUpdate() {
+/* One update, one snackbar, and it survives other snackbars. The kit shows a
+   single snackbar at a time, so a Synced or Undo one would silently replace
+   this. A watcher on the host puts it back whenever the host goes empty while
+   the update is still unanswered; a tap on its Restart or dismiss answers it. */
+const UPDATE_TEXT = "A new version is ready";
+let updatePending = false;
+let updateWatched = false;
+
+function showUpdateSnack() {
   showSnackbar($("#snackHost"), {
-    text: "A new version is ready", action: "Restart", ms: 0,
+    text: UPDATE_TEXT, action: "Restart", ms: 0,
     onAction: () => { restartForUpdate(); },
   });
+}
+
+export function offerUpdate() {
+  if (updatePending) return;
+  updatePending = true;
+  const host = $("#snackHost");
+  if (!updateWatched && host) {
+    updateWatched = true;
+    host.addEventListener("click", (e) => {
+      const s = e.target.closest && e.target.closest(".m3-snackbar");
+      if (s && s.textContent.startsWith(UPDATE_TEXT)) updatePending = false;
+    }, true);
+    new MutationObserver(() => {
+      if (updatePending && !host.querySelector(".m3-snackbar")) showUpdateSnack();
+    }).observe(host, { childList: true });
+  }
+  showUpdateSnack();
 }
 
 // ask the controlling worker which VERSION it is running

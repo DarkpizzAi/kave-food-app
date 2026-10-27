@@ -9,11 +9,15 @@
 import { attachPullToRefresh, showSnackbar } from "../m3/kave-m3.js";
 import { render } from "./render.js";
 import { store } from "./store.js";
-import { flushQueue, fullSync, onSyncState, reportEnd, reportStart, setSyncing, syncFailed, syncList, syncPrices, syncRecipes, syncing } from "./sync.js";
+import { flushQueue, fullSync, joinManualSync, onSyncState, reportEnd, reportStart, setSyncing, syncFailed, syncList, syncPrices, syncRecipes, syncing } from "./sync.js";
 import { $ } from "./util.js";
 
 // pull-to-refresh on a tab: sync just that tab's data
 async function syncCurrentTab() {
+  if (syncing && store.state.settings.token) {
+    const joined = joinManualSync(); // a sync is already running: this pull adopts it
+    if (joined) return joined;
+  }
   if (syncing || !store.state.settings.token) {
     return new Promise((r) => setTimeout(r, 400)); // still feel the gesture
   }
@@ -68,6 +72,7 @@ const snack = (opts) => showSnackbar($("#snackHost"), opts);
    it is the answer to something the person just did. */
 const OFFLINE_TEXT = "You're offline. Changes are saved on this phone.";
 let offlineSaid = false;
+let failSaid = false;   // the unsent-edits failure says itself once per spell
 
 function sayOffline() {
   if (offlineSaid) return;
@@ -79,11 +84,13 @@ function initStatus() {
   onSyncState((state, meta) => {
     if (state === "ok") {
       offlineSaid = false;
+      failSaid = false;
       if (meta.manual) snack({ text: "Synced just now" });
     } else if (state === "offline") {
       if (meta.manual) { offlineSaid = true; snack({ text: OFFLINE_TEXT, ms: 5000 }); }
       else sayOffline();
-    } else if (state === "failed" && (meta.manual || meta.unsent)) {
+    } else if (state === "failed" && (meta.manual || (meta.unsent && !failSaid))) {
+      failSaid = true;
       snack({
         text: "Couldn't sync. Check the connection.", action: "Retry", ms: 6000,
         onAction: () => { fullSync({ manual: true }); },
@@ -114,7 +121,10 @@ function windowScroller() {
     setPointerCapture() { /* the document already sees the pointer */ },
     addEventListener(type, fn, opts) {
       const guarded = type === "touchstart" || type === "pointerdown";
-      const h = guarded ? (e) => { if (canPull()) fn(e); } : fn;
+      // one finger, and never from a form control or editable text
+      const ok = (e) => (type !== "touchstart" || e.touches.length === 1)
+        && !(e.target.closest && e.target.closest("input, textarea, select, [contenteditable]"));
+      const h = guarded ? (e) => { if (canPull() && ok(e)) fn(e); } : fn;
       (fn.__h || (fn.__h = {}))[type] = h;
       document.addEventListener(type, h, opts);
     },
