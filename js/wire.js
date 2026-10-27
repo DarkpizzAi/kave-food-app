@@ -18,11 +18,8 @@ import { pairings, renderBatchSheet, renderPairsSheet, renderPlanner, setBatchOr
 import { openWorthWatching, resetTrends, resizePriceChart } from "./view-prices.js";
 import { recipeSearchIsOpen, closeRecipeSearch, relayoutRecipes, wireRecipes } from "./view-recipes.js";
 import { recipeSheetIsOpen } from "./sheet-recipe.js";
+import { openSearch, searchIsOpen, wireSearch } from "./search.js";
 import { checkForUpdate, checkToken, setTokenStatus, updateState } from "./view-settings.js";
-
-/* The top bar's search magnifier. PLACEHOLDER: Task 6 builds js/search.js and
-   replaces this no-op with the real search. */
-export function openSearch() {}
 
 export function wire() {
   // tabs: the navigation bar (compact) and the rail (medium, expanded)
@@ -41,6 +38,7 @@ export function wire() {
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
     if (recipeSheetIsOpen()) return;          // the sheet closes itself
+    if (searchIsOpen()) return;                // the search page closes itself
     if (addPageIsOpen()) closeAddPage(); else if (recipeSearchIsOpen()) closeRecipeSearch(); else if (pageIsOpen()) closePage(); else closeDrawer();
   });
 
@@ -55,6 +53,7 @@ export function wire() {
   });
 
   wireAddPage();
+  wireSearch();
   wireRecipes();
   $("#tidyChecked").addEventListener("click", tidyChecked);
 

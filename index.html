@@ -298,15 +298,6 @@
 
   </main>
 
-  <!-- SEE ALL: one shared sheet for Worth watching, Worth pairing and Good for leftovers -->
-  <div id="listSheet" class="detail" hidden>
-    <div class="detail-bar" id="listSheetBar">
-      <div id="listSheetTitle" class="rname"></div>
-      <p id="listSheetSub" class="sheet-sub"></p>
-    </div>
-    <div class="detail-inner" id="listSheetBody"></div>
-  </div>
-
   <!-- RECIPE SHEET: bottom sheet on compact and medium (js/sheet-recipe.js).
        The scrim must stay the sheet's previous sibling. -->
   <div id="recipeScrim" class="m3-scrim rl-scrim" hidden></div>
@@ -341,6 +332,17 @@
     <div id="addResults" class="m3-search-view__body"></div>
   </div>
 
+  <!-- Whole-app search: full-screen page, one history entry (js/search.js) -->
+  <div id="searchPage" class="m3-search-view" role="dialog" aria-modal="true" aria-label="Search Ladle" hidden>
+    <div class="m3-search-view__bar">
+      <button type="button" id="searchBack" class="m3-icon-btn" aria-label="Back"><span class="m3-icon">arrow_back</span></button>
+      <input id="searchInput" class="m3-search-view__input" type="text" placeholder="Search Ladle" autocomplete="off"
+             autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search" aria-label="Search Ladle" />
+      <button type="button" id="searchClear" class="m3-icon-btn" aria-label="Clear" hidden><span class="m3-icon">close</span></button>
+    </div>
+    <div id="searchResults" class="m3-search-view__body"></div>
+  </div>
+
   <!-- the one snackbar host: List actions and their Undo -->
   <div id="snackHost"></div>
 
@@ -356,6 +358,7 @@
   <div id="insSheet" class="m3-sheet--bottom" role="dialog" aria-modal="true" aria-labelledby="insSheetTitle" hidden>
     <div id="insSheetHandle" class="m3-drag-handle" aria-hidden="true"></div>
     <div id="insSheetHead" class="m3-sheet__head">
+      <button type="button" id="insSheetBack" class="m3-icon-btn" aria-label="Back" hidden><span class="m3-icon">arrow_back</span></button>
       <h2 id="insSheetTitle" class="m3-sheet__title"></h2>
       <button type="button" id="insSheetClose" class="m3-icon-btn" aria-label="Close"><span class="m3-icon">close</span></button>
     </div>

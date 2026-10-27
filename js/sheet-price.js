@@ -7,7 +7,7 @@
    so the phone's back button closes it and nothing else. */
 "use strict";
 
-import { enterLayer, exitLayer, kaveKey, showSnackbar } from "../m3/kave-m3.js";
+import { EASE, enterLayer, exitLayer, kaveKey, play, sharedAxisIn, sharedAxisOut, showSnackbar } from "../m3/kave-m3.js";
 import { cap, resolveTargetInfo, roundQty, titleCaseVariant } from "./prices-data.js";
 import { detailState, setDetailState, setSheetHasHistory, setTabHasHistory, slideSheetDown, tabHasHistory, wireRecipeSheet } from "./sheet-recipe.js";
 import { backSheets } from "./back-sheets.js";
@@ -18,17 +18,24 @@ import { TYPE_LABEL, tileHtml, typeOf } from "./view-recipes.js";
 
 /* ---------- the Insights sheet ---------- */
 
+/* One sheet, a stack of levels inside it. The first popup gets a close button
+   and the kit's rise (bottom) or slide (side); a popup opened from inside it
+   does not stack a second scrim: it swaps the content with the shared axis and
+   shows a back arrow instead, with a history entry of its own, so the phone's
+   back returns one level. */
 const ins = {
-  open: false, hasHistory: false, kind: "bottom", token: 0,
-  render: null, onClose: null, opener: null, owner: null, waiters: [], wired: false,
+  open: false, kind: "bottom", token: 0, stack: [], entries: 0, closeAll: false, skipExit: false,
+  opener: null, owner: null, waiters: [], wired: false, swapToken: 0,
 };
+const top = () => ins.stack[ins.stack.length - 1] || null;
 
 export const insSheetIsOpen = () => ins.open;
 
 function drawIns() {
   const body = $("#insSheetBody");
   body.innerHTML = "";
-  if (ins.render) ins.render(body);
+  const f = top();
+  if (f && f.render) f.render(body);
 }
 
 // a sync that lands while the sheet is open redraws it from fresh state
@@ -41,56 +48,127 @@ function settleWaiters() {
   w.forEach((f) => f());
 }
 
+// the title and the back arrow or close button follow the level on top
+function paintHead() {
+  const f = top();
+  $("#insSheetTitle").textContent = f ? f.title : "";
+  const nested = ins.stack.length > 1;
+  $("#insSheetBack").hidden = !nested;
+  $("#insSheetClose").hidden = nested;
+}
+
+const clearAnims = (el) => { if (el && el.getAnimations) el.getAnimations().forEach((a) => a.cancel()); };
+
 function hideIns(immediate = false) {
   if (!ins.open) return;
   ins.open = false;
-  ins.render = null;
-  const cb = ins.onClose; ins.onClose = null;
+  const frames = ins.stack.slice().reverse();
+  ins.stack = []; ins.entries = 0; ins.closeAll = false;
   const token = ++ins.token;
   const el = $("#insSheet"), scrim = $("#insScrim");
+  const skip = immediate || ins.skipExit;   // skipExit: a drag already took it off screen
+  ins.skipExit = false;
   const done = () => {
     if (token !== ins.token) return;     // reopened meanwhile
     el.hidden = true; scrim.hidden = true;
     settleWaiters();
   };
-  if (immediate) done();
+  if (skip) done();
   else exitLayer(el, ins.kind).then(done);
   const o = ins.opener; ins.opener = null;
   if (o && o.isConnected && o.offsetParent !== null) o.focus({ preventScroll: true });
-  if (cb) cb();
+  frames.forEach((f) => { if (f.onClose) f.onClose(); });
 }
 
-// the tap, the scrim, Escape and the phone's back button are one path.
-// Resolves once the sheet is gone, for a caller that acts on the page under it.
+// swap the content of the sheet to the level on top, along the shared axis
+function swapLevel(dir, leaving) {
+  const swap = ++ins.swapToken;
+  const body = $("#insSheetBody"), title = $("#insSheetTitle");
+  Promise.all([sharedAxisOut(body, dir), sharedAxisOut(title, dir)]).then(() => {
+    if (swap !== ins.swapToken || !ins.open) return;
+    if (leaving && leaving.onClose) leaving.onClose();
+    paintHead();
+    drawIns();
+    body.scrollTop = 0;
+    sharedAxisIn(body, dir);
+    sharedAxisIn(title, dir);
+    const first = ins.stack.length > 1 ? $("#insSheetBack") : $("#insSheetClose");
+    first.focus({ preventScroll: true });
+  });
+}
+
+// one level back; the level's own history entry is spent by the caller
+function popLevel() {
+  const leaving = ins.stack.pop();
+  swapLevel(-1, leaving);
+}
+
+// Closes the whole sheet. The tap, the scrim, Escape and the phone's back
+// button are one path. Resolves once the sheet is gone, for a caller that acts
+// on the page under it.
 export function closeInsSheet() {
   return new Promise((resolve) => {
     if (!ins.open) { resolve(); return; }
     ins.waiters.push(resolve);
-    if (ins.hasHistory) { ins.hasHistory = false; history.back(); }
-    else hideIns();
+    if (ins.entries > 0) {
+      const n = ins.entries;
+      ins.closeAll = true;
+      history.go(-n);          // one popstate, however many levels deep
+    } else hideIns();
   });
 }
 
-// swipe down on the handle or the title row closes a bottom sheet
-function wireInsDrag() {
-  const el = $("#insSheet");
-  let y0 = null, dy = 0;
-  [$("#insSheetHandle"), $("#insSheetHead")].forEach((g) => {
+// the back arrow: one level
+function backInsLevel() {
+  if (!ins.open || ins.stack.length < 2) return;
+  if (ins.entries > 0) history.back();
+  else popLevel();
+}
+
+backSheets.push({
+  isOpen: () => ins.open,
+  close: () => {
+    // the phone's back, or the sheet's own history call: one level, or all of it
+    if (ins.stack.length > 1 && !ins.closeAll) { ins.entries = Math.max(0, ins.entries - 1); popLevel(); }
+    else hideIns();
+  },
+});
+
+/* Dragging a sheet by its handle or title row. On a phone (compact) a bottom
+   sheet follows the finger and the scrim fades with it; let go past a third of
+   its height and it leaves, otherwise it springs back. canDrag() says whether
+   the sheet is a bottom sheet right now; wider windows present a side sheet
+   with a close button and no drag. onClose runs once the sheet is off screen. */
+export function bindSheetDrag({ sheet, grips, canDrag, onClose }) {
+  const prev = sheet.previousElementSibling;
+  const scrim = prev && prev.classList.contains("m3-scrim") ? prev : null;
+  let y0 = null, dy = 0, h = 1;
+  grips.forEach((g) => {
+    g.style.touchAction = "none";
     g.addEventListener("pointerdown", (e) => {
-      if (ins.kind !== "bottom" || e.target.closest("button")) return;
-      y0 = e.clientY; dy = 0;
+      if (!canDrag() || e.target.closest("button")) return;
+      clearAnims(sheet);
+      y0 = e.clientY; dy = 0; h = sheet.offsetHeight || 1;
       try { g.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointer */ }
     });
     g.addEventListener("pointermove", (e) => {
       if (y0 == null) return;
       dy = Math.max(0, e.clientY - y0);
-      el.style.transform = `translateY(${dy}px)`;
+      sheet.style.transform = `translateY(${dy}px)`;
+      if (scrim) scrim.style.opacity = String(Math.max(0, 1 - dy / h));
     });
     const end = () => {
       if (y0 == null) return;
       y0 = null;
-      el.style.transform = "";
-      if (dy > 80) closeInsSheet();
+      const from = dy;
+      if (from > h / 3) {
+        // finish the leave from where the finger let go
+        play(sheet, [{ transform: `translateY(${from}px)` }, { transform: "translateY(100%)" }],
+          Math.max(120, 250 * (1 - from / h)), EASE.accelerate, { fill: "forwards" }).then(onClose);
+      } else {
+        sheet.style.transform = ""; if (scrim) scrim.style.opacity = "";
+        if (from > 0) play(sheet, [{ transform: `translateY(${from}px)` }, { transform: "none" }], 250, EASE.decelerate);
+      }
     };
     g.addEventListener("pointerup", end);
     g.addEventListener("pointercancel", end);
@@ -101,40 +179,54 @@ function wireIns() {
   if (ins.wired) return;
   ins.wired = true;
   $("#insSheetClose").addEventListener("click", () => closeInsSheet());
+  $("#insSheetBack").addEventListener("click", backInsLevel);
   $("#insScrim").addEventListener("click", () => closeInsSheet());
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && ins.open) { e.stopPropagation(); closeInsSheet(); }
   });
   // the sheet belongs to the tab it was opened from
   store.subscribe((s) => {
-    if (ins.open && s.view !== ins.owner) { ins.hasHistory = false; hideIns(true); }
+    if (ins.open && s.view !== ins.owner) { ins.entries = 0; hideIns(true); }
   });
-  wireInsDrag();
+  bindSheetDrag({
+    sheet: $("#insSheet"), grips: [$("#insSheetHandle"), $("#insSheetHead")],
+    canDrag: () => ins.open && ins.kind === "bottom",
+    onClose: () => { ins.skipExit = true; closeInsSheet(); },
+  });
 }
 
 /* title: the sheet's heading. render(body) draws into the body and is called
-   again by refreshInsSheet. onClose runs once, however the sheet closes. */
+   again by refreshInsSheet. onClose runs once, however the level closes.
+   Opened while the sheet is already up, this is a popup from inside it: the
+   content changes along the shared axis and the back arrow shows. */
 export function openInsSheet({ title, render, onClose = null, tall = false }) {
   wireIns();
-  if (ins.open) { ins.hasHistory = false; hideIns(true); }
+  const frame = { title, render, onClose, tall };
+  if (ins.open) {
+    ins.stack.push(frame);
+    try { history.pushState({ insSheet: ins.stack.length }, ""); ins.entries++; } catch (e) { /* no entry: the arrow pops */ }
+    swapLevel(1, null);
+    return;
+  }
   settleWaiters();
   const el = $("#insSheet"), scrim = $("#insScrim");
   const side = document.documentElement.dataset.size !== "compact";
   ins.open = true;
-  ins.render = render; ins.onClose = onClose;
+  ins.stack = [frame]; ins.entries = 0; ins.closeAll = false; ins.skipExit = false;
   ins.owner = store.state.view;
   ins.kind = side ? "side" : "bottom";
   ins.opener = document.activeElement;
-  ins.token++;
+  ins.token++; ins.swapToken++;
   el.className = side ? "m3-sheet--side" : `m3-sheet--bottom${tall ? " is-tall" : ""}`;
-  el.style.transform = "";
+  el.style.transform = ""; scrim.style.opacity = "";
+  clearAnims($("#insSheetBody")); clearAnims($("#insSheetTitle"));
   $("#insSheetHandle").hidden = side;
-  $("#insSheetTitle").textContent = title;
+  paintHead();
   scrim.hidden = false; el.hidden = false;
   drawIns();
   enterLayer(el, ins.kind);
-  try { history.pushState({ insSheet: true }, ""); ins.hasHistory = true; }
-  catch (e) { ins.hasHistory = false; }
+  try { history.pushState({ insSheet: 1 }, ""); ins.entries = 1; }
+  catch (e) { ins.entries = 0; }
   $("#insSheetClose").focus({ preventScroll: true });
 }
 
@@ -209,11 +301,6 @@ function renderPriceHistory(body, highlight) {
 // register here so this one popstate handler decides, in one place, whether a
 // back press was theirs to consume - two handlers racing would let the tab
 // underneath react to a press that only closed a sheet.
-backSheets.push({
-  isOpen: () => ins.open,
-  close: () => { ins.hasHistory = false; hideIns(); },
-});
-
 window.addEventListener("popstate", () => {
   setSheetHasHistory(false);
   let consumed = false;
@@ -240,52 +327,6 @@ window.addEventListener("popstate", () => {
   // which case this press has already been paid for and does nothing visible.
   if (store.state.view !== "list") store.setView("list");
 });
-
-// tap or swipe-down on the tinted name bar closes the sheet - shared by the
-// recipe sheet and the price sheet, same physics, different close callback
-export function bindSheetDrag(barSel, elSel, onClose) {
-  const bar = $(barSel);
-  const el = $(elSel);
-  let startY = 0;
-  let dy = 0;
-  let dragging = false;
-  let moved = false;
-
-  bar.addEventListener("touchstart", (e) => {
-    if (e.touches.length !== 1) return;
-    startY = e.touches[0].clientY;
-    dy = 0;
-    dragging = true;
-    moved = false;
-    el.style.transition = "none";
-  }, { passive: true });
-
-  bar.addEventListener("touchmove", (e) => {
-    if (!dragging) return;
-    dy = e.touches[0].clientY - startY;
-    if (dy > 0) {
-      moved = true;
-      e.preventDefault();
-      el.style.transform = `translate(-50%, ${dy}px)`;
-    } else {
-      el.style.transform = "translate(-50%, 0)";
-    }
-  }, { passive: false });
-
-  bar.addEventListener("touchend", (e) => {
-    if (!dragging) return;
-    dragging = false;
-    e.preventDefault(); // suppress the ghost click
-    el.style.transition = "";
-    el.style.transform = "";
-    if (!moved || dy < 6 || dy > 90) {
-      onClose(); // tap, or dragged far enough -> close (CSS finishes the slide)
-    }
-    // otherwise: transform cleared -> springs back to translate(-50%, 0)
-  }, { passive: false });
-
-  bar.addEventListener("click", () => onClose());
-}
 
 export function initSheetDrag() {
   wireRecipeSheet();

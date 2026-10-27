@@ -10,6 +10,7 @@
 "use strict";
 
 import { github } from "../github.js";
+import { enterLayer } from "../m3/kave-m3.js";
 import { syncHeaderHeight } from "./pull-to-sync.js";
 import { IS_LOCAL_DEV, store } from "./store.js";
 import { PALETTES } from "./theme.js";
@@ -89,6 +90,7 @@ export function renderGate({ onToken }) {
   if (root.dataset.step === step) return true;   // already drawn: keep what is typed
   root.dataset.step = step;
   root.innerHTML = html(step);
+  enterLayer($(".gate-box", root), "dialog");   // a dialog scales in from 85%
 
   const input = $("#gateToken", root);
   if (input) {

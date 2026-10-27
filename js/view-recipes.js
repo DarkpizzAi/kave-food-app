@@ -13,7 +13,7 @@
    searchRecipes) so the app-wide search can reuse it. */
 "use strict";
 
-import { enterLayer, exitLayer, kaveKey, sharedAxisIn, sharedAxisOut } from "../m3/kave-m3.js";
+import { enterLayer, exitLayer, kaveKey } from "../m3/kave-m3.js";
 import { backSheets } from "./back-sheets.js";
 import { cap, effortFor } from "./prices-data.js";
 import { closeRecipe, detailState, focusKey, openRecipe, refocus, setPaneOpener } from "./sheet-recipe.js";
@@ -450,7 +450,7 @@ export function openRecipeSearch() {
   drawSearch();
   el.hidden = false;
   $("#recipeSearchResults").scrollTop = 0;
-  sharedAxisIn(el, 1);
+  enterLayer(el, "page");
   try { history.pushState({ recipeSearch: true }, ""); searchHasHistory = true; }
   catch (e) { searchHasHistory = false; }
   $("#recipeSearchInput").focus({ preventScroll: true });
@@ -461,7 +461,7 @@ function hideRecipeSearch() {
   searchOpen = false;
   const el = $("#recipeSearchPage");
   const token = ++searchToken;
-  sharedAxisOut(el, -1).then(() => { if (token === searchToken) el.hidden = true; });
+  exitLayer(el, "page").then(() => { if (token === searchToken) el.hidden = true; });
   const o = searchOpener; searchOpener = null;
   if (o && o.isConnected && o.offsetParent !== null) o.focus({ preventScroll: true });
 }

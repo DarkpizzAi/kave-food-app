@@ -7,7 +7,6 @@
 
 import { github } from "../github.js";
 import { loadCleanup, wireCleanup } from "./cleanup.js";
-import { initListSheet } from "./sheet-list.js";
 import { initPullToSync } from "./pull-to-sync.js";
 import { render } from "./render.js";
 import { initSheetDrag } from "./sheet-price.js";
@@ -39,7 +38,6 @@ store.subscribe(render);
 buildSettings();                     // the Settings page body, before wire() binds it
 wire();
 wireCleanup();
-initListSheet();
 initPullToSync();
 initSheetDrag();
 render(store.state);                 // paint the cache immediately, before any network

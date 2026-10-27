@@ -10,7 +10,7 @@
    on purpose (see CLAUDE.md). Nothing here deduplicates a typed add. */
 "use strict";
 
-import { sharedAxisIn, sharedAxisOut, showSnackbar } from "../m3/kave-m3.js";
+import { enterLayer, exitLayer, showSnackbar } from "../m3/kave-m3.js";
 import { backSheets } from "./back-sheets.js";
 import { cardLabel, computeBubble, resolvePriceTarget, seriesForTarget, storeColor, storeOnColor } from "./prices-data.js";
 import { store } from "./store.js";
@@ -88,6 +88,7 @@ function removeRow(it) {
 function itemRow(it) {
   const row = document.createElement("div");
   row.className = "m3-list-item list-row" + (it.checked ? " is-done" : "");
+  row.dataset.id = it.id;
   const qtyStr = it.qty != null ? `${it.qty}${it.unit ? " " + it.unit : ""}` : "";
   const sub = [it.note, qtyStr].filter(Boolean).join(" · ");
   const hint = priceHintFor(it);
@@ -299,7 +300,7 @@ export function openAddPage() {
   drawAdd();
   el.hidden = false;
   $("#addResults").scrollTop = 0;
-  sharedAxisIn(el, 1);
+  enterLayer(el, "page");
   try { history.pushState({ addPage: true }, ""); addHasHistory = true; }
   catch (e) { addHasHistory = false; }
   $("#addInput").focus({ preventScroll: true });
@@ -310,7 +311,7 @@ function hideAddPage() {
   addOpen = false;
   const el = $("#addPage");
   const token = ++addToken;
-  sharedAxisOut(el, -1).then(() => { if (token === addToken) el.hidden = true; });
+  exitLayer(el, "page").then(() => { if (token === addToken) el.hidden = true; });
   const o = addOpener; addOpener = null;
   if (o && o.isConnected && o.offsetParent !== null) o.focus({ preventScroll: true });
   else {

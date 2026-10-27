@@ -11,7 +11,7 @@
 "use strict";
 
 import { enterLayer, exitLayer } from "../m3/kave-m3.js";
-import { renderDetail } from "./sheet-price.js";
+import { bindSheetDrag, renderDetail } from "./sheet-price.js";
 import { store } from "./store.js";
 import { $ } from "./util.js";
 
@@ -23,6 +23,8 @@ let sheetHasHistory = false;
 let sheetToken = 0;
 let sheetOpener = null;
 let sheetOpenerSel = "";
+let sheetKind = "bottom";        // bottom sheet on compact, side sheet on wider windows
+let skipExit = false;            // a drag already took the sheet off screen
 // one history entry standing for "somewhere other than the List tab"
 export let tabHasHistory = false;
 
@@ -75,11 +77,16 @@ export function openRecipe(slug) {
   sheetToken++;
   sheetOpener = document.activeElement;
   sheetOpenerSel = focusKey(sheetOpener);
-  el.style.transform = "";
+  const side = document.documentElement.dataset.size !== "compact";
+  sheetKind = side ? "side" : "bottom";
+  skipExit = false;
+  el.className = (side ? "m3-sheet--side" : "m3-sheet--bottom is-tall") + " rl-sheet";
+  $("#recipeHandle").hidden = side;
+  el.style.transform = ""; scrim.style.opacity = "";
   scrim.hidden = false; el.hidden = false;
   renderDetail();
   $("#detailBody").scrollTop = 0;
-  enterLayer(el, "bottom");
+  enterLayer(el, sheetKind);
   try {
     history.pushState({ recipeSheet: true }, "");
     sheetHasHistory = true;
@@ -95,8 +102,9 @@ export function slideSheetDown() {
   if (el.hidden || sheetClosing) return;
   sheetClosing = true;
   const token = ++sheetToken;
-  el.style.transform = "";
-  exitLayer(el, "bottom").then(() => {
+  const skip = skipExit; skipExit = false;
+  if (!skip) el.style.transform = "";
+  (skip ? Promise.resolve() : exitLayer(el, sheetKind)).then(() => {
     if (token !== sheetToken) return;       // reopened meanwhile
     el.hidden = true; scrim.hidden = true;
     detailState = null;
@@ -138,29 +146,12 @@ export function closeRecipe() {
   }
 }
 
-// swipe down on the handle or the title row closes the sheet
+// swipe down on the handle or the title row (compact only): the shared sheet drag
 function wireDrag() {
-  const el = $("#recipeDetail");
-  let y0 = null, dy = 0;
-  [$("#recipeHandle"), $("#recipeHead")].forEach((g) => {
-    g.addEventListener("pointerdown", (e) => {
-      if (e.target.closest("button")) return;
-      y0 = e.clientY; dy = 0;
-      try { g.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointer */ }
-    });
-    g.addEventListener("pointermove", (e) => {
-      if (y0 == null) return;
-      dy = Math.max(0, e.clientY - y0);
-      el.style.transform = `translateY(${dy}px)`;
-    });
-    const end = () => {
-      if (y0 == null) return;
-      y0 = null;
-      el.style.transform = "";
-      if (dy > 80) closeRecipe();
-    };
-    g.addEventListener("pointerup", end);
-    g.addEventListener("pointercancel", end);
+  bindSheetDrag({
+    sheet: $("#recipeDetail"), grips: [$("#recipeHandle"), $("#recipeHead")],
+    canDrag: () => sheetKind === "bottom" && recipeSheetIsOpen() && !sheetClosing,
+    onClose: () => { skipExit = true; closeRecipe(); },
   });
 }
 
