@@ -6,6 +6,7 @@
 "use strict";
 
 import { github } from "../github.js";
+import { showSnackbar } from "../m3/kave-m3.js";
 import { render } from "./render.js";
 import { IS_LOCAL_DEV, setSyncState, store, syncState } from "./store.js";
 import { flushing, fullSync, hhmm, syncRecipes, syncing, timeAgo } from "./sync.js";
@@ -134,7 +135,7 @@ export function renderSettings(state) {
   renderDisplayDiag();
 
   const rb = $("#refreshBtn");
-  if (rb.textContent !== "Syncing...") {
+  if (rb.textContent !== "Syncing…") {
     rb.disabled = !state.settings.token;
     rb.textContent = "Sync now";
     rb.removeAttribute("title");
@@ -142,12 +143,40 @@ export function renderSettings(state) {
 }
 
 /* ---------- app update (Settings > Update) ---------- */
-/* The toast on `controllerchange` only helps if the app happens to be open
+/* The snackbar on `controllerchange` only helps if the app happens to be open
    when the browser notices a new worker, which on a phone it usually is not.
    This is the manual path: ask the registration to re-fetch the worker
    script, report honestly what came back, and reload once it has taken over. */
 
 export let updateState = { kind: "idle", version: null, checkedAt: null };
+
+/* The update snackbar: sticky, one answer. Restart tells a worker that is
+   still waiting to take over, then reloads on controllerchange - once. The
+   current worker calls skipWaiting itself on install, so usually nothing is
+   waiting by the time anyone looks, and Restart is just the reload. */
+let restarting = false;
+export async function restartForUpdate() {
+  if (restarting) return;
+  restarting = true;
+  const reload = () => location.reload();
+  try {
+    const reg = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration() : null;
+    if (reg && reg.waiting) {
+      navigator.serviceWorker.addEventListener("controllerchange", reload, { once: true });
+      reg.waiting.postMessage({ type: "skipWaiting" });
+      setTimeout(reload, 4000); // a worker that never takes over must not strand the button
+      return;
+    }
+  } catch (e) { /* fall through to a plain reload */ }
+  reload();
+}
+
+export function offerUpdate() {
+  showSnackbar($("#snackHost"), {
+    text: "A new version is ready", action: "Restart", ms: 0,
+    onAction: () => { restartForUpdate(); },
+  });
+}
 
 // ask the controlling worker which VERSION it is running
 function swVersion() {
@@ -207,12 +236,10 @@ export async function checkForUpdate() {
     updateState = { ...updateState, kind: "installing" };
     renderUpdateStatus();
 
-    const state = await whenSettled(incoming);
-    // install() calls skipWaiting, but nudge a worker the browser held back
-    if (state === "installed") incoming.postMessage({ type: "skipWaiting" });
-
+    await whenSettled(incoming); // installed (waiting) or already activated
     updateState = { ...updateState, kind: "ready", checkedAt: Date.now() };
     renderUpdateStatus();
+    offerUpdate();
   } catch (e) {
     updateState = { ...updateState, kind: "error", checkedAt: Date.now() };
     renderUpdateStatus();
@@ -335,7 +362,7 @@ export function renderSyncStatus() {
   } else if (syncState.kind === "rateLimited") {
     lines.push(["warn", `GitHub busy, retrying at ${hhmm(syncState.resetAt)}`]);
   } else if (syncing || flushing) {
-    lines.push(["muted", "Syncing now…"]);
+    lines.push(["muted", "Syncing…"]);
   } else {
     lines.push(["ok", "Connected"]);
   }

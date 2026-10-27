@@ -19,7 +19,7 @@ import { openWorthWatching, resetTrends, resizePriceChart } from "./view-prices.
 import { recipeSearchIsOpen, closeRecipeSearch, relayoutRecipes, wireRecipes } from "./view-recipes.js";
 import { recipeSheetIsOpen } from "./sheet-recipe.js";
 import { openSearch, searchIsOpen, wireSearch } from "./search.js";
-import { checkForUpdate, checkToken, setTokenStatus, updateState } from "./view-settings.js";
+import { checkForUpdate, checkToken, restartForUpdate, setTokenStatus, updateState } from "./view-settings.js";
 
 export function wire() {
   // tabs: the navigation bar (compact) and the rail (medium, expanded)
@@ -120,7 +120,7 @@ export function wire() {
   });
 
   $("#updateBtn").addEventListener("click", () => {
-    if (updateState.kind === "ready") { location.reload(); return; }
+    if (updateState.kind === "ready") { restartForUpdate(); return; }
     checkForUpdate();
   });
 
@@ -128,8 +128,8 @@ export function wire() {
     const b = e.currentTarget;
     if (b.disabled) return;
     b.disabled = true;
-    b.textContent = "Syncing...";
-    await fullSync();
+    b.textContent = "Syncing…";
+    await fullSync({ manual: true });
     b.textContent = "Sync now";
     render(store.state); // renderSettings re-enables it if there is a token
   });

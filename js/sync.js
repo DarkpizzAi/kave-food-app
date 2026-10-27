@@ -9,7 +9,6 @@ import { syncCleanup } from "./cleanup.js";
 import { github } from "../github.js";
 import { render } from "./render.js";
 import { setSyncState, store, syncState } from "./store.js";
-import { $ } from "./util.js";
 import { iconCache } from "./view-recipes.js";
 
 // one sync at a time; every entry point checks these
@@ -20,6 +19,39 @@ let flushTimer;
 const KNOWN_GH = ["offline", "unauthorized", "rateLimited", "notFound", "conflict"];
 
 let rateLimitTimer;
+
+/* ---------- state reporting (read-only for the engine) ----------
+   The UI learns about a sync here and nowhere else: "idle" | "syncing" | "ok" |
+   "failed" | "offline", plus {manual, unsent}. `manual` is a sync the person
+   started (pull, Sync now); background polls are not, and the UI stays silent
+   for them. Nothing below changes what a sync does, only what it announces. */
+const listeners = [];
+let reportCycle = null;       // the sync currently reporting, if any
+let uiState = "idle";
+export let syncBarOn = false; // the indeterminate bar: Sync now only, not a pull
+
+export function onSyncState(cb) { listeners.push(cb); }
+export function syncUiState() { return uiState; }
+
+function emit(state, meta) {
+  uiState = state;
+  for (const cb of listeners) {
+    try { cb(state, meta || {}); } catch (err) { console.warn("sync listener:", err); }
+  }
+}
+
+export function reportStart(manual) {
+  reportCycle = { manual: !!manual, failure: null };
+  emit("syncing", { manual: !!manual });
+}
+
+export function reportEnd() {
+  const c = reportCycle;
+  reportCycle = null;
+  if (!c) return;
+  const f = c.failure;
+  emit(!f ? "ok" : f.gh === "offline" ? "offline" : "failed", { manual: c.manual });
+}
 
 // a sync attempt finished cleanly: clear any lingering error state
 function syncOk() {
@@ -33,6 +65,7 @@ function syncOk() {
 export function syncFailed(e, where) {
   if (!e || !KNOWN_GH.includes(e.gh)) console.warn(`${where}:`, e);
   if (!e) return;
+  if (reportCycle && !reportCycle.failure) reportCycle.failure = e;
   if (e.gh === "offline") setSyncState({ kind: "offline", resetAt: null });
   else if (e.gh === "unauthorized") setSyncState({ kind: "unauthorized", resetAt: null });
   else if (e.gh === "rateLimited") {
@@ -144,6 +177,10 @@ export async function flushQueue() {
     console.warn("flushQueue: gave up after 3 conflicts, will retry");
   } catch (e) {
     syncFailed(e, "flushQueue"); // offline / rateLimited / unauthorized: keep the queue
+    // a flush outside a reporting sync that leaves edits unsent is worth saying
+    if (!reportCycle && store.queue.length) {
+      emit(e && e.gh === "offline" ? "offline" : "failed", { manual: false, unsent: true });
+    }
   } finally {
     flushing = false;
     render(store.state); // repaint with the flag cleared
@@ -201,9 +238,11 @@ export async function syncList() {
 }
 
 // full read: recipes + list, then push anything pending
-export async function fullSync() {
+export async function fullSync(opts = {}) {
   if (syncing || !store.state.settings.token) return;
   syncing = true;
+  syncBarOn = !!opts.manual;
+  reportStart(opts.manual);
   render(store.state); // spinner on
   try {
     try {
@@ -224,8 +263,9 @@ export async function fullSync() {
     // Whatever happened above, the latch comes off. syncFailed renders, and a
     // throw out of a render would strand it - see syncCurrentTab.
     syncing = false;
+    syncBarOn = false;
     lastSlowSync = Date.now(); // it just fetched all three; don't repeat in a minute
-    render(store.state);
+    try { reportEnd(); } finally { render(store.state); }
   }
   flushQueue();
 }
@@ -266,6 +306,7 @@ export async function pollTick() {
   // minutes over a failure that had nothing to do with them.
   let slowRan = false;
   syncing = true;
+  reportStart(false);
   // The outer try exists for its finally: syncFailed and render both run
   // arbitrary render code, and a throw out of either would otherwise latch
   // `syncing` true for the rest of the session - every later sync then returns
@@ -293,6 +334,7 @@ export async function pollTick() {
     }
   } finally {
     syncing = false;
+    reportEnd();
   }
   render(store.state);
   startPolling(); // GitHub may have asked for a slower cadence just now
@@ -325,32 +367,6 @@ export function timeAgo(iso) {
   if (s < 86400) return Math.round(s / 3600) + " hours ago";
   if (s < 172800) return "yesterday";
   return Math.round(s / 86400) + " days ago";
-}
-
-/* Always clears the tap affordance. The update banner installs an onclick that
-   reloads the app; without this reset the next plain message ("3 lines cleaned
-   up") inherited it, and tapping it reloaded the app. */
-function showBanner(msg) {
-  const b = $("#banner");
-  b.textContent = msg;
-  b.classList.remove("banner-tap");
-  b.onclick = null;
-  b.hidden = false;
-}
-
-// a banner that is meant to be tapped
-export function showTapBanner(msg, onTap) {
-  showBanner(msg);
-  const b = $("#banner");
-  b.classList.add("banner-tap");
-  b.onclick = onTap;
-}
-
-let flashTimer;
-export function flashBanner(msg) {
-  showBanner(msg);
-  clearTimeout(flashTimer);
-  flashTimer = setTimeout(() => { $("#banner").hidden = true; }, 3500);
 }
 
 /* An imported binding is read-only, so a module that does not declare

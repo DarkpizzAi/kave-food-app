@@ -67,8 +67,14 @@ main { max-width: 720px; margin: 0 auto; padding: 8px 16px 32px; position: relat
 [data-size="medium"] .view-leaving, [data-size="expanded"] .view-leaving { max-width: 720px; left: 0; right: 0; margin: 0 auto; }
 
 
-.banner { padding: 8px 16px; background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
-.ptr { display: none; }
+/* indeterminate bar under the header while Sync now runs (js/render.js) */
+.app-header .sync-bar { position: absolute; left: 0; right: 0; bottom: 0; }
+.sync-bar[hidden] { display: none; }
+/* offline card at the top of every tab */
+.offline-card { margin-bottom: 16px; }
+.offline-card[hidden] { display: none; }
+.offline-card__row { display: flex; align-items: center; gap: 16px; }
+.offline-card__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
 
 body.gated > :not(#gate) { display: none !important; }
 .gate { position: fixed; inset: 0; z-index: 100; background: var(--md-sys-color-surface); }

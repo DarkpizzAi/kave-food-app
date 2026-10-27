@@ -11,10 +11,10 @@ import { initPullToSync } from "./pull-to-sync.js";
 import { render } from "./render.js";
 import { initSheetDrag } from "./sheet-price.js";
 import { IS_LOCAL_DEV, store } from "./store.js";
-import { flushQueue, pollTick, showTapBanner, startPolling } from "./sync.js";
+import { flushQueue, pollTick, startPolling } from "./sync.js";
 import { sizeClass } from "../m3/kave-m3.js";
 import { applySeed, applyTheme } from "./theme.js";
-import { buildSettings, checkToken, renderSyncStatus, themeBootRan } from "./view-settings.js";
+import { buildSettings, checkToken, offerUpdate, renderSyncStatus, themeBootRan } from "./view-settings.js";
 import { wire } from "./wire.js";
 
 store.load();
@@ -104,11 +104,24 @@ if ("serviceWorker" in navigator && !IS_LOCAL_DEV) {
   // the old script out of the HTTP cache.
   navigator.serviceWorker
     .register("service-worker.js", { updateViaCache: "none" })
+    .then((reg) => {
+      // a worker already waiting when the page opens, and one that finishes
+      // installing later: both get the same sticky snackbar
+      if (reg.waiting && navigator.serviceWorker.controller) offerUpdate();
+      reg.addEventListener("updatefound", () => {
+        const w = reg.installing;
+        if (!w) return;
+        w.addEventListener("statechange", () => {
+          if (w.state === "installed" && navigator.serviceWorker.controller) offerUpdate();
+        });
+      });
+    })
     .catch(() => {});
-  // the first controllerchange is this session's initial takeover, not an update
+  // the first controllerchange is this session's initial takeover, not an
+  // update; any later one is a new worker that has already taken over
   let firstControl = !navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (firstControl) { firstControl = false; return; }
-    showTapBanner("New version. Tap to reload.", () => location.reload());
+    offerUpdate();
   });
 }

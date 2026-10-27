@@ -9,7 +9,7 @@
 import { enterLayer, exitLayer, fadeThrough, sharedAxisIn, sharedAxisOut } from "../m3/kave-m3.js";
 import { backSheets } from "./back-sheets.js";
 import { store, syncState } from "./store.js";
-import { flushing, syncing } from "./sync.js";
+import { flushing, syncBarOn, syncing } from "./sync.js";
 import { VIEW_TITLES } from "./theme.js";
 import { $, $$, markJump } from "./util.js";
 import { renderList, renderListBadge } from "./view-list.js";
@@ -202,6 +202,11 @@ export function render(state) {
     : store.queue.length ? " pending"
     : ""
   );
+
+  // the bar under the header runs for Sync now only; a pull has its own indicator
+  $$(".sync-bar").forEach((b) => { b.hidden = !syncBarOn; });
+  // the offline card follows the phone's own word on the network
+  $("#offlineCard").hidden = navigator.onLine !== false;
 
   renderListBadge(state);
   if (state.view === "list") renderList(state);

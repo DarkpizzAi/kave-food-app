@@ -1,14 +1,15 @@
-/* Spoon: the per-tab pull gesture.
+/* Ladle: the per-tab pull gesture, and the sync status UI (snackbars, the
+   offline card).
 
    Split out of app.js, which was one 4240-line classic script. The
    boundaries are the section banners that file already drew, so any
    line's history is still one git log --follow away. */
 "use strict";
 
+import { attachPullToRefresh, showSnackbar } from "../m3/kave-m3.js";
 import { render } from "./render.js";
 import { store } from "./store.js";
-import { flushQueue, setSyncing, syncFailed, syncList, syncPrices, syncRecipes, syncing } from "./sync.js";
-import { VIEW_TITLES } from "./theme.js";
+import { flushQueue, fullSync, onSyncState, reportEnd, reportStart, setSyncing, syncFailed, syncList, syncPrices, syncRecipes, syncing } from "./sync.js";
 import { $ } from "./util.js";
 
 // pull-to-refresh on a tab: sync just that tab's data
@@ -17,6 +18,7 @@ async function syncCurrentTab() {
     return new Promise((r) => setTimeout(r, 400)); // still feel the gesture
   }
   setSyncing(true);
+  reportStart(true);
   render(store.state); // spinner on
   const v = store.state.view;
   // The outer try is here for its finally, which is the only thing that can be
@@ -45,6 +47,7 @@ async function syncCurrentTab() {
     }
   } finally {
     setSyncing(false);
+    reportEnd();
   }
   render(store.state);
   flushQueue();
@@ -55,80 +58,75 @@ export function syncHeaderHeight() {
   document.documentElement.style.setProperty("--header-h", h + "px");
 }
 
-export function initPullToSync() {
-  const main = $("main");
-  const ptr = $("#ptr");
-  syncHeaderHeight(); // on resize too, from the one listener in wire()
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(syncHeaderHeight);
-  const arrowText = $(".ptr-text", ptr);
-  const scroller = document.scrollingElement || document.documentElement;
-  const THRESHOLD = 64;
-  const MAX = 96;
-  let startY = 0;
-  let pulling = false;
-  let dist = 0;
-  let busy = false;
+const snack = (opts) => showSnackbar($("#snackHost"), opts);
 
-  // Settings and Roadmap are pages over the tabs, and the gesture does not arm
-  // under them: they have no data of their own, so a pull there could only
-  // ever spin and fetch nothing - and "Sync now" is already on Settings.
+/* The snackbar rule. Only a sync the person started (pull, Sync now) says
+   anything about its own result: "Synced just now", or the failure with Retry.
+   A background poll stays silent, with two exceptions that matter: going
+   offline (said once per offline spell) and a failed push that leaves edits
+   unsent. A manual sync that ends offline says the offline line again, since
+   it is the answer to something the person just did. */
+const OFFLINE_TEXT = "You're offline. Changes are saved on this phone.";
+let offlineSaid = false;
+
+function sayOffline() {
+  if (offlineSaid) return;
+  offlineSaid = true;
+  snack({ text: OFFLINE_TEXT, ms: 5000 });
+}
+
+function initStatus() {
+  onSyncState((state, meta) => {
+    if (state === "ok") {
+      offlineSaid = false;
+      if (meta.manual) snack({ text: "Synced just now" });
+    } else if (state === "offline") {
+      if (meta.manual) { offlineSaid = true; snack({ text: OFFLINE_TEXT, ms: 5000 }); }
+      else sayOffline();
+    } else if (state === "failed" && (meta.manual || meta.unsent)) {
+      snack({
+        text: "Couldn't sync. Check the connection.", action: "Retry", ms: 6000,
+        onAction: () => { fullSync({ manual: true }); },
+      });
+    }
+  });
+  window.addEventListener("offline", () => { sayOffline(); render(store.state); });
+  window.addEventListener("online", () => { offlineSaid = false; render(store.state); });
+  if (!navigator.onLine) sayOffline();
+}
+
+/* The kit's pull indicator wants an element scroller; Ladle scrolls the
+   window. This stands in for it: it reads the window's scrollTop, parks the
+   indicator in <body> under the header, and runs every touchstart and
+   pointerdown through the same guards the old gesture had, so a pull never
+   arms under a page, the drawer, a sheet or a search. */
+function windowScroller() {
+  const root = document.scrollingElement || document.documentElement;
   const canPull = () =>
     $("#page").hidden && $("#drawer").hidden
-    && scroller.scrollTop <= 0 && $("#recipeDetail").hidden && $("#addPage").hidden
-    && $("#searchPage").hidden && $("#insSheet").hidden;
+    && root.scrollTop <= 0 && $("#recipeDetail").hidden && $("#addPage").hidden
+    && $("#searchPage").hidden && $("#insSheet").hidden
+    && $("#recipeSearchPage").hidden;
+  return {
+    get scrollTop() { return root.scrollTop; },
+    get parentElement() { return document.body; },
+    get offsetTop() { return $(".app-header").offsetHeight; },
+    setPointerCapture() { /* the document already sees the pointer */ },
+    addEventListener(type, fn, opts) {
+      const guarded = type === "touchstart" || type === "pointerdown";
+      const h = guarded ? (e) => { if (canPull()) fn(e); } : fn;
+      (fn.__h || (fn.__h = {}))[type] = h;
+      document.addEventListener(type, h, opts);
+    },
+    removeEventListener(type, fn, opts) {
+      document.removeEventListener(type, (fn.__h && fn.__h[type]) || fn, opts);
+    },
+  };
+}
 
-  document.addEventListener("touchstart", (e) => {
-    if (busy || e.touches.length !== 1 || !canPull()) { pulling = false; return; }
-    startY = e.touches[0].clientY;
-    pulling = true;
-    dist = 0;
-  }, { passive: true });
-
-  document.addEventListener("touchmove", (e) => {
-    if (!pulling) return;
-    const dy = e.touches[0].clientY - startY;
-    if (dy <= 0) {
-      dist = 0;
-      main.style.transition = "none";
-      main.style.transform = "";
-      ptr.style.opacity = 0;
-      ptr.classList.remove("ready");
-      return;
-    }
-    dist = Math.min(MAX, dy * 0.5);
-    main.style.transition = "none";
-    main.style.transform = `translateY(${dist}px)`;
-    ptr.style.opacity = String(Math.min(1, dist / THRESHOLD));
-    ptr.classList.toggle("ready", dist >= THRESHOLD);
-  }, { passive: true });
-
-  document.addEventListener("touchend", () => {
-    if (!pulling) return;
-    pulling = false;
-    main.style.transition = "transform 0.2s ease";
-
-    if (dist < THRESHOLD) {
-      main.style.transform = "translateY(0)";
-      ptr.style.opacity = 0;
-      ptr.classList.remove("ready");
-      return;
-    }
-
-    busy = true;
-    main.style.transform = "translateY(40px)";
-    ptr.classList.add("refreshing");
-    ptr.classList.remove("ready");
-    arrowText.textContent = `Syncing ${VIEW_TITLES[store.state.view]}`;
-
-    syncCurrentTab().finally(() => {
-      main.style.transform = "translateY(0)";
-      ptr.style.opacity = 0;
-      setTimeout(() => {
-        ptr.classList.remove("refreshing");
-        arrowText.textContent = "Pull to sync";
-        busy = false;
-        render(store.state);
-      }, 200);
-    });
-  });
+export function initPullToSync() {
+  syncHeaderHeight(); // on resize too, from the one listener in wire()
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(syncHeaderHeight);
+  initStatus();
+  attachPullToRefresh(windowScroller(), syncCurrentTab);
 }
