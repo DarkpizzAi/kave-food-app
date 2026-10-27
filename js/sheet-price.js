@@ -7,13 +7,14 @@
    so the phone's back button closes it and nothing else. */
 "use strict";
 
-import { enterLayer, exitLayer, kaveKey } from "../m3/kave-m3.js";
-import { MAIN_LABELS, cap, cartButtonHtml, confirmAdd, resolveTargetInfo, roundQty, titleCaseVariant } from "./prices-data.js";
-import { closeRecipe, detailState, setDetailState, setSheetHasHistory, setTabHasHistory, slideSheetDown, tabHasHistory } from "./sheet-recipe.js";
+import { enterLayer, exitLayer, kaveKey, showSnackbar } from "../m3/kave-m3.js";
+import { cap, resolveTargetInfo, roundQty, titleCaseVariant } from "./prices-data.js";
+import { detailState, setDetailState, setSheetHasHistory, setTabHasHistory, slideSheetDown, tabHasHistory, wireRecipeSheet } from "./sheet-recipe.js";
 import { backSheets } from "./back-sheets.js";
 import { store } from "./store.js";
-import { $, $$, escapeHtml, own, safeUrl } from "./util.js";
+import { $, $$, escapeHtml, safeUrl } from "./util.js";
 import { fmtFullDate, metricsHtml, pricesUiState, purchaseRows, storeKeyOf } from "./view-prices.js";
+import { TYPE_LABEL, tileHtml, typeOf } from "./view-recipes.js";
 
 /* ---------- the Insights sheet ---------- */
 
@@ -287,7 +288,7 @@ export function bindSheetDrag(barSel, elSel, onClose) {
 }
 
 export function initSheetDrag() {
-  bindSheetDrag("#detailBar", "#recipeDetail", closeRecipe);
+  wireRecipeSheet();
 }
 
 function isCountUnit(unit) {
@@ -323,11 +324,6 @@ function scaleQty(ing, factor) {
   return roundQty(x, isCountUnit(ing.unit));                 // no `frac`
 }
 
-function servingPresets(recipe) {
-  if (recipe.presets && recipe.presets.length) return recipe.presets;
-  const b = recipe.portions || 4;
-  return [...new Set([1, 2, b, b * 2].filter((n) => n >= 1 && n <= 10))].sort((a, b2) => a - b2);
-}
 
 function qtyText(qty, unit) {
   let q = qty;
@@ -343,186 +339,103 @@ function qtyText(qty, unit) {
   return `${escapeHtml(q)}${unit ? " " + escapeHtml(unit) : ""}`;
 }
 
-// up to 3 pills for the detail header: cuisine, type, and the stub status
-function detailBarHtml(recipe) {
-  const tags = [];
-  if (recipe.cuisine) tags.push(cap(recipe.cuisine));
-  if (recipe.mainIngredient && recipe.mainIngredient !== "other") {
-    tags.push(own(MAIN_LABELS, recipe.mainIngredient)
-      ? MAIN_LABELS[recipe.mainIngredient] : cap(recipe.mainIngredient));
-  }
-  if (recipe.stub) tags.push(recipe.stubKind === "link" ? "link only" : "to write");
-  const pills = tags.slice(0, 3)
-    .map((t) => `<span class="detail-tag">${escapeHtml(t)}</span>`).join("");
-  return `<span class="rname">${escapeHtml(recipe.name)}</span>` +
-    (pills ? `<div class="detail-tags">${pills}</div>` : "");
+
+/* ---------- the recipe body: the sheet and the expanded pane draw the same thing ---------- */
+
+// Portions the sheet offers, in order (the mockup's chips)
+export const PORTION_CHOICES = [1, 2, 4, 6, 8];
+
+const snack = (opts) => showSnackbar($("#snackHost"), opts);
+
+function metaLine(recipe) {
+  const bits = [];
+  if (recipe.cuisine) bits.push(cap(recipe.cuisine));
+  bits.push(TYPE_LABEL[typeOf(recipe)]);
+  if (recipe.stub) bits.push(recipe.stubKind === "link" ? "Link only" : "To write");
+  if (recipe.prep) bits.push(`Prep ${recipe.prep}`);
+  if (recipe.cook) bits.push(`Cook ${recipe.cook}`);
+  return bits.join(" · ");
 }
 
-export function renderDetail() {
-  const { recipe } = detailState;
+function emptyCard(text) {
+  return `<div class="m3-card m3-card--filled rd-empty"><span class="m3-body-m m3-variant">${escapeHtml(text)}</span></div>`;
+}
 
-  // index-only entry: no card written yet. Show the name + where to cook it
-  // from, nothing to scale.
+/* Draw one recipe into `host`. `st` is { recipe, servings }; `redraw` runs
+   after a change to st (a portions chip, Reset). Each ingredient has its own
+   cart button: one tap adds just that ingredient at the scaled amount, with
+   a snackbar and Undo. The list is a tally, so a second tap adds a second
+   row, deliberately (CLAUDE.md). */
+export function renderRecipeInto(host, st, redraw) {
+  const { recipe } = st;
+  const head = `<div class="rd-head">${tileHtml(recipe, true)}` +
+    `<div class="m3-stack rd-title"><h2 class="m3-headline-s rd-name">${escapeHtml(recipe.name)}</h2>` +
+    `<p class="m3-body-m m3-variant rd-meta">${escapeHtml(metaLine(recipe))}</p></div></div>`;
+
+  // index-only entry: no card written yet. Show where to cook it from, nothing to scale.
   if (recipe.stub) {
-    $("#detailBar").innerHTML = detailBarHtml(recipe);
     // numbered off the surviving links, not recipe.sources - a dropped source
     // must not leave a gap in "Open recipe 1 / 3"
     const links = (recipe.sources || []).map(safeUrl).filter(Boolean).map((u, i, all) =>
-      `<a class="stub-link" href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer">
-         Open recipe${all.length > 1 ? " " + (i + 1) : ""} &nearr;</a>`).join("");
-    $("#detailBody").innerHTML = `
-      <div class="stub-body">
-        ${links || `<p class="hint">Not written up yet. Cook it once and add it
-          with the <code>add-recipe</code> skill and it becomes a full card here.</p>`}
-        ${links ? `<p class="hint">Not saved as a full recipe yet, so there is no
-          scaler or shopping-list add for this one.</p>` : ""}
-      </div>`;
+      `<a class="m3-btn m3-btn--tonal rd-link" href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer">` +
+      `<span class="m3-icon" aria-hidden="true">open_in_new</span>Open recipe${all.length > 1 ? " " + (i + 1) : ""}</a>`).join("");
+    host.innerHTML = head +
+      (links
+        ? `<p class="m3-body-m m3-variant">Not saved as a full recipe yet, so there is no scaler or shopping-list add for this one.</p><div class="m3-chips">${links}</div>`
+        : `<p class="m3-body-m m3-variant">Not written up yet. Cook it once and add it with the <code>add-recipe</code> skill and it becomes a full card here.</p>`);
     return;
   }
 
   const base = recipe.portions;
-  const target = detailState.servings;
+  const target = st.servings;
   const factor = base ? target / base : 1;
   const scaled = target !== base;
-  const presets = servingPresets(recipe);
+  const ro = store.readOnly();
 
-  // Shopping mode is armed by the one cart button in the Ingredients header,
-  // which then leaves: there is a cart on every row, and a twelfth in the
-  // header would be noise. There is no way back out, and none is needed - the
-  // mode adds nothing, undoes nothing, and openRecipe starts every opening
-  // with addMode false, so closing the sheet is the exit.
-  //
-  // read-only (no usable token) blocks every list write, so shopping mode
-  // would just show ticks that never land - collapse it instead
-  const addMode = detailState.addMode && !store.readOnly();
-  const ingHtml = recipe.ingredients.map((ing, i) => {
-    const nameHtml = `<span class="nm">${escapeHtml(ing.name)}` +
-      `${ing.note ? ` <span class="note">(${escapeHtml(ing.note)})</span>` : ""}`;
-    let qtyCell, scaledCell, trailing = "";
-    if (ing.qty != null) {
-      qtyCell = `<span class="qty">${qtyText(ing.qty, ing.unit)}</span>`;
-      const scaledQty = scaleQty(ing, factor);
-      scaledCell = scaled ? `<span class="qty-scaled">${qtyText(scaledQty, ing.unit)}</span>` : "";
-    } else {
-      qtyCell = `<span class="qty"></span>`;
-      scaledCell = scaled ? `<span class="qty-scaled"></span>` : "";
-      trailing = ing.raw ? ` <span class="note">${escapeHtml(ing.raw)}</span>` : "";
-    }
-    const addCell = addMode
-      ? cartButtonHtml({
-          cls: "ing-add", attrs: `data-i="${i}"`,
-          label: `Add ${ing.name} to the shopping list`,
-        })
-      : "";
-    return `<li>${qtyCell}${scaledCell}${nameHtml}${trailing}</span>${addCell}</li>`;
+  const chips = PORTION_CHOICES.map((n) => {
+    const on = n === target;
+    return `<button type="button" class="m3-chip${on ? " m3-chip--leading is-selected" : ""}" data-serv="${n}" aria-pressed="${on}">` +
+      `${on ? '<span class="m3-icon" aria-hidden="true">check</span>' : ""}${n}</button>`;
   }).join("");
 
-  const gridCols = [
-    "max-content",
-    ...(scaled ? ["max-content"] : []),
-    "1fr",
-    ...(addMode ? ["max-content"] : []),
-  ].join(" ");
+  const rows = recipe.ingredients.map((ing, i) => {
+    let qtyStr = "";
+    if (ing.qty != null) qtyStr = qtyText(scaled ? scaleQty(ing, factor) : ing.qty, ing.unit);
+    else if (ing.raw) qtyStr = escapeHtml(ing.raw);
+    const label = `Add ${ing.name} to the list`;
+    return `<div class="m3-list-item rd-ing">` +
+      `<div class="m3-list-item__text m3-list-item__text--wrap"><div class="m3-body-l">${escapeHtml(ing.name)}` +
+      `${ing.note ? ` <span class="m3-variant">(${escapeHtml(ing.note)})</span>` : ""}</div></div>` +
+      (qtyStr ? `<span class="m3-body-m m3-variant m3-num rd-qty">${qtyStr}</span>` : "") +
+      `<button type="button" class="m3-icon-btn m3-icon-btn--small rd-cart" data-i="${i}" aria-label="${escapeHtml(label)}"${ro ? " disabled" : ""}>` +
+      `<span class="m3-icon" aria-hidden="true">add_shopping_cart</span></button></div>`;
+  }).join("");
 
-  const stepsHtml = recipe.steps.length
-    ? `<h3>Preparation</h3><ol class="steps">${recipe.steps.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ol>`
-    : `<h3>Preparation</h3><p class="hint">Not written up yet.</p>`;
+  const steps = recipe.steps.length
+    ? `<ol class="rd-steps">${recipe.steps.map((s) => `<li class="m3-body-m">${escapeHtml(s)}</li>`).join("")}</ol>`
+    : emptyCard("No steps written down yet.");
 
-  const customIsExtra =
-    detailState.custom != null && !presets.includes(detailState.custom);
-  const bubbles = presets
-    .map((p) => {
-      const cls = `bubble${target === p ? " on" : ""}${p === base ? " base" : ""}`;
-      return `<button class="${cls}" data-serv="${p}">${p}</button>`;
-    })
-    .join("");
-  let customBubble;
-  if (detailState.customEditing) {
-    customBubble = `<input class="bubble-input" id="customServ" type="number" inputmode="numeric" min="1" placeholder="#" value="${detailState.custom ?? ""}" />`;
-  } else if (customIsExtra) {
-    customBubble = `<button class="bubble${target === detailState.custom ? " on" : ""}" id="customBubble" data-serv="${detailState.custom}">${detailState.custom}</button>`;
-  } else {
-    customBubble = `<button class="bubble bubble-custom" id="customBubble">Custom</button>`;
-  }
+  host.innerHTML = head +
+    `<div class="m3-stack"><span class="m3-title-s">Portions</span>` +
+    `<div class="m3-chips rd-portions" role="group" aria-label="Portions">${chips}` +
+    `<button type="button" class="m3-btn m3-btn--text" data-reset${target === base ? " disabled" : ""}>Reset</button></div></div>` +
+    `<div class="m3-stack"><span class="m3-title-s">Ingredients</span>` +
+    (recipe.ingredients.length
+      ? `<span class="m3-body-s m3-variant">Tap the cart beside an ingredient to put it on the list.</span><div class="m3-grouped">${rows}</div>`
+      : emptyCard("No ingredients written down yet.")) + `</div>` +
+    (recipe.portionsConfirmed ? "" : `<p class="m3-body-s m3-variant">Base portions not confirmed in the kitchen.</p>`) +
+    `<div class="m3-stack"><span class="m3-title-s">Steps</span>${steps}</div>`;
 
-  $("#detailBar").innerHTML = detailBarHtml(recipe);
-
-  $("#detailBody").innerHTML = `
-    <div class="scaler">
-      <span class="scaler-label">Servings</span>
-      <div class="bubbles">${bubbles}${customBubble}</div>
-      <button class="reset" id="resetScale">Reset</button>
-    </div>
-    <div class="ing-head">
-      <h3>Ingredients</h3>
-      ${addMode ? "" : cartButtonHtml({
-        id: "ingArm", cls: "cart-lg", label: "Add ingredients to the shopping list",
-      })}
-    </div>
-    <ul class="ing-list${addMode ? " adding" : ""}" style="grid-template-columns:${gridCols}">${ingHtml}</ul>
-    ${recipe.portionsConfirmed ? "" : `<p class="unconfirmed">Base portions not confirmed in the kitchen.</p>`}
-    ${stepsHtml}
-  `;
-
-  const body = $("#detailBody");
-
-  $$(".bubble[data-serv]", body).forEach((b) => {
+  $$("[data-serv]", host).forEach((b) => {
     b.addEventListener("click", () => {
-      detailState.servings = Number(b.dataset.serv);
-      detailState.customEditing = false;
-      renderDetail();
+      st.servings = Number(b.dataset.serv); redraw();
+      const again = $(`[data-serv="${st.servings}"]`, host); if (again) again.focus({ preventScroll: true });
     });
   });
+  $("[data-reset]", host).addEventListener("click", () => { st.servings = recipe.portions; redraw(); });
 
-  const cb = $("#customBubble", body);
-  if (cb) {
-    cb.addEventListener("click", () => {
-      detailState.customEditing = true;
-      renderDetail();
-    });
-  }
-
-  const ci = $("#customServ", body);
-  if (ci) {
-    ci.focus();
-    ci.select();
-    let done = false;
-    const commit = () => {
-      if (done) return;
-      done = true;
-      const v = Math.round(Number(ci.value));
-      if (v >= 1) {
-        detailState.custom = presets.includes(v) ? null : v;
-        detailState.servings = v;
-      }
-      detailState.customEditing = false;
-      renderDetail();
-    };
-    ci.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); commit(); }
-      if (e.key === "Escape") { done = true; detailState.customEditing = false; renderDetail(); }
-    });
-    ci.addEventListener("blur", commit);
-  }
-
-  $("#resetScale", body).addEventListener("click", () => {
-    detailState.servings = recipe.portions;
-    detailState.custom = null;
-    detailState.customEditing = false;
-    renderDetail();
-  });
-
-  const arm = $("#ingArm", body);
-  if (arm) {
-    arm.addEventListener("click", () => {
-      detailState.addMode = true;
-      renderDetail();
-    });
-  }
-
-  $$(".ing-add", body).forEach((btn) => {
+  $$(".rd-cart", host).forEach((btn) => {
     btn.addEventListener("click", () => {
-      if (btn.classList.contains("added")) return; // inert while the tick is up
       const i = Number(btn.dataset.i);
       const ing = recipe.ingredients[i];
       let qty = null, unit = null;
@@ -530,11 +443,10 @@ export function renderDetail() {
         qty = scaled ? scaleQty(ing, factor) : ing.qty;
         unit = ing.unit;
       }
-      // only confirm if the item actually landed - store.addItem returns
-      // null when the list is read-only
-      const created = store.addItem({
-        name: ing.conceptName || ing.name,
-        qty, unit,
+      const name = ing.conceptName || ing.name;
+      // null when the list is read-only: then nothing landed and nothing is said
+      const made = store.addItem({
+        name, qty, unit,
         // the authored variant label when the recipe has one ("Hachée
         // mixte boeuf-porc"), else the derived hint ("hachée mixte") -
         // the note is what you read in the aisle, so the fuller name wins
@@ -546,9 +458,16 @@ export function renderDetail() {
         slug: ing.slug || null,
         variant: ing.variant || null,
       });
-      // the button carries the whole confirm; re-rendering the sheet here
-      // would throw the tick away the moment it appeared
-      if (created) confirmAdd(btn);
+      if (!made) return;
+      snack({ text: `Added ${name} to the list`, action: "Undo", onAction: () => store.deleteItem(made.id) });
     });
   });
+}
+
+// the sheet's body, drawn from detailState
+export function renderDetail() {
+  if (!detailState) return;
+  const el = $("#recipeDetail");
+  el.setAttribute("aria-label", detailState.recipe.name);
+  renderRecipeInto($("#detailBody"), detailState, renderDetail);
 }

@@ -16,7 +16,8 @@ import { $, $$ } from "./util.js";
 import { addPageIsOpen, closeAddPage, tidyChecked, wireAddPage } from "./view-list.js";
 import { pairings, renderBatchSheet, renderPairsSheet, renderPlanner, setBatchOrder, setPairOrder, shuffled, sizePlanStrips } from "./view-plan.js";
 import { openWorthWatching, resetTrends, resizePriceChart } from "./view-prices.js";
-import { equaliseCards, updateRailFade } from "./view-recipes.js";
+import { recipeSearchIsOpen, closeRecipeSearch, relayoutRecipes, wireRecipes } from "./view-recipes.js";
+import { recipeSheetIsOpen } from "./sheet-recipe.js";
 import { checkForUpdate, checkToken, setTokenStatus, updateState } from "./view-settings.js";
 
 /* The top bar's search magnifier. PLACEHOLDER: Task 6 builds js/search.js and
@@ -39,11 +40,8 @@ export function wire() {
   $("#pageBack").addEventListener("click", closePage);
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
-    if (addPageIsOpen()) closeAddPage(); else if (pageIsOpen()) closePage(); else closeDrawer();
-  });
-
-  $$("#cuisineFilters, #mainFilters").forEach((rail) => {
-    rail.addEventListener("scroll", () => updateRailFade(rail), { passive: true });
+    if (recipeSheetIsOpen()) return;          // the sheet closes itself
+    if (addPageIsOpen()) closeAddPage(); else if (recipeSearchIsOpen()) closeRecipeSearch(); else if (pageIsOpen()) closePage(); else closeDrawer();
   });
 
   window.addEventListener("scroll", updateToTop, { passive: true });
@@ -57,6 +55,7 @@ export function wire() {
   });
 
   wireAddPage();
+  wireRecipes();
   $("#tidyChecked").addEventListener("click", tidyChecked);
 
   $("#oppToggle").addEventListener("click", openWorthWatching);
@@ -86,11 +85,10 @@ export function wire() {
   // one resize listener for the lot: rail fades, header height, card heights
   let resizeTimer;
   window.addEventListener("resize", () => {
-    $$("#cuisineFilters, #mainFilters").forEach(updateRailFade);
     syncHeaderHeight();
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
-      if (store.state.view === "recipes") equaliseCards();
+      if (store.state.view === "recipes") relayoutRecipes();
       if (store.state.view === "planner") sizePlanStrips();
       if (store.state.view === "prices") resizePriceChart();
     }, 120);

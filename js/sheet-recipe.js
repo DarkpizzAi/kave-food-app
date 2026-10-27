@@ -1,106 +1,113 @@
-/* Spoon: the recipe detail sheet: open, park, close.
+/* Ladle: the recipe sheet, on Material 3: open, park, close.
 
-   Split out of app.js, which was one 4240-line classic script. The
-   boundaries are the section banners that file already drew, so any
-   line's history is still one git log --follow away. */
+   One recipe, two homes. On a phone or a tablet (compact and medium) it is a
+   modal bottom sheet with its own history entry, so the phone's back closes
+   it. On an expanded window the Recipes tab is a list-detail layout and the
+   recipe fills the right-hand pane instead; the pane lives in
+   view-recipes.js, which registers itself here with setPaneOpener so this
+   file never imports the view (that would be a cycle).
+
+   openRecipe(slug) keeps its name and is the one entry point either way. */
 "use strict";
 
+import { enterLayer, exitLayer } from "../m3/kave-m3.js";
 import { renderDetail } from "./sheet-price.js";
 import { store } from "./store.js";
 import { $ } from "./util.js";
 
-// { recipe, servings, custom, customEditing, addMode, added:Set<ingredientIndex> }
+// { recipe, servings, owner } while the sheet is open (or parked)
 export let detailState = null;
 let sheetClosing = false;
 let closeRequested = false;
 let sheetHasHistory = false;
+let sheetToken = 0;
+let sheetOpener = null;
 // one history entry standing for "somewhere other than the List tab"
 export let tabHasHistory = false;
+
+// the Recipes tab's right-hand pane, when it has one
+let paneOpener = null;
+export function setPaneOpener(fn) { paneOpener = fn; }
+const paneWanted = () =>
+  paneOpener != null && document.documentElement.dataset.size === "expanded" && store.state.view === "recipes";
+
+export const recipeSheetIsOpen = () => detailState != null && !$("#recipeDetail").hidden;
+
+// cancel a finished exit animation: its forwards fill would keep a re-shown sheet off screen
+function clearAnims(el) {
+  if (el && typeof el.getAnimations === "function") el.getAnimations().forEach((a) => a.cancel());
+}
 
 export function openRecipe(slug) {
   const recipe = store.state.recipes.find((r) => r.slug === slug);
   if (!recipe) return;
+  // expanded: the recipe fills the pane, there is no sheet to open
+  if (paneWanted()) { paneOpener(recipe); return; }
+  if (detailState != null && !$("#recipeDetail").hidden && !sheetClosing) {
+    // already open (a tap on the recipe under it): swap the recipe, keep the one history entry
+    detailState = { recipe, servings: recipe.portions, owner: store.state.view };
+    renderDetail();
+    $("#detailBody").scrollTop = 0;
+    return;
+  }
   detailState = {
-    recipe, servings: recipe.portions, custom: null, customEditing: false,
-    // armed by the header cart, and never carried between openings: a tick is
-    // a moment, not a record of what is on the list
-    addMode: false,
+    recipe, servings: recipe.portions,
     owner: store.state.view,          // the tab that opened it: "recipes" or "planner"
   };
-  const el = $("#recipeDetail");
+  const el = $("#recipeDetail"), scrim = $("#recipeScrim");
   sheetClosing = false;
   closeRequested = false;
-  el.hidden = false;
-  el.classList.remove("shown");
-  el.style.transition = "";
+  sheetToken++;
+  sheetOpener = document.activeElement;
   el.style.transform = "";
+  scrim.hidden = false; el.hidden = false;
   renderDetail();
-  el.scrollTop = 0;
-  void el.offsetHeight; // commit the off-screen start state before transitioning
-  el.classList.add("shown");
+  $("#detailBody").scrollTop = 0;
+  enterLayer(el, "bottom");
   try {
     history.pushState({ recipeSheet: true }, "");
     sheetHasHistory = true;
   } catch (e) {
     sheetHasHistory = false;
   }
+  $("#recipeClose").focus({ preventScroll: true });
 }
 
 // slide the sheet down and out; called by popstate and (via history.back) by closeRecipe
 export function slideSheetDown() {
-  const el = $("#recipeDetail");
+  const el = $("#recipeDetail"), scrim = $("#recipeScrim");
   if (el.hidden || sheetClosing) return;
   sheetClosing = true;
-  el.style.transition = "";
-  el.style.transform = ""; // drop any drag override so the CSS drives it out
-  el.classList.remove("shown");
-  let done = false;
-  const finish = () => {
-    if (done) return;
-    done = true;
-    el.removeEventListener("transitionend", onEnd);
-    el.hidden = true;
+  const token = ++sheetToken;
+  el.style.transform = "";
+  exitLayer(el, "bottom").then(() => {
+    if (token !== sheetToken) return;       // reopened meanwhile
+    el.hidden = true; scrim.hidden = true;
     detailState = null;
     sheetClosing = false;
     closeRequested = false;
-  };
-  const onEnd = (e) => {
-    if (e.target === el && e.propertyName === "transform") finish();
-  };
-  el.addEventListener("transitionend", onEnd);
-  setTimeout(finish, 450);
+  });
+  const o = sheetOpener; sheetOpener = null;
+  if (o && o.isConnected && o.offsetParent !== null) o.focus({ preventScroll: true });
 }
 
-// leaving the sheet's owning tab: hide it instantly, keep it "open".
-// Shopping mode and its ticks are kept - they only reset on the cart toggle
-// or on closing the recipe. A half-typed custom serving is dropped.
+// leaving the sheet's owning tab: hide it instantly, keep it "open"
 export function parkRecipe() {
   const el = $("#recipeDetail");
   if (el.hidden || detailState == null) return;
-  if (detailState.customEditing) {
-    detailState.customEditing = false;
-    renderDetail();
-  }
-  el.style.transition = "none";
-  el.classList.remove("shown");
-  el.hidden = true;
-  el.style.transform = "";
+  el.hidden = true; $("#recipeScrim").hidden = true;
 }
 
 // back on the owning tab: restore the stashed sheet, no animation
 export function unparkRecipe() {
   const el = $("#recipeDetail");
   if (detailState == null) return;
-  el.hidden = false;
-  el.style.transition = "none";
-  el.classList.add("shown");
-  el.style.transform = "translate(-50%, 0)";
-  el.scrollTop = 0;
-  void el.offsetHeight; // commit before re-enabling transitions
-  el.style.transition = "";
+  clearAnims(el); clearAnims($("#recipeScrim"));
+  el.hidden = false; $("#recipeScrim").hidden = false;
+  $("#detailBody").scrollTop = 0;
 }
 
-// tab-tap / phone-back / bar tap all route here
+// tab-tap / phone-back / scrim / close button all route here
 export function closeRecipe() {
   if ($("#recipeDetail").hidden || sheetClosing || closeRequested) return;
   closeRequested = true;
@@ -110,6 +117,44 @@ export function closeRecipe() {
   } else {
     slideSheetDown();
   }
+}
+
+// swipe down on the handle or the title row closes the sheet
+function wireDrag() {
+  const el = $("#recipeDetail");
+  let y0 = null, dy = 0;
+  [$("#recipeHandle"), $("#recipeHead")].forEach((g) => {
+    g.addEventListener("pointerdown", (e) => {
+      if (e.target.closest("button")) return;
+      y0 = e.clientY; dy = 0;
+      try { g.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointer */ }
+    });
+    g.addEventListener("pointermove", (e) => {
+      if (y0 == null) return;
+      dy = Math.max(0, e.clientY - y0);
+      el.style.transform = `translateY(${dy}px)`;
+    });
+    const end = () => {
+      if (y0 == null) return;
+      y0 = null;
+      el.style.transform = "";
+      if (dy > 80) closeRecipe();
+    };
+    g.addEventListener("pointerup", end);
+    g.addEventListener("pointercancel", end);
+  });
+}
+
+let wired = false;
+export function wireRecipeSheet() {
+  if (wired) return;
+  wired = true;
+  $("#recipeClose").addEventListener("click", closeRecipe);
+  $("#recipeScrim").addEventListener("click", closeRecipe);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && recipeSheetIsOpen()) { e.stopPropagation(); closeRecipe(); }
+  });
+  wireDrag();
 }
 
 /* An imported binding is read-only, so a module that does not declare
