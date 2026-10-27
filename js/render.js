@@ -6,7 +6,7 @@
    line's history is still one git log --follow away. */
 "use strict";
 
-import { EASE, fadeThrough, play, sharedAxisIn, sharedAxisOut } from "../m3/kave-m3.js";
+import { enterLayer, exitLayer, fadeThrough, sharedAxisIn, sharedAxisOut } from "../m3/kave-m3.js";
 import { backSheets } from "./back-sheets.js";
 import { store, syncState } from "./store.js";
 import { flushing, syncing } from "./sync.js";
@@ -86,11 +86,6 @@ function restoreFocus() {
   const o = opener; opener = null;
   if (o && o.isConnected && o.offsetParent !== null) o.focus({ preventScroll: true });
 }
-/* The kit gives the drawer the sheets' 400ms in and 250ms out; the spec's motion
-   table says 350 and 200, so the drawer plays its own times with the kit's
-   easing and play(). */
-const DRAWER_IN = 350, DRAWER_OUT = 200;
-const clearAnims = (el) => el.getAnimations().forEach((a) => a.cancel());
 let drawerOpen = false;
 let drawerHasHistory = false;
 let drawerToken = 0;
@@ -102,9 +97,7 @@ export function openDrawer() {
   drawerToken++;
   opener = document.activeElement;
   scrim.hidden = false; d.hidden = false;
-  clearAnims(d); clearAnims(scrim);
-  play(scrim, [{ opacity: 0 }, { opacity: 1 }], 200, "linear");
-  play(d, [{ transform: "translateX(-100%)" }, { transform: "none" }], DRAWER_IN, EASE.decelerate);
+  enterLayer(d, "drawer");
   try { history.pushState({ drawer: true }, ""); drawerHasHistory = true; }
   catch (e) { drawerHasHistory = false; }
   const first = d.querySelector(".m3-drawer__item");
@@ -115,8 +108,7 @@ function hideDrawer(keepOpener = false) {
   drawerOpen = false;
   const d = $("#drawer"), scrim = $("#drawerScrim");
   const token = ++drawerToken;
-  play(scrim, [{ opacity: 1 }, { opacity: 0 }], 200, "linear", { fill: "forwards" });
-  play(d, [{ transform: "none" }, { transform: "translateX(-100%)" }], DRAWER_OUT, EASE.accelerate, { fill: "forwards" }).then(() => {
+  exitLayer(d, "drawer").then(() => {
     if (token !== drawerToken) return;   // reopened meanwhile
     d.hidden = true; scrim.hidden = true;
   });

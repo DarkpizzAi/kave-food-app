@@ -100,7 +100,8 @@ function swapLevel(dir, leaving) {
 // one level back; the level's own history entry is spent by the caller
 function popLevel() {
   const leaving = ins.stack.pop();
-  swapLevel(-1, leaving);
+  if (leaving && leaving.onClose) leaving.onClose();   // now, so an interrupted swap cannot drop it
+  swapLevel(-1, null);
 }
 
 // Closes the whole sheet. The tap, the scrim, Escape and the phone's back
@@ -157,21 +158,26 @@ export function bindSheetDrag({ sheet, grips, canDrag, onClose }) {
       sheet.style.transform = `translateY(${dy}px)`;
       if (scrim) scrim.style.opacity = String(Math.max(0, 1 - dy / h));
     });
-    const end = () => {
+    const end = (cancelled) => {
       if (y0 == null) return;
       y0 = null;
       const from = dy;
-      if (from > h / 3) {
-        // finish the leave from where the finger let go
+      const fade = scrim ? Number(scrim.style.opacity || 1) : 1;
+      if (!cancelled && from > h / 3) {
+        // finish the leave from where the finger let go; the scrim fades out with it
+        const ms = Math.max(120, 250 * (1 - from / h));
+        if (scrim) play(scrim, [{ opacity: fade }, { opacity: 0 }], ms, "linear", { fill: "forwards" });
         play(sheet, [{ transform: `translateY(${from}px)` }, { transform: "translateY(100%)" }],
-          Math.max(120, 250 * (1 - from / h)), EASE.accelerate, { fill: "forwards" }).then(onClose);
+          ms, EASE.accelerate, { fill: "forwards" }).then(onClose);
       } else {
-        sheet.style.transform = ""; if (scrim) scrim.style.opacity = "";
+        // a cancelled gesture is never a close: spring back, scrim back to full
+        sheet.style.transform = "";
+        if (scrim) { scrim.style.opacity = ""; if (from > 0) play(scrim, [{ opacity: fade }, { opacity: 1 }], 250, "linear"); }
         if (from > 0) play(sheet, [{ transform: `translateY(${from}px)` }, { transform: "none" }], 250, EASE.decelerate);
       }
     };
-    g.addEventListener("pointerup", end);
-    g.addEventListener("pointercancel", end);
+    g.addEventListener("pointerup", () => end(false));
+    g.addEventListener("pointercancel", () => end(true));
   });
 }
 

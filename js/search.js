@@ -11,7 +11,7 @@
 
 import { enterLayer, exitLayer, motionFactor } from "../m3/kave-m3.js";
 import { backSheets } from "./back-sheets.js";
-import { openRecipe } from "./sheet-recipe.js";
+import { openRecipe, recipeSheetIsOpen } from "./sheet-recipe.js";
 import { store } from "./store.js";
 import { $, deburr, escapeHtml, markJump } from "./util.js";
 import { renderList, setCheckedOpen } from "./view-list.js";
@@ -215,8 +215,10 @@ export function wireSearch() {
     clearTimeout(timer);
     timer = setTimeout(drawSearch, DEBOUNCE_MS);
   });
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") { e.stopPropagation(); closeSearch(); }
+  // Escape closes the page whatever has focus, unless the recipe sheet sits on top and takes it
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || !isOpen || recipeSheetIsOpen()) return;
+    e.stopPropagation(); closeSearch();
   });
   $("#searchBack").addEventListener("click", () => { closeSearch(); });
   $("#searchClear").addEventListener("click", () => { input.value = ""; clearTimeout(timer); drawSearch(); input.focus(); });
