@@ -1,16 +1,15 @@
-# Spoon - non-negotiables
+# Kave Ladle - non-negotiables
 
 Rules that are expensive to break and easy to break by accident. Everything
 else, including the whole design system, lives in the `brand` plugin of the
-private `kave-hub` repo: read `brand/data/household-look.md` and
-`brand/data/household-tokens.css`, or invoke its `apply-household-look`
-skill. **Do not restate the design system here.** This repo is public.
+private `kave-hub` repo: read `brand/data/household-look-m3-draft.md`
+(the Material 3 spec), or invoke its `apply-household-look` skill. **Do not restate the design system here.** This repo is public.
 
 ## Never rename
 
 The repo slug, its GitHub Pages URL, and the `CACHE` name in
 `service-worker.js` are the deployment's identity. This is why the repo, the
-URL and the cache still say `kave-food` while the app is called Spoon: the
+URL and the cache still say `kave-food` while the app is called Kave Ladle: the
 user-facing name was the only thing that changed. Renaming any of the others
 moves the live URL and orphans every installed copy on both phones.
 
@@ -82,7 +81,7 @@ browsing; test without it.)
 
 ## One origin, one token
 
-Spoon, Compass and the hub site are all served from `darkpizzai.github.io`
+Ladle, Compass and the hub site are all served from `darkpizzai.github.io`
 and share one `localStorage`, so they share the token. Never publish another
 GitHub Pages site from the DarkpizzAi account: anything served there can
 read it.
@@ -97,19 +96,21 @@ the `syncing` latch cleared in a `finally`. Clearing that latch on the normal
 tail leaves it stuck on after one throw, and the app then goes quietly stale
 with nothing to show for it.
 
-## `tokens.css` is generated. Never hand-edit it
+## `m3/` is generated. Never hand-edit it
 
-Adopted in v11.20. It is a verbatim copy of
-`brand/data/household-tokens.css` in the hub, placed by that repo's
-`brand/tools/sync-household-tokens.py`. Change a colour, a type step, a
-spacing step or a radius **there**, run the script, and bump `VERSION` here.
-Run it with `--check` before shipping: a stale copy looks exactly like a
-working one.
+`m3/kave-m3-tokens.css`, `m3/kave-m3.css` and `m3/kave-m3.js` are placed by
+kave-hub's `brand/tools/sync-household-tokens.py`, from the Material 3 source
+in the hub. Change a colour, a component or a size **there**, run the script,
+and bump `VERSION` here. While on a branch, adopt with `--target <path to
+this checkout>`; run without it, the script writes into the main checkout.
+Run it with `--check --target ...` before shipping: a stale copy looks exactly
+like a working one. The icons are synced by the same script.
 
-`styles.css` defines no design tokens any more. What it still owns is the
-store colours, because those are data - Isa's fixed roster, which must not
-move - and they are theme-aware, so they have their own `[data-theme]` block
-in this repo rather than in the household file.
+`styles.css` defines no design tokens. What it still owns is the store
+colours, because those are data - Isa's fixed roster, which must not move -
+and they are theme-aware, so they have their own `[data-theme]` block in this
+repo. `tokens.css` (pre-Material) is still written by the script but is no
+longer linked or cached.
 
 ## One entry point, ES modules in `js/`
 

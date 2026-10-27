@@ -1,12 +1,12 @@
-/* Spoon service worker (Phase 3).
+/* Kave Ladle service worker (Phase 3).
 
    Caches the static shell so the app installs and opens offline. Data
    (api.github.com) always hits the network - the app's own localStorage cache
    is the offline data store. Bump VERSION on every deploy so the old cache is
    cleared and the "new version" toast fires.
 
-   EVERY MODULE IN js/ HAS TO BE IN SHELL. The app is sixteen files since
-   v11.21, not one, and a module missing from this list is a module the
+   EVERY MODULE IN js/ HAS TO BE IN SHELL. The app is a couple of dozen files, not
+   one (the js/ modules plus the generated m3/ kit), and a module missing from this list is a module the
    app cannot load with no network. Nothing says so until someone opens it
    in a supermarket basement.
 
@@ -17,7 +17,7 @@
    has to live here to be able to break a browser out of a stale shell.
 */
 
-const VERSION = "v12.10";
+const VERSION = "v13.0";
 const SHELL_TIMEOUT_MS = 3000;
 const CACHE = `kave-food-${VERSION}`;
 
@@ -42,6 +42,8 @@ const SHELL = [
   "github.js",
   "pixel-icons.js",
   "js/util.js",
+  "js/search.js",
+  "js/view-roadmap.js",
   "js/store.js",
   "js/theme.js",
   "js/prices-data.js",
@@ -61,13 +63,18 @@ const SHELL = [
   "js/sync.js",
   "js/pull-to-sync.js",
   "js/boot.js",
-  "tokens.css",
+  "m3/kave-m3-tokens.css",
+  "m3/kave-m3.css",
+  "m3/kave-m3.js",
   "styles.css",
   "manifest.json",
   "icon-192.png",
   "icon-512.png",
   "icon-512-maskable.png",
+  "icon-512-monochrome.png",
   "apple-touch-icon.png",
+  "favicon.svg",
+  "favicon-32.png",
 ];
 
 const FONT_HOSTS = ["fonts.googleapis.com", "fonts.gstatic.com"];
