@@ -24,6 +24,7 @@ const FOUND_MS = 1800;
 
 let isOpen = false;
 let hasHistory = false;
+let closeRequested = false;   // history.back() sent, popstate not landed yet
 let token = 0;
 let opener = null;
 let timer = 0;
@@ -162,6 +163,7 @@ export function drawSearch() {
 export function openSearch() {
   if (isOpen) return;
   isOpen = true;
+  closeRequested = false;
   token++;
   opener = document.activeElement;
   const el = $("#searchPage");
@@ -183,6 +185,7 @@ function settle() {
 function hideSearch() {
   if (!isOpen) return;
   isOpen = false;
+  closeRequested = false;
   clearTimeout(timer);
   const el = $("#searchPage");
   const t = ++token;
@@ -198,7 +201,8 @@ export function closeSearch() {
   return new Promise((resolve) => {
     if (!isOpen) { resolve(); return; }
     waiters.push(resolve);
-    if (hasHistory) { hasHistory = false; history.back(); }
+    if (closeRequested) return;          // a back is already in flight
+    if (hasHistory) { hasHistory = false; closeRequested = true; history.back(); }
     else hideSearch();
   });
 }

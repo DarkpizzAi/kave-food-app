@@ -200,6 +200,7 @@ export function renderList(state) {
 
 let addOpen = false;
 let addHasHistory = false;
+let addCloseRequested = false;   // history.back() sent, popstate not landed yet
 let addToken = 0;
 let addOpener = null;
 
@@ -293,6 +294,7 @@ function submitAdd(name, boughtId = null) {
 export function openAddPage() {
   if (addOpen || store.readOnly()) return;
   addOpen = true;
+  addCloseRequested = false;
   addToken++;
   addOpener = document.activeElement;
   const el = $("#addPage");
@@ -309,6 +311,7 @@ export function openAddPage() {
 function hideAddPage() {
   if (!addOpen) return;
   addOpen = false;
+  addCloseRequested = false;
   const el = $("#addPage");
   const token = ++addToken;
   exitLayer(el, "page").then(() => { if (token === addToken) el.hidden = true; });
@@ -323,8 +326,8 @@ function hideAddPage() {
 
 // the back arrow, Escape and the phone's back button are one path
 export function closeAddPage() {
-  if (!addOpen) return;
-  if (addHasHistory) { addHasHistory = false; history.back(); }
+  if (!addOpen || addCloseRequested) return;   // a back is already in flight
+  if (addHasHistory) { addHasHistory = false; addCloseRequested = true; history.back(); }
   else hideAddPage();
 }
 export const addPageIsOpen = () => addOpen;

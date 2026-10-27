@@ -21,7 +21,7 @@ store.load();
 loadCleanup();                       // list + recipes + sync meta from the cache
 if (!themeBootRan()) {
   console.warn(
-    "Spoon: #theme-preload in index.html did not run. If you just edited it, "
+    "Kave Ladle: #theme-preload in index.html did not run. If you just edited it, "
     + "its CSP hash is stale - recompute script-src's sha256 with the command "
     + "in the README, under \"The token, and what protects it\"."
   );

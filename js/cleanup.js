@@ -14,7 +14,7 @@
 "use strict";
 
 import { github } from "../github.js";
-import { openInsSheet } from "./sheet-price.js";
+import { insBodyBusy, openInsSheet } from "./sheet-price.js";
 import { store } from "./store.js";
 import { $, $$, escapeHtml } from "./util.js";
 
@@ -83,7 +83,7 @@ export async function syncCleanup() {
     await flushOutbox();
   } finally {
     syncing = false;
-    renderCleanup();
+    renderCleanup(true);
   }
 }
 
@@ -146,7 +146,8 @@ export function visibleCards() {
 }
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-export function renderCleanup() {
+// passive: a background redraw (sync, tab render), which must not eat a field being typed in
+export function renderCleanup(passive = false) {
   const q = cleanup.queue;
   const cards = visibleCards();
   const count = (m) => cards.filter((c) => c.missing.includes(m)).length;
@@ -157,7 +158,7 @@ export function renderCleanup() {
   say("#cleanupNoVar", count("variant"), "a variant");
   say("#cleanupNoPack", count("pack_size"), "a pack size");
   $("#cleanupOpen").disabled = !q;
-  if (cleanup.open) renderSheet($("#insSheetBody"));
+  if (cleanup.open && !(passive && insBodyBusy())) renderSheet($("#insSheetBody"));
 }
 
 /* ---- the sheet ---- */

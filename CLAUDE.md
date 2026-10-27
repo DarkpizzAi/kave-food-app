@@ -106,18 +106,17 @@ this checkout>`; run without it, the script writes into the main checkout.
 Run it with `--check --target ...` before shipping: a stale copy looks exactly
 like a working one. The icons are synced by the same script.
 
-`styles.css` defines no design tokens. What it still owns is the store
-colours, because those are data - Isa's fixed roster, which must not move -
-and they are theme-aware, so they have their own `[data-theme]` block in this
-repo. `tokens.css` (pre-Material) is still written by the script but is no
+`styles.css` defines no design tokens, and no store colours either. The roster
+(which store gets which hue) lives in `js/prices-data.js` `STORE_COLORS`; the
+colours themselves come from the generated kit's `--kave-data-<store>` tokens.
+A store's colour changes through kave-hub, not here. `tokens.css` (pre-Material) is still written by the script but is no
 longer linked or cached.
 
 ## One entry point, ES modules in `js/`
 
 `index.html` loads `js/boot.js` and nothing else. Since v11.21 the app is ES
 modules in `js/`, split out of what was one 4240-line `app.js` on the section
-banners that file already drew. `github.js` and `pixel-icons.js` stay at the
-root and export.
+banners that file already drew. `github.js` stays at the root and exports.
 
 - **Every module in `js/` must be in `SHELL` in `service-worker.js`.** A
   module missing from that list is an app that cannot open with no network,
@@ -131,11 +130,12 @@ root and export.
   `#theme-preload` still runs during parse, which is the one thing that has
   to, since it exists to beat the first paint.
 - **A deploy can hand the browser an inconsistent shell for one load.** The
-  worker serves a navigation network-first and every other shell asset
-  stale-while-revalidate, so a fresh `index.html` can meet a subresource
-  still coming out of the previous cache. Two classic scripts survived that;
-  a module import asserts its exports, so now it kills the app. It happened
-  live on v11.21. `#theme-preload` carries a recovery guard that clears the
+  worker serves a navigation network-first, and every other same-origin asset
+  network-first with a 3 second timeout, falling back to the cache (fonts are
+  stale-while-revalidate). Past the timeout a fresh `index.html` can still
+  meet a subresource from the previous cache. Two classic scripts survived
+  that; a module import asserts its exports, so now it kills the app. It
+  happened live on v11.21, under the old stale-while-revalidate. `#theme-preload` carries a recovery guard that clears the
   caches and reloads once per tab - it lives in `index.html` and not in
   `js/` because `index.html` is the one file the *old* worker fetches
   fresh, so it reaches the browser on the deploy that breaks it. That is a

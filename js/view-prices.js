@@ -697,7 +697,7 @@ export function renderPrices(state) {
   watchColours();
   renderOpportunities();
   renderTrends();
-  renderCleanup();
+  renderCleanup(true);
 }
 
 /* ---------- purchase rows (the history sheet's lines) ---------- */

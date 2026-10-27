@@ -178,15 +178,27 @@ export function updateRailFade(rail) {
 /* ---------- menus (Cuisine, Type, Order by) ---------- */
 
 let menu = null;   // { el, clear, anchor }
+// An open menu owns one history entry, like the sheets, so the phone's back
+// closes it first instead of switching tab under a full-screen click catcher.
+let menuHasHistory = false;
+let menuCloseRequested = false;   // history.back() sent, popstate not landed yet
 
 function onMenuKey(e) {
   if (e.key === "Escape" && menu) { e.stopPropagation(); e.preventDefault(); closeMenu(); }
 }
 
+// the tap, Escape and the phone's back button are one path
 function closeMenu(restoreFocus = true) {
+  if (!menu || menuCloseRequested) return;   // a back is already in flight
+  if (menuHasHistory) { menuHasHistory = false; menuCloseRequested = true; history.back(); return; }
+  teardownMenu(restoreFocus);
+}
+
+function teardownMenu(restoreFocus) {
   if (!menu) return;
   const { el, clear, anchor } = menu;
   menu = null;
+  menuCloseRequested = false;
   clear.remove();
   exitLayer(el, "menu").then(() => el.remove());
   document.removeEventListener("keydown", onMenuKey, true);
@@ -195,7 +207,7 @@ function closeMenu(restoreFocus = true) {
 }
 
 function openMenu(anchor, items, current, onPick) {
-  closeMenu(false);
+  if (menu) teardownMenu(false);   // keeps its history entry, reused below
   const clear = document.createElement("div");
   clear.className = "rl-menu-clear";
   clear.addEventListener("click", () => closeMenu());
@@ -220,10 +232,26 @@ function openMenu(anchor, items, current, onPick) {
   el.style.top = `${r.bottom + scrollY + 4}px`;
   anchor.setAttribute("aria-expanded", "true");
   menu = { el, clear, anchor };
+  if (!menuHasHistory) {
+    try { history.pushState({ menu: true }, ""); menuHasHistory = true; }
+    catch (e) { menuHasHistory = false; }
+  }
   document.addEventListener("keydown", onMenuKey, true);
   enterLayer(el, "menu");
   const first = el.querySelector(".is-active") || el.querySelector("button");
   if (first) first.focus({ preventScroll: true });
+}
+
+backSheets.push({
+  isOpen: () => menu !== null,
+  close: () => { menuHasHistory = false; teardownMenu(true); },
+});
+// the tab changed under an open menu (not by a tap: the click catcher covers
+// the screen): drop it; its history entry is left stale, like a sheet's
+function wireMenuGuard() {   // from wireRecipes: store is not initialised yet at module evaluation
+  store.subscribe((state) => {
+    if (menu && state.view !== "recipes") { menuHasHistory = false; teardownMenu(false); }
+  });
 }
 
 /* ---------- the tab ---------- */
@@ -412,6 +440,7 @@ export function relayoutRecipes() {
 
 let searchOpen = false;
 let searchHasHistory = false;
+let searchCloseRequested = false;   // history.back() sent, popstate not landed yet
 let searchToken = 0;
 let searchOpener = null;
 
@@ -442,6 +471,7 @@ function drawSearch() {
 export function openRecipeSearch() {
   if (searchOpen) return;
   searchOpen = true;
+  searchCloseRequested = false;
   searchToken++;
   searchOpener = document.activeElement;
   const el = $("#recipeSearchPage");
@@ -459,6 +489,7 @@ export function openRecipeSearch() {
 function hideRecipeSearch() {
   if (!searchOpen) return;
   searchOpen = false;
+  searchCloseRequested = false;
   const el = $("#recipeSearchPage");
   const token = ++searchToken;
   exitLayer(el, "page").then(() => { if (token === searchToken) el.hidden = true; });
@@ -468,8 +499,8 @@ function hideRecipeSearch() {
 
 // the back arrow, Escape and the phone's back button are one path
 export function closeRecipeSearch() {
-  if (!searchOpen) return;
-  if (searchHasHistory) { searchHasHistory = false; history.back(); }
+  if (!searchOpen || searchCloseRequested) return;   // a back is already in flight
+  if (searchHasHistory) { searchHasHistory = false; searchCloseRequested = true; history.back(); }
   else hideRecipeSearch();
 }
 export const recipeSearchIsOpen = () => searchOpen;
@@ -479,6 +510,7 @@ backSheets.push({
 });
 
 export function wireRecipes() {
+  wireMenuGuard();
   setPaneOpener(selectInPane);
   $("#recipeSearchPill").addEventListener("click", openRecipeSearch);
   const input = $("#recipeSearchInput");

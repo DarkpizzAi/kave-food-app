@@ -88,11 +88,13 @@ function restoreFocus() {
 }
 let drawerOpen = false;
 let drawerHasHistory = false;
+let drawerCloseRequested = false;   // history.back() sent, popstate not landed yet
 let drawerToken = 0;
 
 export function openDrawer() {
   if (drawerOpen) return;
   drawerOpen = true;
+  drawerCloseRequested = false;
   const d = $("#drawer"), scrim = $("#drawerScrim");
   drawerToken++;
   opener = document.activeElement;
@@ -106,6 +108,7 @@ export function openDrawer() {
 function hideDrawer(keepOpener = false) {
   if (!drawerOpen) return;
   drawerOpen = false;
+  drawerCloseRequested = false;
   const d = $("#drawer"), scrim = $("#drawerScrim");
   const token = ++drawerToken;
   exitLayer(d, "drawer").then(() => {
@@ -116,8 +119,8 @@ function hideDrawer(keepOpener = false) {
 }
 // the tap, the scrim and the phone's back button are one path
 export function closeDrawer() {
-  if (!drawerOpen) return;
-  if (drawerHasHistory) { drawerHasHistory = false; history.back(); }
+  if (!drawerOpen || drawerCloseRequested) return;   // a back is already in flight
+  if (drawerHasHistory) { drawerHasHistory = false; drawerCloseRequested = true; history.back(); }
   else hideDrawer();
 }
 backSheets.push({
@@ -129,6 +132,7 @@ backSheets.push({
 const PAGE_TITLES = { settings: "Settings", roadmap: "Roadmap" };
 let pageName = null;
 let pageHasHistory = false;
+let pageCloseRequested = false;
 let pageToken = 0;
 
 export function openPage(name) {
@@ -143,6 +147,7 @@ export function openPage(name) {
   }
   if (!pageName && !inherit && !drawerOpen) opener = document.activeElement;
   pageName = name;
+  pageCloseRequested = false;
   pageToken++;
   $("#pageTitle").textContent = PAGE_TITLES[name];
   $("#pageSettings").hidden = name !== "settings";
@@ -162,14 +167,15 @@ export function openPage(name) {
 function hidePage() {
   if (!pageName) return;
   pageName = null;
+  pageCloseRequested = false;
   const host = $("#page");
   const token = ++pageToken;
   sharedAxisOut(host, -1).then(() => { if (token === pageToken) host.hidden = true; });
   restoreFocus();
 }
 export function closePage() {
-  if (!pageName) return;
-  if (pageHasHistory) { pageHasHistory = false; history.back(); }
+  if (!pageName || pageCloseRequested) return;
+  if (pageHasHistory) { pageHasHistory = false; pageCloseRequested = true; history.back(); }
   else hidePage();
 }
 export const pageIsOpen = () => pageName !== null;

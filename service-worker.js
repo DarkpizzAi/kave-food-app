@@ -40,7 +40,6 @@ const SHELL = [
   "./",
   "index.html",
   "github.js",
-  "pixel-icons.js",
   "js/util.js",
   "js/search.js",
   "js/view-roadmap.js",

@@ -31,8 +31,20 @@ const top = () => ins.stack[ins.stack.length - 1] || null;
 
 export const insSheetIsOpen = () => ins.open;
 
+// what the body was last drawn from: the products map by identity, so a
+// background sync that changed nothing leaves the open sheet alone
+let drawnFrom = null;
+
+// true while a field inside the sheet body has focus: a redraw would eat the
+// text, the caret and the keyboard
+export function insBodyBusy() {
+  const a = document.activeElement;
+  return !!a && /^(INPUT|TEXTAREA)$/.test(a.tagName) && $("#insSheetBody").contains(a);
+}
+
 function drawIns() {
   const body = $("#insSheetBody");
+  drawnFrom = store.state.prices.products;
   body.innerHTML = "";
   const f = top();
   if (f && f.render) f.render(body);
@@ -40,7 +52,10 @@ function drawIns() {
 
 // a sync that lands while the sheet is open redraws it from fresh state
 export function refreshInsSheet() {
-  if (ins.open) drawIns();
+  if (!ins.open) return;
+  if (drawnFrom === store.state.prices.products) return;   // nothing new to show
+  if (insBodyBusy()) return;                               // drawn on the next refresh after blur
+  drawIns();
 }
 
 function settleWaiters() {

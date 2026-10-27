@@ -11,7 +11,7 @@ orphan every installed copy. Only the user-facing name changed.
 
 **This repo is the static app shell only** - `index.html`, `styles.css`
 (Ladle's own layout), `js/` (ES modules, entered through `js/boot.js`),
-`m3/`, `github.js`, `pixel-icons.js`, `manifest.json`, `service-worker.js`
+`m3/`, `github.js`, `manifest.json`, `service-worker.js`
 and the icon files. No data, no secrets. It is public so GitHub Pages can
 serve it for free.
 
@@ -153,6 +153,11 @@ If a token is ever exposed, revoke it on GitHub; clearing it in Settings only
 removes this device's copy.
 
 ## Status
+
+> This section is the history of the Spoon era and is superseded by v13.0
+> (Kave Ladle on Material 3, described above). Palettes, the theme editor
+> and the Spoon name below no longer apply; the sync, poll and Prices notes
+> still do. Kept for the reasons behind the sync rules.
 
 **Phase 1** - UI and local state (`localStorage`).
 
