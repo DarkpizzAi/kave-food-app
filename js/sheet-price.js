@@ -392,7 +392,9 @@ export function renderRecipeInto(host, st, redraw) {
   const scaled = target !== base;
   const ro = store.readOnly();
 
-  const chips = PORTION_CHOICES.map((n) => {
+  // a base outside the usual five still shows, so the selection is visible
+  const choices = [...new Set([...PORTION_CHOICES, ...(base ? [base] : [])])].sort((a, b) => a - b);
+  const chips = choices.map((n) => {
     const on = n === target;
     return `<button type="button" class="m3-chip${on ? " m3-chip--leading is-selected" : ""}" data-serv="${n}" aria-pressed="${on}">` +
       `${on ? '<span class="m3-icon" aria-hidden="true">check</span>' : ""}${n}</button>`;

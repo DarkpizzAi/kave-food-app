@@ -16,7 +16,7 @@
 import { enterLayer, exitLayer, kaveKey, sharedAxisIn, sharedAxisOut } from "../m3/kave-m3.js";
 import { backSheets } from "./back-sheets.js";
 import { cap, effortFor } from "./prices-data.js";
-import { openRecipe, setPaneOpener } from "./sheet-recipe.js";
+import { closeRecipe, detailState, focusKey, openRecipe, refocus, setPaneOpener } from "./sheet-recipe.js";
 import { renderRecipeInto } from "./sheet-price.js";
 import { store } from "./store.js";
 import { $, deburr, escapeHtml } from "./util.js";
@@ -146,6 +146,7 @@ function recipeMeta(r) {
 export function recipeRow(r, selected = false) {
   const b = document.createElement("button");
   b.type = "button";
+  b.dataset.slug = r.slug;
   b.className = "m3-list-item m3-list-item--tap rl-row" + (selected ? " m3-list-item--selected" : "");
   if (selected) b.setAttribute("aria-current", "true");
   const eff = effortFor(r.category);
@@ -244,10 +245,11 @@ function quickChip(f) {
   return b;
 }
 
-function dropChip({ label, icon, filled, onOpen, aria }) {
+function dropChip({ drop, label, icon, filled, onOpen, aria }) {
   const b = document.createElement("button");
   b.type = "button";
   b.className = "m3-chip m3-chip--dropdown" + (filled ? " m3-chip--leading is-selected" : icon ? " m3-chip--leading" : "");
+  b.dataset.drop = drop;
   b.setAttribute("aria-haspopup", "menu");
   b.setAttribute("aria-expanded", "false");
   b.setAttribute("aria-label", aria);
@@ -279,6 +281,14 @@ function emptyFiltered() {
 }
 
 export function renderRecipes(state) {
+  // a rebuild must not drop the user's focus: find the same control afterwards
+  const active = document.activeElement;
+  const focusSel = active && $("#view-recipes").contains(active) ? focusKey(active) : "";
+  drawRecipes(state);
+  if (focusSel && (!active.isConnected || active.offsetParent === null)) refocus(focusSel, null);
+}
+
+function drawRecipes(state) {
   const all = state.recipes;
   const hasBook = all.length > 0;
   $("#recipeTop").hidden = !hasBook;
@@ -298,20 +308,20 @@ export function renderRecipes(state) {
   const drops = [];
   if (cuisines.length) {
     drops.push(dropChip({
-      label: ui.cuisine ? cap(ui.cuisine) : "Cuisine", filled: !!ui.cuisine,
+      drop: "cuisine", label: ui.cuisine ? cap(ui.cuisine) : "Cuisine", filled: !!ui.cuisine,
       aria: `Cuisine: ${ui.cuisine ? cap(ui.cuisine) : "all"}. Change`,
       onOpen: (a) => openMenu(a, [{ id: "", label: "All cuisines" }, ...cuisines.map((c) => ({ id: c, label: cap(c) }))], ui.cuisine, (v) => setFilter("cuisine", v)),
     }));
   }
   if (types.length) {
     drops.push(dropChip({
-      label: ui.type ? TYPE_LABEL[ui.type] : "Type", filled: !!ui.type,
+      drop: "type", label: ui.type ? TYPE_LABEL[ui.type] : "Type", filled: !!ui.type,
       aria: `Type: ${ui.type ? TYPE_LABEL[ui.type] : "all"}. Change`,
       onOpen: (a) => openMenu(a, [{ id: "", label: "All types" }, ...types.map((t) => ({ id: t, label: TYPE_LABEL[t], icon: TYPE_ICON[t] }))], ui.type, (v) => setFilter("type", v)),
     }));
   }
   drops.push(dropChip({
-    label: order.label, icon: "sort", filled: false, aria: `Order by: ${order.label}. Change`,
+    drop: "order", label: order.label, icon: "sort", filled: false, aria: `Order by: ${order.label}. Change`,
     onOpen: (a) => openMenu(a, ORDERS, ui.order, (v) => setFilter("order", v)),
   }));
   $("#recipeDrops").replaceChildren(...drops);
@@ -319,7 +329,8 @@ export function renderRecipes(state) {
   // the pane's recipe: the selection, else the first row on screen
   const expanded = isExpanded();
   if (expanded) {
-    let cur = ui.sel && all.find((r) => r.slug === ui.sel);
+    // the selection must be on screen: else the first visible row
+    let cur = ui.sel && rows.find((r) => r.slug === ui.sel);
     if (!cur && rows.length) {
       const firstType = TYPE_ORDER.find((t) => rows.some((r) => typeOf(r) === t));
       cur = rows.find((r) => typeOf(r) === firstType);
@@ -376,6 +387,8 @@ function drawPane(state, force = false) {
 // from wireRecipes at boot, not at load: this module sits in an import cycle
 // with sheet-recipe, whose state may not exist yet while modules evaluate.
 function selectInPane(recipe) {
+  // a recipe the filters hide would be replaced by the first visible row: show them all
+  if (!filterRecipes([recipe], ui).length) { ui.quick.clear(); ui.cuisine = ""; ui.type = ""; }
   ui.sel = recipe.slug;
   paneSt = { recipe, servings: recipe.portions };
   renderRecipes(store.state);
@@ -384,6 +397,14 @@ function selectInPane(recipe) {
 
 // the window crossed a size class: lay the tab out again
 export function relayoutRecipes() {
+  // a sheet open (or parked) from this tab when the window turns expanded:
+  // its recipe moves into the pane and the sheet goes, history entry included
+  if (isExpanded() && detailState && detailState.owner === "recipes") {
+    const recipe = detailState.recipe;
+    closeRecipe();
+    if (store.state.view === "recipes") { selectInPane(recipe); return; }
+    ui.sel = recipe.slug;
+  }
   if (store.state.view === "recipes") renderRecipes(store.state);
 }
 

@@ -22,6 +22,7 @@ let closeRequested = false;
 let sheetHasHistory = false;
 let sheetToken = 0;
 let sheetOpener = null;
+let sheetOpenerSel = "";
 // one history entry standing for "somewhere other than the List tab"
 export let tabHasHistory = false;
 
@@ -30,6 +31,20 @@ let paneOpener = null;
 export function setPaneOpener(fn) { paneOpener = fn; }
 const paneWanted = () =>
   paneOpener != null && document.documentElement.dataset.size === "expanded" && store.state.view === "recipes";
+
+// a selector that finds the same control again after the tab re-renders it
+export function focusKey(el) {
+  if (!el || !el.dataset) return "";
+  for (const k of ["slug", "drop", "q"]) {
+    if (el.dataset[k]) return `[data-${k}="${CSS.escape(el.dataset[k])}"]`;
+  }
+  return "";
+}
+export function refocus(sel, o) {
+  if (o && o.isConnected && o.offsetParent !== null) { o.focus({ preventScroll: true }); return; }
+  const f = sel ? document.querySelector(`#view-recipes ${sel}`) : null;
+  if (f && f.offsetParent !== null) f.focus({ preventScroll: true });
+}
 
 export const recipeSheetIsOpen = () => detailState != null && !$("#recipeDetail").hidden;
 
@@ -59,6 +74,7 @@ export function openRecipe(slug) {
   closeRequested = false;
   sheetToken++;
   sheetOpener = document.activeElement;
+  sheetOpenerSel = focusKey(sheetOpener);
   el.style.transform = "";
   scrim.hidden = false; el.hidden = false;
   renderDetail();
@@ -88,7 +104,7 @@ export function slideSheetDown() {
     closeRequested = false;
   });
   const o = sheetOpener; sheetOpener = null;
-  if (o && o.isConnected && o.offsetParent !== null) o.focus({ preventScroll: true });
+  refocus(sheetOpenerSel, o);
 }
 
 // leaving the sheet's owning tab: hide it instantly, keep it "open"
@@ -109,11 +125,14 @@ export function unparkRecipe() {
 
 // tab-tap / phone-back / scrim / close button all route here
 export function closeRecipe() {
-  if ($("#recipeDetail").hidden || sheetClosing || closeRequested) return;
+  if (detailState == null || sheetClosing || closeRequested) return;
+  const parked = $("#recipeDetail").hidden;
   closeRequested = true;
   if (sheetHasHistory) {
     sheetHasHistory = false;
-    history.back(); // -> popstate -> slideSheetDown
+    history.back(); // -> popstate -> slideSheetDown (or just discards a parked sheet)
+  } else if (parked) {
+    detailState = null; closeRequested = false;
   } else {
     slideSheetDown();
   }

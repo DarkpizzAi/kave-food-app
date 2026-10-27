@@ -88,7 +88,7 @@ export function wire() {
     syncHeaderHeight();
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
-      if (store.state.view === "recipes") relayoutRecipes();
+      relayoutRecipes();
       if (store.state.view === "planner") sizePlanStrips();
       if (store.state.view === "prices") resizePriceChart();
     }, 120);
