@@ -53,6 +53,7 @@ const SHELL = [
   "js/sheet-price.js",
   "js/view-prices.js",
   "js/back-sheets.js",
+  "js/modal-focus.js",
   "js/cleanup.js",
   "js/sheet-list.js",
   "js/view-settings.js",

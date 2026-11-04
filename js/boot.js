@@ -7,6 +7,7 @@
 
 import { github } from "../github.js";
 import { loadCleanup, wireCleanup } from "./cleanup.js";
+import { initModalFocus } from "./modal-focus.js";
 import { initPullToSync } from "./pull-to-sync.js";
 import { render } from "./render.js";
 import { initSheetDrag } from "./sheet-price.js";
@@ -39,6 +40,7 @@ buildSettings();                     // the Settings page body, before wire() bi
 wire();
 wireCleanup();
 initPullToSync();
+initModalFocus();               // M3: focus stays inside the top modal layer
 initSheetDrag();
 render(store.state);                 // paint the cache immediately, before any network
 if (store.state.settings.token) {
