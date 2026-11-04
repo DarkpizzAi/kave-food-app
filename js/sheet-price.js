@@ -7,6 +7,7 @@
    so the phone's back button closes it and nothing else. */
 "use strict";
 
+import { swipeToClose } from "./sheet-swipe.js";
 import { EASE, enterLayer, exitLayer, kaveKey, play, sharedAxisIn, sharedAxisOut, showSnackbar } from "../m3/kave-m3.js";
 import { cap, resolveTargetInfo, roundQty, titleCaseVariant } from "./prices-data.js";
 import { detailState, setDetailState, setSheetHasHistory, setTabHasHistory, slideSheetDown, tabHasHistory, wireRecipeSheet } from "./sheet-recipe.js";
@@ -150,50 +151,59 @@ backSheets.push({
   },
 });
 
-/* Dragging a sheet by its handle or title row. On a phone (compact) a bottom
-   sheet follows the finger and the scrim fades with it; let go past a third of
-   its height and it leaves, otherwise it springs back. canDrag() says whether
-   the sheet is a bottom sheet right now; wider windows present a side sheet
-   with a close button and no drag. onClose runs once the sheet is off screen. */
+/* Dragging a sheet by its handle or title row, or by a swipe down anywhere in
+   it (sheet-swipe.js, Isa 04/11/2026). On a phone (compact) a bottom sheet
+   follows the finger and the scrim fades with it; let go past a third of its
+   height and it leaves, otherwise it springs back. canDrag() says whether the
+   sheet is a bottom sheet right now; wider windows present a side sheet with
+   a close button and no drag. onClose runs once the sheet is off screen. */
 export function bindSheetDrag({ sheet, grips, canDrag, onClose }) {
   const prev = sheet.previousElementSibling;
   const scrim = prev && prev.classList.contains("m3-scrim") ? prev : null;
-  let y0 = null, dy = 0, h = 1;
+  let dy = 0, h = 1, live = false;
+  const begin = () => { clearAnims(sheet); dy = 0; h = sheet.offsetHeight || 1; live = true; };
+  const move = (d) => {
+    if (!live) return;
+    dy = d;
+    sheet.style.transform = `translateY(${dy}px)`;
+    if (scrim) scrim.style.opacity = String(Math.max(0, 1 - dy / h));
+  };
+  const end = (cancelled) => {
+    if (!live) return;
+    live = false;
+    const from = dy;
+    const fade = scrim ? Number(scrim.style.opacity || 1) : 1;
+    if (!cancelled && from > h / 3) {
+      // finish the leave from where the finger let go; the scrim fades out with it
+      const ms = Math.max(120, 250 * (1 - from / h));
+      if (scrim) play(scrim, [{ opacity: fade }, { opacity: 0 }], ms, "linear", { fill: "forwards" });
+      play(sheet, [{ transform: `translateY(${from}px)` }, { transform: "translateY(100%)" }],
+        ms, EASE.accelerate, { fill: "forwards" }).then(onClose);
+    } else {
+      // a cancelled gesture is never a close: spring back, scrim back to full
+      sheet.style.transform = "";
+      if (scrim) { scrim.style.opacity = ""; if (from > 0) play(scrim, [{ opacity: fade }, { opacity: 1 }], 250, "linear"); }
+      if (from > 0) play(sheet, [{ transform: `translateY(${from}px)` }, { transform: "none" }], 250, EASE.decelerate);
+    }
+  };
+  let y0 = null;
   grips.forEach((g) => {
     g.style.touchAction = "none";
+    g.dataset.grip = "";   // sheet-swipe leaves the grips to this drag
     g.addEventListener("pointerdown", (e) => {
       if (!canDrag() || e.target.closest("button")) return;
-      clearAnims(sheet);
-      y0 = e.clientY; dy = 0; h = sheet.offsetHeight || 1;
+      begin(); y0 = e.clientY;
       try { g.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointer */ }
     });
     g.addEventListener("pointermove", (e) => {
       if (y0 == null) return;
-      dy = Math.max(0, e.clientY - y0);
-      sheet.style.transform = `translateY(${dy}px)`;
-      if (scrim) scrim.style.opacity = String(Math.max(0, 1 - dy / h));
+      move(Math.max(0, e.clientY - y0));
     });
-    const end = (cancelled) => {
-      if (y0 == null) return;
-      y0 = null;
-      const from = dy;
-      const fade = scrim ? Number(scrim.style.opacity || 1) : 1;
-      if (!cancelled && from > h / 3) {
-        // finish the leave from where the finger let go; the scrim fades out with it
-        const ms = Math.max(120, 250 * (1 - from / h));
-        if (scrim) play(scrim, [{ opacity: fade }, { opacity: 0 }], ms, "linear", { fill: "forwards" });
-        play(sheet, [{ transform: `translateY(${from}px)` }, { transform: "translateY(100%)" }],
-          ms, EASE.accelerate, { fill: "forwards" }).then(onClose);
-      } else {
-        // a cancelled gesture is never a close: spring back, scrim back to full
-        sheet.style.transform = "";
-        if (scrim) { scrim.style.opacity = ""; if (from > 0) play(scrim, [{ opacity: fade }, { opacity: 1 }], 250, "linear"); }
-        if (from > 0) play(sheet, [{ transform: `translateY(${from}px)` }, { transform: "none" }], 250, EASE.decelerate);
-      }
-    };
-    g.addEventListener("pointerup", () => end(false));
-    g.addEventListener("pointercancel", () => end(true));
+    const stop = (cancelled) => { if (y0 == null) return; y0 = null; end(cancelled); };
+    g.addEventListener("pointerup", () => stop(false));
+    g.addEventListener("pointercancel", () => stop(true));
   });
+  swipeToClose(sheet, { canDrag, begin, move, end: (d, cancelled) => end(cancelled) });
 }
 
 function wireIns() {

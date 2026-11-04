@@ -51,6 +51,7 @@ const SHELL = [
   "js/view-plan.js",
   "js/sheet-recipe.js",
   "js/sheet-price.js",
+  "js/sheet-swipe.js",
   "js/view-prices.js",
   "js/back-sheets.js",
   "js/modal-focus.js",
