@@ -6,17 +6,14 @@
 "use strict";
 
 
-/* The five seeds. A stored palette from before Material 3 maps across
-   (the same table #theme-preload in index.html uses): cobalt and chartreuse
-   become blue, amber becomes yellow. Anything unknown is blue. */
+/* The two themes (Isa, 05/11/2026), the same table #theme-preload in
+   index.html uses: the old name cobalt is Cobalt, and every retired seed or
+   unknown id falls back to Cobalt. */
 export const PALETTES = {
-  blue:       { name: "Blue"       },
-  teal:       { name: "Teal"       },
-  yellow:     { name: "Yellow"     },
-  periwinkle: { name: "Periwinkle" },
-  terracotta: { name: "Terracotta" },
+  blue:       { name: "Cobalt"     },
+  chartreuse: { name: "Chartreuse" },
 };
-const LEGACY = { cobalt: "blue", amber: "yellow", chartreuse: "blue" };
+const LEGACY = { cobalt: "blue" };
 const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 export function toSeed(id) {
   if (has(PALETTES, id)) return id;

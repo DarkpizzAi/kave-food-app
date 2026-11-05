@@ -50,12 +50,10 @@ export async function checkToken() {
 }
 
 
-/* The five seeds as plain solid swatches. These hexes are the seeds' identities
-   (the same five the kit's data-seed blocks are built from); the fill is only
-   the swatch, every other colour on the page comes from the kit. */
-const SEED_HEX = {
-  blue: "#4285f4", teal: "#009688", yellow: "#ffc107", periwinkle: "#5c6bc0", terracotta: "#c05c46",
-};
+/* The two themes as plain solid swatches: each theme's accent (the kit's
+   primary container). The fill is only the swatch, every other colour on
+   the page comes from the kit. */
+const SEED_HEX = { blue: "#1a73e8", chartreuse: "#d7d63a" };
 
 const row = (icon, title, body, trail = "") => `
   <div class="m3-list-item set-row">

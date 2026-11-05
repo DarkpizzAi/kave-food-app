@@ -82,7 +82,7 @@ body.gated > :not(#gate) { display: none !important; }
 
 /* ---------- pages: Settings and Roadmap ---------- */
 .page-body { align-items: center; }
-.page-col { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 8px; }
+.page-col { width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: 8px; }
 .page-intro { margin: 0 0 8px; padding: 0 4px; }
 .m3-list-item__lead.is-soon { background: var(--md-sys-color-surface-container-highest); color: var(--md-sys-color-on-surface-variant); }
 .set-swatches { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; padding: 0 4px; }
@@ -251,3 +251,11 @@ body.gated > :not(#gate) { display: none !important; }
   background: var(--md-sys-color-surface-container-low); color: var(--md-sys-color-on-surface); border-radius: 24px; padding: 16px; scrollbar-width: thin;
 }
 [data-size="expanded"] .rl-pane[hidden] { display: none; }
+/* the open recipe starts level with the first group ("Pasta"), not with the
+   count and filters above the list (Isa, 05/11/2026): the list's two parts
+   join the grid, the head over the list column only */
+[data-size="expanded"] .rl-panes { grid-template-areas: "head ." "groups pane"; row-gap: 24px; }
+[data-size="expanded"] .rl-main { display: contents; }
+[data-size="expanded"] .rl-head { grid-area: head; }
+[data-size="expanded"] #recipeGroups { grid-area: groups; min-width: 0; }
+[data-size="expanded"] .rl-pane { grid-area: pane; }

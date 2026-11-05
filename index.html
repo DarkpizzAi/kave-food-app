@@ -39,7 +39,7 @@
     base-uri 'none';
     object-src 'none';
     form-action 'none';
-    script-src 'self' 'sha256-zXRHgBsO/+8oKiW2+CJXDkOkszPUoffCB+g/lgk6iVU=';
+    script-src 'self' 'sha256-SarrcjmaQIOYW2ETbJt+F4l/tYvJ+AWV6NnylZnJ1d4=';
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
     style-src-elem 'self' https://fonts.googleapis.com;
     style-src-attr 'unsafe-inline';
@@ -74,11 +74,10 @@
     root.dataset.themeBoot = "1";
     try {
       var s = JSON.parse(localStorage.getItem("foodapp.settings")) || {};
-      /* Stored palettes become seeds: the three old names map across, the
-         five seeds pass through, anything else is blue. */
-      var map = { cobalt: "blue", amber: "yellow", chartreuse: "blue",
-                  blue: "blue", teal: "teal", yellow: "yellow",
-                  periwinkle: "periwinkle", terracotta: "terracotta" };
+      /* Stored palettes become themes: Cobalt (blue, or cobalt from before
+         Material 3) and Chartreuse; anything else, the retired seeds
+         included, is Cobalt. Same list as PALETTES in js/theme.js. */
+      var map = { blue: "blue", cobalt: "blue", chartreuse: "chartreuse" };
       root.setAttribute("data-seed", map[s.palette] || "blue");
       var dark = matchMedia("(prefers-color-scheme: dark)").matches;
       root.style.colorScheme = dark ? "dark" : "light";
