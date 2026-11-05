@@ -216,43 +216,39 @@ function sparkSvg(values, colour) {
 export function renderOpportunities() {
   const read = colourReader();
   const deals = computeOpportunities("6m").map(dealOf).filter(Boolean);
-  const hero = $("#dealHero"), grid = $("#dealGrid"), head = $("#dealHead");
+  const hero = $("#dealHero"), grid = $("#dealGrid");
   const empty = $("#dealEmpty"), more = $("#oppToggle");
   if (!deals.length) {
-    hero.hidden = true; grid.hidden = true; head.hidden = true; more.hidden = true;
+    hero.hidden = true; grid.hidden = true; more.hidden = true;
     empty.hidden = false;
     refreshInsSheet();
     return;
   }
-  empty.hidden = true; hero.hidden = false; grid.hidden = false; head.hidden = false; more.hidden = false;
+  empty.hidden = true; hero.hidden = false; grid.hidden = false; more.hidden = false;
 
+  /* the best deal: the whole card is the button, as a small deal card is: it
+     filters the trend chart to it and scrolls down there (Isa, 05/11/2026) */
   const top = deals[0];
+  hero.dataset.key = top.key;
+  hero.setAttribute("aria-label", `${top.label}, €${top.price.toFixed(2)} per kilo at ${top.store}, ${top.pct}% under its six-month high. Show its trend`);
   hero.innerHTML =
-    `<div class="ins-hero__kicker"><span class="m3-icon m3-icon--fill" aria-hidden="true">local_offer</span>` +
-    `<span class="m3-title-s">Best deal right now</span></div>` +
-    `<h2 class="m3-headline-m ins-hero__title">${escapeHtml(top.label)}</h2>` +
-    `<p class="m3-body-m ins-hero__text">€${top.price.toFixed(2)}/kg at ${escapeHtml(top.store)}, ` +
-    `${top.pct}% under its six-month high.</p>` +
-    `<div class="m3-row ins-hero__acts">` +
-    `<button type="button" class="m3-btn ins-hero__add" data-act="add"${store.readOnly() ? " disabled" : ""}>` +
-    `<span class="m3-icon" aria-hidden="true">add_shopping_cart</span>Add to list</button>` +
-    `<button type="button" class="m3-btn m3-btn--text ins-hero__more" data-act="trend">See the trend</button></div>`;
-  $("[data-act=add]", hero).addEventListener("click", () => {
-    const it = store.addItem({ name: top.label, qty: null, unit: null, note: null, source: `deal:${top.key}` });
-    if (!it) return;
-    showSnackbar($("#snackHost"), {
-      text: `Added ${top.label} to the list`, action: "Undo", onAction: () => store.deleteItem(it.id),
-    });
-  });
-  $("[data-act=trend]", hero).addEventListener("click", () => goToTrend(top.key));
+    `<span class="ins-hero__kicker"><span class="m3-icon m3-icon--fill" aria-hidden="true">local_offer</span>` +
+    `<span class="m3-title-s">Best deal right now</span></span>` +
+    `<span class="m3-headline-m ins-hero__title">${escapeHtml(top.label)}</span>` +
+    `<span class="m3-body-m ins-hero__text">€${top.price.toFixed(2)}/kg at ${escapeHtml(top.store)}, ` +
+    `${top.pct}% under its six-month high.</span>`;
+  if (!hero.dataset.wired) {
+    hero.dataset.wired = "1";
+    hero.addEventListener("click", () => goToTrend(hero.dataset.key));
+  }
 
   grid.innerHTML = deals.slice(1, 5).map((d) =>
     `<button type="button" class="m3-card ins-card ins-deal" data-key="${escapeHtml(d.key)}" ` +
     `aria-label="${escapeHtml(`${d.label}, €${d.price.toFixed(2)} per kilo at ${d.store}, ${d.pct}% down. Show its trend`)}">` +
+    `<span class="m3-title-m ins-deal__name">${escapeHtml(d.label)}</span>` +
     `<span class="m3-row ins-deal__top" style="${storeStyle(d.store)}"><span class="m3-dot"></span>` +
     `<span class="m3-label-m m3-variant ins-deal__store">${escapeHtml(d.store)}</span>` +
     `<span class="m3-spacer"></span><span class="m3-tag">${dropText(d.pct)}</span></span>` +
-    `<span class="m3-title-s ins-deal__name">${escapeHtml(d.label)}</span>` +
     `<span class="ins-deal__foot"><span class="m3-headline-s m3-num">€${d.price.toFixed(2)}` +
     `<span class="m3-body-s m3-variant">/kg</span></span>` +
     sparkSvg(d.spark, read(`--kave-data-${storeKeyOf(d.store)}`)) + `</span></button>`).join("");

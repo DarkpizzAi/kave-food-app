@@ -63,7 +63,7 @@ main { max-width: 720px; margin: 0 auto; padding: 8px 16px 32px; position: relat
 
 
 /* indeterminate bar under the header while Sync now runs (js/render.js) */
-.app-header .sync-bar { position: absolute; left: 0; right: 0; bottom: 0; }
+.app-header .sync-bar, .m3-page > .m3-top-bar .sync-bar { position: absolute; left: 0; right: 0; bottom: 0; }
 .sync-bar[hidden] { display: none; }
 /* offline card at the top of every tab */
 .offline-card { margin-bottom: 16px; }
@@ -141,15 +141,19 @@ body.gated > :not(#gate) { display: none !important; }
 .ins-note { padding: 0 8px; margin: 0; }
 .ins-seeall { align-self: flex-start; }
 .ins-wide-btn { align-self: stretch; }
+/* The hero: the accent's soft tint, the accent itself on the title and the
+   icon (Isa, 05/11/2026). The title is large text, which the accent passes
+   on its tint in both themes; small text stays in the plain text colour. The
+   whole card is the button. */
 .ins-hero {
-  background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container);
+  background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container);
   border-radius: 28px; padding: 20px; display: flex; flex-direction: column; gap: 8px;
+  width: 100%; text-align: left; border: 0; font: inherit; cursor: pointer;
 }
+.ins-hero:hover { box-shadow: inset 0 0 0 100vmax color-mix(in srgb, currentColor 8%, transparent); }
 .ins-hero__kicker { display: flex; align-items: center; gap: 8px; }
-.ins-hero__title, .ins-hero__text { margin: 0; }
-.ins-hero__acts { margin-top: 8px; }
-.ins-hero .ins-hero__add { background: var(--md-sys-color-on-primary-container); color: var(--md-sys-color-primary-container); }
-.ins-hero .ins-hero__more { color: var(--md-sys-color-on-primary-container); }
+.ins-hero__kicker .m3-icon, .ins-hero__title { color: var(--md-sys-color-primary); }
+.ins-hero__title, .ins-hero__text { margin: 0; display: block; }
 .ins-deals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 [data-size="medium"] .ins-deals, [data-size="expanded"] .ins-deals { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .ins-card { background: var(--md-sys-color-surface-container-low); border-radius: 24px; color: var(--md-sys-color-on-surface); }
@@ -158,7 +162,7 @@ body.gated > :not(#gate) { display: none !important; }
 .ins-deal { text-align: left; align-items: stretch; gap: 8px; width: 100%; }
 .ins-deal__top { flex-wrap: nowrap; }
 .ins-deal__store { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ins-deal__name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 40px; }
+.ins-deal__name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 48px; }
 .ins-deal__foot { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
 .ins-spark { display: block; width: 100%; height: 28px; }
 .ins-lead { background: var(--kave-kc); color: var(--kave-onkc); }
@@ -179,6 +183,8 @@ body.gated > :not(#gate) { display: none !important; }
 .price-hit { fill: transparent; }
 .price-pt:focus-visible .price-hit { stroke: var(--md-sys-color-primary); stroke-width: 2; }
 .ins-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+/* wide: the four figures in one row (Isa, 05/11/2026) */
+[data-size="medium"] .ins-metrics, [data-size="expanded"] .ins-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .ins-metrics:empty { display: none; }
 .ins-metric { padding: 12px 16px; gap: 2px; background: var(--md-sys-color-surface-container-highest); color: var(--md-sys-color-on-surface); }
 .ins-store { display: flex; align-items: center; gap: 6px; }
@@ -248,9 +254,10 @@ body.gated > :not(#gate) { display: none !important; }
 [data-size="expanded"] .rl-panes { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 400px); gap: 24px; align-items: start; }
 [data-size="expanded"] .rl-pane {
   display: flex; flex-direction: column; gap: 16px; position: sticky; top: 16px; max-height: calc(100dvh - 32px); overflow: auto;
-  background: var(--md-sys-color-surface-container-low); color: var(--md-sys-color-on-surface); border-radius: 24px; padding: 16px; scrollbar-width: thin;
+  background: var(--md-sys-color-surface-container-low); color: var(--md-sys-color-on-surface); border-radius: 24px; padding: 16px; scrollbar-width: none;
 }
 [data-size="expanded"] .rl-pane[hidden] { display: none; }
+[data-size="expanded"] .rl-pane::-webkit-scrollbar { display: none; }
 /* the open recipe starts level with the first group ("Pasta"), not with the
    count and filters above the list (Isa, 05/11/2026): the list's two parts
    join the grid, the head over the list column only */
@@ -259,3 +266,10 @@ body.gated > :not(#gate) { display: none !important; }
 [data-size="expanded"] .rl-head { grid-area: head; }
 [data-size="expanded"] #recipeGroups { grid-area: groups; min-width: 0; }
 [data-size="expanded"] .rl-pane { grid-area: pane; }
+
+/* A full-screen page's top bar scrolls away with the page and comes back on
+   the way up, Material 3 "enter always", like the tabs' (top-bar.js, Isa
+   05/11/2026). It is laid over the page's body so moving it never shifts the
+   content; the body starts below it. */
+.m3-page > .m3-top-bar { position: absolute; top: 0; left: 0; right: 0; z-index: 2; will-change: transform; }
+.m3-page > .page-body { padding-top: calc(var(--page-bar-h, 64px) + 12px); }

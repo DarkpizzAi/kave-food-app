@@ -195,11 +195,7 @@
          cards and the Trends chips are drawn by script. -->
     <section id="view-prices" class="view" hidden>
       <div class="ins-feed">
-        <div id="dealHero" class="ins-hero" hidden></div>
-        <div id="dealHead" class="m3-list-header ins-head" hidden>
-          <span class="m3-title-s">Worth watching</span>
-          <span class="m3-label-m m3-variant">Lowest price in 6 months</span>
-        </div>
+        <button type="button" id="dealHero" class="ins-hero" hidden></button>
         <div id="dealGrid" class="ins-deals" hidden></div>
         <p id="dealEmpty" class="m3-body-m m3-variant ins-note" hidden>Nothing worth watching yet.</p>
         <button id="oppToggle" type="button" class="m3-btn m3-btn--text ins-seeall" hidden>See all worth watching</button>
@@ -431,9 +427,9 @@
       <button type="button" id="pageBack" class="m3-icon-btn" aria-label="Back"><span class="m3-icon">arrow_back</span></button>
       <h1 id="pageTitle" class="m3-top-bar__title m3-title-l"></h1>
       <span class="app-spacer"></span>
+      <div class="m3-progress-linear sync-bar sync-bar--page" role="progressbar" aria-label="Syncing" hidden><i></i></div>
     </header>
-    <div class="m3-progress-linear sync-bar sync-bar--page" role="progressbar" aria-label="Syncing" hidden><i></i></div>
-    <div class="m3-sheet__body page-body">
+    <div class="m3-sheet__body page-body" id="pageBody">
       <div id="pageSettings" class="page-col" hidden></div>
       <div id="pageRoadmap" class="page-col" hidden></div>
     </div>

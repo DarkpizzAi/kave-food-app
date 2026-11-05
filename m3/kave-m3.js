@@ -255,5 +255,6 @@ const KEYS = new Set(["food", "nights", "culture", "outdoors", "travel", "life",
 /* Inline style for a data colour. Only a known key is ever emitted, anything else becomes "other". */
 export function kaveKey(key) {
   const k = typeof key === "string" && KEYS.has(key) ? key : "other";
-  return `--kave-k:var(--kave-data-${k});--kave-kc:var(--kave-data-${k}-container);--kave-onkc:var(--kave-data-on-${k}-container)`;
+  return `--kave-k:var(--kave-data-${k});--kave-kc:var(--kave-data-${k}-container);--kave-onkc:var(--kave-data-on-${k}-container)`
+    + `;--kave-kf:var(--kave-data-${k}-fill);--kave-onkf:var(--kave-data-on-${k}-fill)`;
 }

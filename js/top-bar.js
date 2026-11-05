@@ -10,54 +10,17 @@
    it starts (in the same direction) and a mouse wheel. A scroll the app makes
    itself (markJump in util.js: a tab switch, a jump to a chart) never does.
 
-   The bar is sticky and keeps its place in the flow (styles.css), so moving
-   it is a transform and never shifts the page. Compass has the same module
-   for its own scroller; the behaviour is the household's, kept identical. */
+   One behaviour, two bars: the app's own (#topBar, the window scrolls) and
+   the bar of a full-screen page (Settings, Roadmap, over #pageBody), which
+   scrolled with its page before (Isa, 05/11/2026). The app's bar is sticky
+   and keeps its place in the flow (styles.css), so moving it is a transform
+   and never shifts the page. Compass has the same module for its own
+   scrollers; the behaviour is the household's, kept identical. */
 "use strict";
 
 import { EASE, motionFactor } from "../m3/kave-m3.js";
 
-let bar = null;
-let H = 64;              // the bar's height, its safe-area padding included
-let o = 0;               // its offset: 0 shown, -H gone
-let lastY = 0, dir = 0;  // dir: +1 down, -1 up, the reader's last direction
-let touching = false, lifted = false, wheelAt = 0, endTimer = 0, settleId = 0;
-
 const jumping = () => !!document.documentElement.dataset.jump;
-
-function apply() {
-  if (!bar) return;
-  bar.style.transform = o ? `translateY(${o}px)` : "";
-  bar.classList.toggle("is-hidden", o <= -H);
-}
-function setO(v) {
-  const n = Math.max(-H, Math.min(0, v));
-  if (n === o) return;
-  o = n;
-  apply();
-}
-
-/* where a bar left part way settles: the reader's direction, else the nearer end */
-function target() {
-  if (o >= 0 || o <= -H) return o >= 0 ? 0 : -H;
-  return dir > 0 ? -H : dir < 0 ? 0 : (o < -H / 2 ? -H : 0);
-}
-
-function stopSettle() { if (settleId) { cancelAnimationFrame(settleId); settleId = 0; } }
-/* animate the bar to an end: 250ms emphasized, as the kit's own motion */
-function settleTo(to) {
-  stopSettle();
-  if (o === to) return;
-  const f = motionFactor();
-  if (!f) { setO(to); return; }
-  const from = o, t0 = performance.now(), ms = 250 * f, ease = cubic(EASE.emphasized);
-  const step = (now) => {
-    const p = Math.min(1, (now - t0) / ms);
-    setO(from + (to - from) * ease(p));
-    settleId = p < 1 ? requestAnimationFrame(step) : 0;
-  };
-  settleId = requestAnimationFrame(step);
-}
 
 /* the kit gives easings as CSS cubic-bezier strings; this solves one for x */
 function cubic(css) {
@@ -75,47 +38,65 @@ function cubic(css) {
   };
 }
 
-/* the scroll came to rest: a bar left part way settles */
-function scrollEnded() {
-  clearTimeout(endTimer);
-  lifted = false;
-  if (!touching) settleTo(target());
-}
+/* One enter-always bar. `target` is what carries the listeners (window or an
+   element), `scrollY()` reads its scroll position. */
+function createBar(bar, target, scrollY) {
+  let H = 64;              // the bar's height, its safe-area padding included
+  let o = 0;               // its offset: 0 shown, -H gone
+  let lastY = scrollY(), dir = 0;  // dir: +1 down, -1 up, the reader's last direction
+  let touching = false, lifted = false, wheelAt = 0, endTimer = 0, settleId = 0;
 
-function onScroll() {
-  const y = window.scrollY, dy = y - lastY;
-  lastY = y;
-  if (!dy) return;
-  clearTimeout(endTimer);
-  endTimer = setTimeout(scrollEnded, 160); /* no scrollend event: a quiet 160ms is the end */
-  if (jumping()) return;
-  const s = Math.sign(dy);
-  if (touching) dir = s;
-  else if (!(performance.now() - wheelAt < 300 || (lifted && s === dir))) return;
-  else if (!lifted) dir = s;
-  stopSettle();
-  setO(y <= 0 ? 0 : o - dy);
-}
-
-/* The bar comes all the way back (a tab switch lands at the top with it
-   showing). `now` skips the animation. */
-export function showTopBar(now) {
-  dir = -1;
-  if (now) { stopSettle(); setO(0); } else settleTo(0);
-}
-
-export function measureBar() {
-  if (!bar) return;
-  const h = bar.offsetHeight;
-  if (h && h !== H) { const gone = o <= -H; H = h; o = gone ? -H : Math.max(-H, o); apply(); }
-}
-
-export function initTopBar() {
-  bar = document.getElementById("topBar");
-  if (!bar) return;
-  measureBar();
-  lastY = window.scrollY;
-  window.addEventListener("touchstart", () => { touching = true; lifted = false; stopSettle(); }, { passive: true });
+  function apply() {
+    bar.style.transform = o ? `translateY(${o}px)` : "";
+    bar.classList.toggle("is-hidden", o <= -H);
+  }
+  function setO(v) {
+    const n = Math.max(-H, Math.min(0, v));
+    if (n === o) return;
+    o = n;
+    apply();
+  }
+  /* where a bar left part way settles: the reader's direction, else the nearer end */
+  function rest() {
+    if (o >= 0 || o <= -H) return o >= 0 ? 0 : -H;
+    return dir > 0 ? -H : dir < 0 ? 0 : (o < -H / 2 ? -H : 0);
+  }
+  function stopSettle() { if (settleId) { cancelAnimationFrame(settleId); settleId = 0; } }
+  /* animate the bar to an end: 250ms emphasized, as the kit's own motion */
+  function settleTo(to) {
+    stopSettle();
+    if (o === to) return;
+    const f = motionFactor();
+    if (!f) { setO(to); return; }
+    const from = o, t0 = performance.now(), ms = 250 * f, ease = cubic(EASE.emphasized);
+    const step = (now) => {
+      const p = Math.min(1, (now - t0) / ms);
+      setO(from + (to - from) * ease(p));
+      settleId = p < 1 ? requestAnimationFrame(step) : 0;
+    };
+    settleId = requestAnimationFrame(step);
+  }
+  /* the scroll came to rest: a bar left part way settles */
+  function scrollEnded() {
+    clearTimeout(endTimer);
+    lifted = false;
+    if (!touching) settleTo(rest());
+  }
+  function onScroll() {
+    const y = scrollY(), dy = y - lastY;
+    lastY = y;
+    if (!dy) return;
+    clearTimeout(endTimer);
+    endTimer = setTimeout(scrollEnded, 160); /* no scrollend event: a quiet 160ms is the end */
+    if (jumping()) return;
+    const s = Math.sign(dy);
+    if (touching) dir = s;
+    else if (!(performance.now() - wheelAt < 300 || (lifted && s === dir))) return;
+    else if (!lifted) dir = s;
+    stopSettle();
+    setO(y <= 0 ? 0 : o - dy);
+  }
+  target.addEventListener("touchstart", () => { touching = true; lifted = false; stopSettle(); }, { passive: true });
   const lift = () => {
     if (!touching) return;
     touching = false;
@@ -124,11 +105,49 @@ export function initTopBar() {
     clearTimeout(endTimer);
     endTimer = setTimeout(scrollEnded, 160);
   };
-  window.addEventListener("touchend", lift, { passive: true });
-  window.addEventListener("touchcancel", lift, { passive: true });
-  window.addEventListener("wheel", () => { wheelAt = performance.now(); }, { passive: true });
-  window.addEventListener("scroll", onScroll, { passive: true });
-  window.addEventListener("scrollend", scrollEnded);
+  target.addEventListener("touchend", lift, { passive: true });
+  target.addEventListener("touchcancel", lift, { passive: true });
+  target.addEventListener("wheel", () => { wheelAt = performance.now(); }, { passive: true });
+  target.addEventListener("scroll", onScroll, { passive: true });
+  target.addEventListener("scrollend", scrollEnded);
+
+  const api = {
+    show(now) { dir = -1; if (now) { stopSettle(); setO(0); } else settleTo(0); },
+    measure() {
+      const h = bar.offsetHeight;
+      if (h && h !== H) { const gone = o <= -H; H = h; o = gone ? -H : Math.max(-H, o); apply(); }
+    },
+    /* a new page: shown, and the scroll it remembers is the one it has now */
+    reset() { stopSettle(); lastY = scrollY(); dir = 0; setO(0); },
+  };
+  api.measure();
+  return api;
+}
+
+let main = null, page = null;
+
+/* The bar comes all the way back (a tab switch lands at the top with it
+   showing). `now` skips the animation. */
+export function showTopBar(now) { if (main) main.show(now); }
+
+export function measureBar() { if (main) main.measure(); if (page) page.measure(); }
+
+export function initTopBar() {
+  const bar = document.getElementById("topBar");
+  if (!bar) return;
+  main = createBar(bar, window, () => window.scrollY);
   window.addEventListener("resize", measureBar);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(measureBar);
+  const host = document.getElementById("page"), body = document.getElementById("pageBody");
+  const pbar = host && host.querySelector(".m3-top-bar");
+  if (pbar && body) page = createBar(pbar, body, () => body.scrollTop);
+}
+
+/* A page was drawn (opened, or another one stacked on top): its bar shows. */
+export function resetPageBar() {
+  if (!page) return;
+  page.measure();
+  page.reset();
+  const bar = document.querySelector("#page > .m3-top-bar");
+  if (bar && bar.offsetHeight) document.documentElement.style.setProperty("--page-bar-h", bar.offsetHeight + "px");
 }

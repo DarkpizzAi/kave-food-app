@@ -98,3 +98,29 @@ export function swipeToClose(sheet, { canDrag, begin, move, end }) {
     document.addEventListener("pointercancel", pc);
   });
 }
+
+/* When a drag ends, does the sheet close? As Android does (Isa, 05/11/2026,
+   "like the notification shade on my Pixel"): past a quarter of the sheet's
+   height, or on a flick down whatever the distance (faster than 0.5 px/ms
+   over the last 100ms of the drag). Before this it took a third of the
+   height and a flick did nothing. One per sheet: reset() as the drag
+   begins, add(dy) on every move, closes(dy, height) at the end. */
+export const CLOSE_AT = 0.25;
+export const FLING = 0.5;
+export function makeFling() {
+  let pts = [];
+  return {
+    reset() { pts = []; },
+    add(dy) {
+      const t = performance.now();
+      pts.push([t, dy]);
+      while (pts.length > 2 && t - pts[0][0] > 100) pts.shift();
+    },
+    closes(dy, h) {
+      if (dy > h * CLOSE_AT) return true;
+      if (pts.length < 2) return false;
+      const [t0, y0] = pts[0], [t1, y1] = pts[pts.length - 1];
+      return t1 > t0 && (y1 - y0) / (t1 - t0) > FLING && y1 >= y0;
+    },
+  };
+}

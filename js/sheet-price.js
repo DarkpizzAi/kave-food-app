@@ -7,7 +7,7 @@
    so the phone's back button closes it and nothing else. */
 "use strict";
 
-import { swipeToClose } from "./sheet-swipe.js";
+import { swipeToClose, makeFling } from "./sheet-swipe.js";
 import { EASE, enterLayer, exitLayer, kaveKey, play, sharedAxisIn, sharedAxisOut, showSnackbar } from "../m3/kave-m3.js";
 import { cap, resolveTargetInfo, roundQty, titleCaseVariant } from "./prices-data.js";
 import { detailState, setDetailState, setSheetHasHistory, setTabHasHistory, slideSheetDown, tabHasHistory, wireRecipeSheet } from "./sheet-recipe.js";
@@ -153,18 +153,21 @@ backSheets.push({
 
 /* Dragging a sheet by its handle or title row, or by a swipe down anywhere in
    it (sheet-swipe.js, Isa 04/11/2026). On a phone (compact) a bottom sheet
-   follows the finger and the scrim fades with it; let go past a third of its
-   height and it leaves, otherwise it springs back. canDrag() says whether the
+   follows the finger and the scrim fades with it; let go past a quarter of its
+   height, or flick it down, and it leaves, otherwise it springs back
+   (sheet-swipe.js makeFling). canDrag() says whether the
    sheet is a bottom sheet right now; wider windows present a side sheet with
    a close button and no drag. onClose runs once the sheet is off screen. */
 export function bindSheetDrag({ sheet, grips, canDrag, onClose }) {
   const prev = sheet.previousElementSibling;
   const scrim = prev && prev.classList.contains("m3-scrim") ? prev : null;
   let dy = 0, h = 1, live = false;
-  const begin = () => { clearAnims(sheet); dy = 0; h = sheet.offsetHeight || 1; live = true; };
+  const fling = makeFling();
+  const begin = () => { clearAnims(sheet); dy = 0; h = sheet.offsetHeight || 1; live = true; fling.reset(); };
   const move = (d) => {
     if (!live) return;
     dy = d;
+    fling.add(d);
     sheet.style.transform = `translateY(${dy}px)`;
     if (scrim) scrim.style.opacity = String(Math.max(0, 1 - dy / h));
   };
@@ -173,7 +176,7 @@ export function bindSheetDrag({ sheet, grips, canDrag, onClose }) {
     live = false;
     const from = dy;
     const fade = scrim ? Number(scrim.style.opacity || 1) : 1;
-    if (!cancelled && from > h / 3) {
+    if (!cancelled && fling.closes(from, h)) {
       // finish the leave from where the finger let go; the scrim fades out with it
       const ms = Math.max(120, 250 * (1 - from / h));
       if (scrim) play(scrim, [{ opacity: fade }, { opacity: 0 }], ms, "linear", { fill: "forwards" });

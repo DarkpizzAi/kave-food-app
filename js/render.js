@@ -12,7 +12,7 @@ import { store } from "./store.js";
 import { syncBarOn } from "./sync.js";
 import { VIEW_TITLES } from "./theme.js";
 import { $, $$, markJump } from "./util.js";
-import { showTopBar, initTopBar } from "./top-bar.js";
+import { showTopBar, initTopBar, resetPageBar } from "./top-bar.js";
 import { renderList, renderListBadge } from "./view-list.js";
 import { renderPlanner } from "./view-plan.js";
 import { renderPrices } from "./view-prices.js";
@@ -144,6 +144,7 @@ export function openPage(name) {
   if (name === "roadmap") $("#pageRoadmap").innerHTML = renderRoadmap();
   host.hidden = false;
   host.querySelector(".page-body").scrollTop = 0;
+  resetPageBar();
   sharedAxisIn(host, 1);
   if (inherit) pageHasHistory = true;
   else {
