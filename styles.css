@@ -27,14 +27,13 @@ input { font: inherit; color: inherit; }
 a { color: var(--md-sys-color-primary); }
 
 /* ---------- shell: top bar, navigation bar, rail ---------- */
-/* The top bar is sticky and slides away on the user's own downward scroll
-   (render.js adds .is-hidden); it keeps its place in the flow, so hiding it
-   never shifts the page under the finger. */
+/* The top bar is sticky and moves with the reader's own scroll, Material 3
+   "enter always" (top-bar.js sets its transform); it keeps its place in the
+   flow, so it never shifts the page under the finger. */
 .app-header {
   position: sticky; top: 0; z-index: 5; padding-top: env(safe-area-inset-top, 0px); height: auto; min-height: 64px;
-  transition: transform 250ms cubic-bezier(.2, 0, 0, 1);
+  will-change: transform;
 }
-.app-header.is-hidden { transform: translateY(-100%); }
 .app-header .m3-top-bar__title { margin: 0; font-weight: 400; }
 .sync-dot { position: absolute; right: 58px; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: transparent; }
 .sync-dot.working { background: var(--md-sys-color-primary); }

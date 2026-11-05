@@ -17,7 +17,7 @@
    has to live here to be able to break a browser out of a stale shell.
 */
 
-const VERSION = "v13.1";
+const VERSION = "v13.2";
 const SHELL_TIMEOUT_MS = 3000;
 const CACHE = `kave-food-${VERSION}`;
 
@@ -52,6 +52,7 @@ const SHELL = [
   "js/sheet-recipe.js",
   "js/sheet-price.js",
   "js/sheet-swipe.js",
+  "js/top-bar.js",
   "js/view-prices.js",
   "js/back-sheets.js",
   "js/modal-focus.js",

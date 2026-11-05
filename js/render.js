@@ -12,6 +12,7 @@ import { store, syncState } from "./store.js";
 import { flushing, syncBarOn, syncing } from "./sync.js";
 import { VIEW_TITLES } from "./theme.js";
 import { $, $$, markJump } from "./util.js";
+import { showTopBar, initTopBar } from "./top-bar.js";
 import { renderList, renderListBadge } from "./view-list.js";
 import { renderPlanner } from "./view-plan.js";
 import { renderPrices } from "./view-prices.js";
@@ -63,21 +64,9 @@ function showView(view) {
   fadeThrough(oldEl, newEl).then(() => { if (token === tabToken) settleViews(view); });
 }
 
-/* ---------- top bar that scrolls away ---------- */
-export function showTopBar() { $("#topBar").classList.remove("is-hidden"); }
+/* ---------- the top bar: Material 3 "enter always" (top-bar.js) ---------- */
+export { showTopBar } from "./top-bar.js";
 let topBarWired = false;
-function initTopBar() {
-  const bar = $("#topBar");
-  let lastY = window.scrollY;
-  window.addEventListener("scroll", () => {
-    const y = window.scrollY;
-    // a programmatic jump never hides the bar (see markJump in util.js)
-    if (document.documentElement.dataset.jump) { lastY = y; return; }
-    if (y <= 0 || y < lastY) bar.classList.remove("is-hidden");
-    else if (y > 64 && y > lastY) bar.classList.add("is-hidden");
-    lastY = y;
-  }, { passive: true });
-}
 
 /* ---------- drawer ---------- */
 // the control that opened the drawer or a page, so closing hands focus back
