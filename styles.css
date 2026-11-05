@@ -35,10 +35,6 @@ a { color: var(--md-sys-color-primary); }
   will-change: transform;
 }
 .app-header .m3-top-bar__title { margin: 0; font-weight: 400; }
-.sync-dot { position: absolute; right: 58px; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: transparent; }
-.sync-dot.working { background: var(--md-sys-color-primary); }
-.sync-dot.pending { background: var(--md-sys-color-tertiary); }
-.sync-dot.error { background: var(--md-sys-color-error); }
 .app-spacer { width: 48px; flex: none; }
 
 .app-nav-bar {

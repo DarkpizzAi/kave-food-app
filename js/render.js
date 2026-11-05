@@ -8,8 +8,8 @@
 
 import { enterLayer, exitLayer, fadeThrough, sharedAxisIn, sharedAxisOut } from "../m3/kave-m3.js";
 import { backSheets } from "./back-sheets.js";
-import { store, syncState } from "./store.js";
-import { flushing, syncBarOn, syncing } from "./sync.js";
+import { store } from "./store.js";
+import { syncBarOn } from "./sync.js";
 import { VIEW_TITLES } from "./theme.js";
 import { $, $$, markJump } from "./util.js";
 import { showTopBar, initTopBar } from "./top-bar.js";
@@ -189,14 +189,10 @@ export function render(state) {
 
   document.body.classList.toggle("readonly", store.readOnly());
 
-  // header dot: spinner while working, amber when edits are unsynced, red on error
-  const dot = $("#syncDot");
-  dot.className = "sync-dot" + (
-    syncing || flushing ? " working"
-    : syncState.kind === "unauthorized" || syncState.kind === "offline" || syncState.kind === "rateLimited" ? " error"
-    : store.queue.length ? " pending"
-    : ""
-  );
+  /* No header dot (Material 3: a dot is a badge, "something new"). A
+     background sync shows nothing; Sync now has the bar below, a pull its
+     indicator, and offline or a failure says so in a snackbar
+     (pull-to-sync.js). */
 
   // the bar under the header runs for Sync now only; a pull has its own indicator
   $$(".sync-bar").forEach((b) => { b.hidden = !syncBarOn; });

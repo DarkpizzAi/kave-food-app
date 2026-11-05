@@ -178,6 +178,10 @@ export async function restartForUpdate() {
 const UPDATE_TEXT = "A new version is ready";
 let updatePending = false;
 let updateWatched = false;
+/* A new version is on this phone and the page on screen is still the old
+   one. Answering the snackbar (Restart or dismiss) does not change that, so
+   Settings keeps saying "New version ready" with Restart until the reload. */
+let updateWaiting = false;
 
 function showUpdateSnack() {
   showSnackbar($("#snackHost"), {
@@ -187,6 +191,11 @@ function showUpdateSnack() {
 }
 
 export function offerUpdate() {
+  updateWaiting = true;
+  if (updateState.kind !== "ready") {
+    updateState = { ...updateState, kind: "ready", checkedAt: updateState.checkedAt || Date.now() };
+    renderUpdateStatus();
+  }
   if (updatePending) return;
   updatePending = true;
   const host = $("#snackHost");
@@ -252,6 +261,15 @@ export async function checkForUpdate() {
     await reg.update();
     const incoming = reg.installing || reg.waiting;
 
+    /* an update found earlier this session and not restarted yet counts: its
+       worker has usually taken over already (skipWaiting), so nothing is
+       installing now, but the page on screen is still the old shell */
+    if (!incoming && updateWaiting) {
+      updateState = { ...updateState, kind: "ready", checkedAt: Date.now() };
+      renderUpdateStatus();
+      offerUpdate();
+      return;
+    }
     if (!incoming) {
       updateState = { kind: "current", version: await swVersion(), checkedAt: Date.now() };
       renderUpdateStatus();
@@ -293,7 +311,7 @@ function renderUpdateStatus() {
 
   const busy = updateState.kind === "checking" || updateState.kind === "installing";
   btn.disabled = busy;
-  btn.textContent = updateState.kind === "ready" ? "Restart to finish" : "Check for updates";
+  btn.textContent = updateState.kind === "ready" ? "Restart" : "Check for updates";
 
   if (updateState.kind === "checking") {
     lines.push(["muted", "Checking…"]);

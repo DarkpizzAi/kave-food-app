@@ -234,7 +234,7 @@ function slugQuestion(card) {
       `data-act="pick" data-file="${escapeHtml(card.file)}" data-field="ingredient_slug" data-value="${escapeHtml(d.ingredient_slug)}"`, true));
   }
   chips.push(penOrChip(card, "slug", "ingredient"));
-  return `<div class="m3-body-m ask">Which ingredient is this?</div><div class="m3-chips">${chips.join("")}</div>`;
+  return `<div class="m3-body-l ask">Which ingredient is this?</div><div class="m3-chips">${chips.join("")}</div>`;
 }
 
 function variantQuestion(card) {
@@ -251,7 +251,7 @@ function variantQuestion(card) {
     chips.push(chip(escapeHtml(d.variant), `data-act="pick" data-file="${escapeHtml(card.file)}" data-field="variant" data-value="${escapeHtml(d.variant)}"`, true));
   }
   chips.push(penOrChip(card, "variant", "variant"));
-  return `<div class="m3-body-m ask">Which kind?</div><div class="m3-chips">${chips.join("")}</div>`;
+  return `<div class="m3-body-l ask">Which kind?</div><div class="m3-chips">${chips.join("")}</div>`;
 }
 
 function packQuestion(card) {
@@ -266,7 +266,7 @@ function packQuestion(card) {
     chips.push(chip(escapeHtml(d.pack_size), `data-act="pick" data-file="${escapeHtml(card.file)}" data-field="pack_size" data-value="${escapeHtml(d.pack_size)}"`, true));
   }
   chips.push(penOrChip(card, "pack_size", "e.g. 250 g or 6 x 56 g"));
-  return `<div class="m3-body-m ask">Pack size</div><div class="m3-chips">${chips.join("")}</div>`;
+  return `<div class="m3-body-l ask">Pack size</div><div class="m3-chips">${chips.join("")}</div>`;
 }
 
 const TAGS = {
@@ -292,7 +292,7 @@ function cardHtml(card) {
   if (card.missing.includes("variant")) asks.push(variantQuestion(card));
   if (card.missing.includes("pack_size")) asks.push(packQuestion(card));
   if (card.missing.length === 1 && card.missing[0] === "unconfirmed") {
-    asks.push(`<div class="m3-body-m ask">Is this right?</div><div class="m3-chips">` +
+    asks.push(`<div class="m3-body-l ask">Is this right?</div><div class="m3-chips">` +
       chip("Yes, it is", `data-act="confirm" data-file="${escapeHtml(card.file)}"`, !!d.confirmed) + `</div>`);
   }
   // each missing piece is a tag in the error container, on its on-container text
