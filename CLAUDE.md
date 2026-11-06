@@ -118,8 +118,8 @@ like a working one. The icons are synced by the same script.
 `styles.css` defines no design tokens, and no store colours either. The roster
 (which store gets which hue) lives in `js/prices-data.js` `STORE_COLORS`; the
 colours themselves come from the generated kit's `--kave-data-<store>` tokens.
-A store's colour changes through kave-hub, not here. `tokens.css` (pre-Material) is still written by the script but is no
-longer linked or cached.
+A store's colour changes through kave-hub, not here. The pre-Material
+`tokens.css` was retired on 06/11/2026.
 
 ## One entry point, ES modules in `js/`
 
