@@ -195,6 +195,12 @@ body {
 .m3-btn--tonal { background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
 .m3-btn--outlined { border: 1px solid var(--md-sys-color-outline-variant); color: var(--md-sys-color-on-surface-variant); }
 .m3-btn--text { color: var(--md-sys-color-primary); padding: 0 12px; }
+/* On a raised surface (dialog, grouped row, list row, filled card, or anything marked .kave-raised) the
+   accent as text fails AA in Cobalt dark (4.01 on surface-container-high), so a text button there is
+   drawn tonal, the accent fade (Isa, 06/11/2026: "streamline to just accent or accent fade"). */
+.m3-dialog .m3-btn--text, .m3-grouped .m3-btn--text, .m3-list-item .m3-btn--text, .m3-card--filled .m3-btn--text, .kave-raised .m3-btn--text {
+  background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); padding: 0 16px;
+}
 .m3-btn--small { height: 32px; padding: 0 16px; }
 .m3-btn--danger { color: var(--md-sys-color-error); border-color: var(--md-sys-color-error); }
 
@@ -236,7 +242,9 @@ body {
 .m3-field__label { position: absolute; top: -9px; left: 12px; padding: 0 4px; background: var(--m3-field-bg, var(--md-sys-color-surface)); font-size: 12px; line-height: 16px; color: var(--md-sys-color-on-surface-variant); }
 .m3-field__input { flex: 1; min-width: 0; border: 0; background: none; font: inherit; font-size: 16px; letter-spacing: .5px; color: var(--md-sys-color-on-surface); outline: none; padding: 0; }
 .m3-field:focus-within { border: 2px solid var(--md-sys-color-primary); padding-left: 15px; } /* off-scale: 16 less the 1px the 2px focus border adds */
-.m3-field:focus-within .m3-field__label { color: var(--md-sys-color-primary); }
+/* the accent as text only on the page and on cards (Isa, 06/11/2026): a focused label sits on any surface,
+   dialogs included, so it takes the text colour; the 2px accent border shows the focus */
+.m3-field:focus-within .m3-field__label { color: var(--md-sys-color-on-surface); }
 /* error state: error colour on border, label and support text; the focus ring stays error-coloured */
 .m3-field__support { margin: 4px 16px 0; font-size: 12px; line-height: 16px; letter-spacing: .4px; color: var(--md-sys-color-on-surface-variant); }
 .m3-field.is-error { border-color: var(--md-sys-color-error); }

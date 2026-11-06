@@ -95,7 +95,7 @@ body.gated > :not(#gate) { display: none !important; }
 .set-bare:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: 2px; border-radius: 4px; }
 .sync-line { display: block; }
 .sync-line i { display: none; }
-.sync-line.ok { color: var(--md-sys-color-primary); }
+.sync-line.ok { color: var(--md-sys-color-on-surface); } /* on a grouped row: the plain text colour, not the accent */
 .sync-line.warn { color: var(--md-sys-color-tertiary); }
 .sync-line.error, .token-status.error { color: var(--md-sys-color-error); }
 .token-status { margin: 2px 0; }

@@ -297,7 +297,7 @@ function cardHtml(card) {
   }
   // each missing piece is a tag in the error container, on its on-container text
   const tags = card.missing.map((m) => `<span class="m3-tag ins-miss">${escapeHtml(TAGS[m] || m)}</span>`).join("");
-  return `<div class="m3-card ins-clean" data-file="${escapeHtml(card.file)}">` +
+  return `<div class="m3-card ins-clean kave-raised" data-file="${escapeHtml(card.file)}">` +
     `<div class="m3-label-m m3-variant">${escapeHtml(card.store)} · ${fmtDate(last)}${n > 1 ? ` · ${n} lines this month` : ""}</div>` +
     `<div class="m3-row ins-clean__tags">${tags}</div>` +
     `<div class="m3-title-m ins-clean__name">${escapeHtml(cur.product || card.item_normalised || card.item_raw)}</div>` +
