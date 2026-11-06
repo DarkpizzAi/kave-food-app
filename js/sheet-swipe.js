@@ -99,14 +99,16 @@ export function swipeToClose(sheet, { canDrag, begin, move, end }) {
   });
 }
 
-/* When a drag ends, does the sheet close? As Android does (Isa, 05/11/2026,
-   "like the notification shade on my Pixel"): past a quarter of the sheet's
-   height, or on a flick down whatever the distance (faster than 0.5 px/ms
-   over the last 100ms of the drag). Before this it took a third of the
-   height and a flick did nothing. One per sheet: reset() as the drag
-   begins, add(dy) on every move, closes(dy, height) at the end. */
+/* When a drag ends, does the sheet close? As the Pixel's quick settings
+   (Isa, 06/11/2026: "I swipe really little to switch between the two
+   states"): past CLOSE_PX (48px, a fingertip's travel) or a quarter of a
+   short sheet, whichever is less, or on a flick down whatever the distance
+   (faster than 0.3 px/ms over the last 100ms of the drag). Before this it
+   took a quarter of the height, often 150px or more. One per sheet: reset()
+   as the drag begins, add(dy) on every move, closes(dy, height) at the end. */
 export const CLOSE_AT = 0.25;
-export const FLING = 0.5;
+export const CLOSE_PX = 48;
+export const FLING = 0.3;
 export function makeFling() {
   let pts = [];
   return {
@@ -117,7 +119,7 @@ export function makeFling() {
       while (pts.length > 2 && t - pts[0][0] > 100) pts.shift();
     },
     closes(dy, h) {
-      if (dy > h * CLOSE_AT) return true;
+      if (dy > Math.min(h * CLOSE_AT, CLOSE_PX)) return true;
       if (pts.length < 2) return false;
       const [t0, y0] = pts[0], [t1, y1] = pts[pts.length - 1];
       return t1 > t0 && (y1 - y0) / (t1 - t0) > FLING && y1 >= y0;
