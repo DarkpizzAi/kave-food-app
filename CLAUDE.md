@@ -1,5 +1,14 @@
 # Kave Ladle - non-negotiables
 
+## The household look is enforced
+
+Before any interface change, load `brand:apply-household-look` (or read
+`kave-hub/brand/skills/apply-household-look/SKILL.md` if the loaded copy is
+out of date). Every commit runs `kave-hub/brand/tools/brand_check.py --strict`
+(git hook and Claude hook), and pushing `main` needs a passed brand review in
+`kave-hub/brand/reviews/<this repo>-<VERSION>.md`. A deviation from Material 3
+needs Isa's dated decision in `kave-hub/brand/data/look-recap.md`.
+
 Rules that are expensive to break and easy to break by accident. Everything
 else, including the whole design system, lives in the `brand` plugin of the
 private `kave-hub` repo: read `brand/data/household-look-m3-draft.md`
