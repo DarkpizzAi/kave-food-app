@@ -14,7 +14,7 @@ body {
   background: var(--md-sys-color-surface);
   color: var(--md-sys-color-on-surface);
   font-family: "Google Sans Flex", "Roboto Flex", Roboto, system-ui, sans-serif;
-  font-size: 14px; line-height: 20px; letter-spacing: .25px;
+  font-size: 14px; line-height: 20px; letter-spacing: 0;
 }
 :where([class*="m3-"]) { box-sizing: border-box; }
 :where([class*="m3-"] :where(h1, h2, h3, p)) { margin: 0; font-weight: inherit; }
@@ -37,21 +37,21 @@ body {
 .m3-emoji { font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif; font-style: normal; font-weight: 400; line-height: 1; letter-spacing: 0; }
 
 /* ---------- type scale ---------- */
-.m3-display-l { font-size: 57px; line-height: 64px; letter-spacing: -.25px; }
+.m3-display-l { font-size: 57px; line-height: 64px; letter-spacing: 0; }
 .m3-display-m { font-size: 45px; line-height: 52px; letter-spacing: 0; }
 .m3-display-s { font-size: 36px; line-height: 44px; letter-spacing: 0; }
 .m3-headline-l { font-size: 32px; line-height: 40px; letter-spacing: 0; }
 .m3-headline-m { font-size: 28px; line-height: 36px; letter-spacing: 0; }
 .m3-headline-s { font-size: 24px; line-height: 32px; letter-spacing: 0; }
 .m3-title-l { font-size: 22px; line-height: 28px; letter-spacing: 0; }
-.m3-title-m { font-size: 16px; line-height: 24px; letter-spacing: .15px; font-weight: 500; }
-.m3-title-s { font-size: 14px; line-height: 20px; letter-spacing: .1px; font-weight: 500; }
-.m3-body-l { font-size: 16px; line-height: 24px; letter-spacing: .5px; }
-.m3-body-m { font-size: 14px; line-height: 20px; letter-spacing: .25px; }
-.m3-body-s { font-size: 12px; line-height: 16px; letter-spacing: .4px; }
-.m3-label-l { font-size: 14px; line-height: 20px; letter-spacing: .1px; font-weight: 500; }
-.m3-label-m { font-size: 12px; line-height: 16px; letter-spacing: .5px; font-weight: 500; }
-.m3-label-s { font-size: 11px; line-height: 16px; letter-spacing: .5px; font-weight: 500; }
+.m3-title-m { font-size: 16px; line-height: 24px; letter-spacing: 0; font-weight: 500; }
+.m3-title-s { font-size: 14px; line-height: 20px; letter-spacing: 0; font-weight: 500; }
+.m3-body-l { font-size: 16px; line-height: 24px; letter-spacing: 0; }
+.m3-body-m { font-size: 14px; line-height: 20px; letter-spacing: 0; }
+.m3-body-s { font-size: 12px; line-height: 16px; letter-spacing: 0; }
+.m3-label-l { font-size: 14px; line-height: 20px; letter-spacing: 0; font-weight: 500; }
+.m3-label-m { font-size: 12px; line-height: 16px; letter-spacing: 0; font-weight: 500; }
+.m3-label-s { font-size: 11px; line-height: 16px; letter-spacing: 0; font-weight: 500; }
 .m3-variant { color: var(--md-sys-color-on-surface-variant); }
 .m3-primary-text { color: var(--md-sys-color-primary); }
 .m3-num { font-variant-numeric: tabular-nums; }
@@ -103,18 +103,19 @@ body {
 /* ---------- search bar and search view ---------- */
 .m3-search-bar {
   margin: 8px 16px; height: 56px; border-radius: 28px; background: var(--md-sys-color-surface-container); display: flex; align-items: center; gap: 4px; padding: 0 4px;
-  flex: none; color: var(--md-sys-color-on-surface-variant); font-size: 16px; letter-spacing: .5px;
+  flex: none; color: var(--md-sys-color-on-surface-variant); font-size: 16px; letter-spacing: 0;
 }
+.m3-search-bar > .m3-icon { margin-left: 12px; }
 .m3-search-bar__hint { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 12px; }
 [data-size="expanded"] .m3-search-bar { max-width: 720px; }
 .m3-search-view { position: fixed; inset: 0; z-index: 22; background: var(--md-sys-color-surface); display: flex; flex-direction: column; }
 .m3-search-view__bar { display: flex; align-items: center; height: 72px; padding: 0 4px; gap: 4px; flex: none; }
-.m3-search-view__input { flex: 1; border: 0; background: none; font: inherit; font-size: 16px; letter-spacing: .5px; color: var(--md-sys-color-on-surface); outline: none; min-width: 0; }
+.m3-search-view__input { flex: 1; border: 0; background: none; font: inherit; font-size: 16px; letter-spacing: 0; color: var(--md-sys-color-on-surface); outline: none; min-width: 0; }
 .m3-search-view__input::placeholder { color: var(--md-sys-color-on-surface-variant); }
 .m3-search-view__body { flex: 1; overflow: auto; min-height: 0; padding: 0 16px 24px; }
 
 /* ---------- navigation bar ---------- */
-.m3-nav-bar { height: 80px; background: var(--md-sys-color-surface-container); display: flex; flex: none; padding: 12px 0 16px; }
+.m3-nav-bar { height: 80px; background: var(--md-sys-color-surface); display: flex; flex: none; padding: 12px 0 16px; }
 .m3-nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--md-sys-color-on-surface-variant); min-width: 0; }
 .m3-nav-item__pill { position: relative; width: 56px; height: 32px; border-radius: 16px; display: grid; place-items: center; }
 .m3-nav-item.is-active { color: var(--md-sys-color-on-surface); }
@@ -154,7 +155,7 @@ body {
 .m3-drawer__head .m3-app-mark { margin: 0; }
 .m3-drawer__item { display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 24px 0 16px; border-radius: 28px; color: var(--md-sys-color-on-surface-variant); width: 100%; }
 .m3-drawer__item.is-active { background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
-.m3-drawer__label { flex: 1; font-size: 14px; line-height: 20px; letter-spacing: .1px; font-weight: 500; }
+.m3-drawer__label { flex: 1; font-size: 14px; line-height: 20px; letter-spacing: 0; font-weight: 500; }
 .m3-drawer__section { padding: 16px 16px 8px; color: var(--md-sys-color-on-surface-variant); }
 .m3-drawer > .m3-fab { margin: 4px 0 16px 4px; align-self: flex-start; }
 
@@ -175,7 +176,7 @@ body {
 .m3-chips--row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
 .m3-chip {
   height: 32px; border-radius: 8px; border: 1px solid var(--md-sys-color-outline-variant); padding: 0 16px; display: inline-flex; align-items: center; gap: 8px;
-  white-space: nowrap; color: var(--md-sys-color-on-surface-variant); font-size: 14px; font-weight: 500; letter-spacing: .1px; flex: none;
+  white-space: nowrap; color: var(--md-sys-color-on-surface-variant); font-size: 14px; font-weight: 500; letter-spacing: 0; flex: none;
 }
 .m3-chip .m3-icon { font-size: 18px; }
 .m3-chip.is-selected { background: var(--md-sys-color-secondary-container); border-color: transparent; color: var(--md-sys-color-on-secondary-container); padding-left: 8px; }
@@ -186,7 +187,7 @@ body {
 /* ---------- buttons ---------- */
 .m3-btn {
   height: 40px; border-radius: 20px; padding: 0 24px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  font-weight: 500; font-size: 14px; letter-spacing: .1px; flex: none; white-space: nowrap;
+  font-weight: 500; font-size: 14px; letter-spacing: 0; flex: none; white-space: nowrap;
 }
 .m3-btn .m3-icon { font-size: 18px; }
 /* Filled buttons take the accent fill (primary-container), like the FAB, not primary: in the
@@ -223,12 +224,12 @@ body {
 .m3-list-header { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 8px 0 16px; color: var(--md-sys-color-primary); }
 .m3-grouped { display: flex; flex-direction: column; gap: 2px; }
 .m3-grouped > .m3-list-item, .m3-grouped > .m3-card { background: var(--kave-grouped-row); border-radius: 4px; }
-.m3-grouped > :first-child { border-radius: 20px 20px 4px 4px; }
-.m3-grouped > :last-child { border-radius: 4px 4px 20px 20px; }
-.m3-grouped > :only-child { border-radius: 20px; }
+.m3-grouped > :first-child { border-radius: 16px 16px 4px 4px; }
+.m3-grouped > :last-child { border-radius: 4px 4px 16px 16px; }
+.m3-grouped > :only-child { border-radius: 16px; }
 
 /* ---------- cards ---------- */
-.m3-card { border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; color: var(--md-sys-color-on-surface); }
+.m3-card { border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; color: var(--md-sys-color-on-surface); }
 .m3-card--filled { --m3-field-bg: var(--md-sys-color-surface-container-highest); background: var(--md-sys-color-surface-container-highest); }
 .m3-card--elevated { --m3-field-bg: var(--md-sys-color-surface-container-low); background: var(--md-sys-color-surface-container-low); box-shadow: 0 1px 2px rgba(0,0,0,.22), 0 1px 3px 1px rgba(0,0,0,.10); }
 .m3-card--outlined { background: var(--md-sys-color-surface); border: 1px solid var(--md-sys-color-outline-variant); }
@@ -240,13 +241,13 @@ body {
   padding: 0 4px 0 16px; gap: 4px; flex: none; cursor: text; color: var(--md-sys-color-on-surface);
 }
 .m3-field__label { position: absolute; top: -9px; left: 12px; padding: 0 4px; background: var(--m3-field-bg, var(--md-sys-color-surface)); font-size: 12px; line-height: 16px; color: var(--md-sys-color-on-surface-variant); }
-.m3-field__input { flex: 1; min-width: 0; border: 0; background: none; font: inherit; font-size: 16px; letter-spacing: .5px; color: var(--md-sys-color-on-surface); outline: none; padding: 0; }
+.m3-field__input { flex: 1; min-width: 0; border: 0; background: none; font: inherit; font-size: 16px; letter-spacing: 0; color: var(--md-sys-color-on-surface); outline: none; padding: 0; }
 .m3-field:focus-within { border: 2px solid var(--md-sys-color-primary); padding-left: 15px; } /* off-scale: 16 less the 1px the 2px focus border adds */
 /* the accent as text only on the page and on cards (Isa, 06/11/2026): a focused label sits on any surface,
    dialogs included, so it takes the text colour; the 2px accent border shows the focus */
 .m3-field:focus-within .m3-field__label { color: var(--md-sys-color-on-surface); }
 /* error state: error colour on border, label and support text; the focus ring stays error-coloured */
-.m3-field__support { margin: 4px 16px 0; font-size: 12px; line-height: 16px; letter-spacing: .4px; color: var(--md-sys-color-on-surface-variant); }
+.m3-field__support { margin: 4px 16px 0; font-size: 12px; line-height: 16px; letter-spacing: 0; color: var(--md-sys-color-on-surface-variant); }
 .m3-field.is-error { border-color: var(--md-sys-color-error); }
 .m3-field.is-error .m3-field__label, .m3-field.is-error:focus-within .m3-field__label { color: var(--md-sys-color-error); }
 .m3-field.is-error:focus-within { border-color: var(--md-sys-color-error); }
@@ -274,7 +275,7 @@ button.m3-field { width: 100%; text-align: left; }
   position: fixed; left: 16px; right: 16px; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); z-index: 30; background: var(--md-sys-color-inverse-surface); color: var(--md-sys-color-inverse-on-surface);
   border-radius: 4px; min-height: 48px; display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px 16px; box-shadow: 0 3px 8px rgba(0,0,0,.3);
 }
-.m3-snackbar__text { flex: 1; min-width: 0; font-size: 14px; line-height: 20px; letter-spacing: .25px; }
+.m3-snackbar__text { flex: 1; min-width: 0; font-size: 14px; line-height: 20px; letter-spacing: 0; }
 .m3-snackbar .m3-btn--text { color: var(--md-sys-color-inverse-primary); }
 .m3-snackbar .m3-icon-btn { color: var(--md-sys-color-inverse-on-surface); }
 [data-size="medium"] .m3-snackbar, [data-size="expanded"] .m3-snackbar { left: 120px; right: auto; width: min(560px, calc(100% - 144px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
@@ -337,7 +338,36 @@ button.m3-field { width: 100%; text-align: left; }
 
 /* ---------- data colour hooks (the app sets --kave-k, --kave-kc, --kave-onkc inline; the fallbacks are the neutral other colours) ---------- */
 .m3-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--kave-k, var(--kave-data-other)); }
-.m3-tag { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border-radius: 8px; background: var(--kave-kc, var(--kave-data-other-container)); color: var(--kave-onkc, var(--kave-data-on-other-container)); font-size: 12px; font-weight: 500; letter-spacing: .4px; white-space: nowrap; flex: none; }
+.m3-tag { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border-radius: 8px; background: var(--kave-kc, var(--kave-data-other-container)); color: var(--kave-onkc, var(--kave-data-on-other-container)); font-size: 12px; font-weight: 500; letter-spacing: 0; white-space: nowrap; flex: none; }
+
+/* ---------- page panel (Google Drive; Isa, 22/11/2026) ----------
+   The chrome (page, top bar, navigation bar, a 6px gutter) is --md-sys-color-surface; the content sits in a panel of
+   surface-container-lowest with a 16px radius; cards on it are surface-container-low (--kave-grouped-row). An app turns it
+   on with <html data-panel> and gives its content container the class m3-panel. Inverse corner caps on the top bar's
+   bottom edge, on the navigation bar's top edge and (when the bar has scrolled away) at the top of the window keep the
+   panel's corners round while content scrolls under the bars. Wide: the rail takes 96, so the panel starts at 102. */
+:root { --kave-panel-left: 6px; --kave-panel-right: 6px; --kave-panel-r: 16px; }
+[data-size="medium"], [data-size="expanded"] { --kave-panel-left: 102px; }
+.m3-panel { background: var(--md-sys-color-surface-container-lowest); border-radius: var(--kave-panel-r); margin-left: var(--kave-panel-left); margin-right: var(--kave-panel-right); }
+[data-panel] .m3-top-bar:not(.m3-dialog *):not(.m3-page > *)::after,
+[data-panel] body::before, [data-panel] .m3-nav-bar::before {
+  content: ""; position: absolute; left: var(--kave-panel-left); right: var(--kave-panel-right); height: var(--kave-panel-r); pointer-events: none;
+}
+[data-panel] .m3-top-bar:not(.m3-dialog *):not(.m3-page > *)::after, [data-panel] body::before {
+  background:
+    radial-gradient(circle at 100% 100%, transparent var(--kave-panel-r), var(--md-sys-color-surface) calc(var(--kave-panel-r) + .5px)) left top / var(--kave-panel-r) var(--kave-panel-r) no-repeat,
+    radial-gradient(circle at 0 100%, transparent var(--kave-panel-r), var(--md-sys-color-surface) calc(var(--kave-panel-r) + .5px)) right top / var(--kave-panel-r) var(--kave-panel-r) no-repeat;
+}
+[data-panel] .m3-top-bar:not(.m3-dialog *):not(.m3-page > *)::after { bottom: calc(-1 * var(--kave-panel-r)); }
+[data-panel] body::before { position: fixed; top: env(safe-area-inset-top, 0px); z-index: 4; }
+[data-panel] .m3-nav-bar::before {
+  top: calc(-1 * var(--kave-panel-r));
+  background:
+    radial-gradient(circle at 100% 0, transparent var(--kave-panel-r), var(--md-sys-color-surface) calc(var(--kave-panel-r) + .5px)) left top / var(--kave-panel-r) var(--kave-panel-r) no-repeat,
+    radial-gradient(circle at 0 0, transparent var(--kave-panel-r), var(--md-sys-color-surface) calc(var(--kave-panel-r) + .5px)) right top / var(--kave-panel-r) var(--kave-panel-r) no-repeat;
+}
+/* the bar is the positioned ancestor of its cap; :where keeps an app's own position (Ladle's fixed bar) winning */
+:where([data-panel] .m3-nav-bar) { position: relative; }
 
 /* ---------- motion ---------- */
 @media (prefers-reduced-motion: reduce) {

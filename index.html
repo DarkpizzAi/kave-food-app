@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-panel>
 <head>
   <meta charset="utf-8" />
   <!-- Content-Security-Policy. The GitHub token sits in localStorage in plain
@@ -164,7 +164,7 @@
     <div class="m3-progress-linear sync-bar" role="progressbar" aria-label="Syncing" hidden><i></i></div>
   </header>
 
-  <main>
+  <main class="m3-panel">
     <!-- shown while the phone has no network (js/render.js) -->
     <div id="offlineCard" class="m3-card m3-card--filled offline-card" role="status" hidden>
       <div class="offline-card__row">
