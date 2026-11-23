@@ -374,3 +374,14 @@ button.m3-field { width: 100%; text-align: left; }
   .m3-top-bar, .m3-switch, .m3-switch::before { transition: none; }
   .m3-progress-linear > i, .m3-pull-indicator.is-spinning svg { animation-duration: 3s; }
 }
+
+/* ---------- modal layers freeze the page behind them (Material 3: a modal blocks the page) ----------
+   While any modal layer is open (scrimmed sheet or drawer, aria-modal dialog, full page, search view)
+   the root cannot scroll, on a phone and on a wide window alike. Menus (clear scrim) are not modal.
+   scrollbar-gutter keeps the width steady; the scroll position is kept. The popups' own scrollers
+   never hand their overscroll on to the page, and the scrim does not pan (iOS ignores the root lock). */
+html:has(:is(.m3-scrim:not(.m3-scrim--clear), [role="dialog"][aria-modal="true"], .m3-page, .m3-search-view):not([hidden])) {
+  overflow: hidden; scrollbar-gutter: stable;
+}
+.m3-sheet__body, .m3-search-view__body, .m3-drawer, .m3-dialog, .m3-page, .m3-menu { overscroll-behavior: contain; }
+.m3-scrim:not(.m3-scrim--clear) { touch-action: none; }
